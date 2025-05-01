@@ -1,0 +1,36 @@
+# ---- Emacs ----
+*~
+\#*\#
+.\#*
+*.elc
+auto-save-list/
+.scoot/            # avoid committing local scratch state, if applicable
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# ---- Virtual environments ----
+venv/
+env/
+.venv/
+.python-version
+
+# ---- Various Editor/Tooling ----
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+tags
+TAGS
+
+# ---- Misc ----
+*.log
+scratch

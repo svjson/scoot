@@ -1,0 +1,90 @@
+import orjson
+import traceback
+from functools import wraps
+from flask import Flask, request, Response
+
+from scoot_server import connmgr
+from scoot_core import metadata
+from scoot_core import query
+
+app = Flask(__name__)
+
+
+def json_response(data, status=200):
+    return Response(
+        response=orjson.dumps(data), status=status, content_type="application/json"
+    )
+
+
+def error_response(msg, status=400):
+    return json_response({"status": "error", "message": msg}, status)
+
+
+def with_connection(func):
+    @wraps(func)
+    def wrapper(conn, *args, **kwargs):
+        try:
+            connection = connmgr.get_connection(conn)
+            if connection is None:
+                return error_response(f"Unknown connection: '{conn}'")
+            return func(connection, *args, **kwargs)
+        except Exception as e:
+            traceback.print_exc()
+            return error_response(f"{e}")
+
+    return wrapper
+
+
+@app.route("/api/connection", methods=["POST"])
+def create_connection():
+    data = request.get_json()
+    url = data.get("url", None)
+    name = data.get("name", "default")
+
+    if url is None:
+        return error_response("No connection url provided")
+    try:
+        connmgr.create_connection(name, url)
+        return json_response({"status": "ok"})
+    except Exception as e:
+        traceback.print_exc()
+        return error_response(f"{e}")
+
+
+@app.route("/api/connection", methods=["GET"])
+def get_connections():
+    result = {
+        "connections": {n: c.to_dict() for n, c in connmgr.connections.items()}
+    }
+    return json_response(result)
+
+
+@app.route("/api/<string:conn>/tables", methods=["GET"])
+@with_connection
+def list_tables(connection):
+    return json_response({"tables": metadata.list_tables(connection)})
+
+
+@app.route("/api/<string:conn>/tables/<string:table_name>", methods=["GET"])
+@with_connection
+def describe_table(connection, table_name):
+    return json_response(metadata.describe_table(connection, table_name).to_dict())
+
+
+@app.route("/api/<string:conn>/databases", methods=["GET"])
+@with_connection
+def list_databases(connection):
+    return json_response({"databases": metadata.list_databases(connection)})
+
+
+@app.route("/api/<string:conn>/schemas", methods=["GET"])
+@with_connection
+def list_schemas(connection):
+    return json_response({"schemas": metadata.list_schemas(connection)})
+
+
+@app.route("/api/<string:conn>/query", methods=["POST"])
+@with_connection
+def run_query(connection):
+    data = request.get_json()
+    return json_response(query.execute(connection, data["sql"]).to_dict())

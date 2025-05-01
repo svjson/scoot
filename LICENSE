@@ -1,0 +1,6 @@
+This repository contains multiple subprojects under different open source licenses:
+
+- scoot-el: GNU General Public License v3.0 only (GPL-3.0-only)
+- scoot-core, scoot-server, scoot-cli: MIT License
+
+See each subdirectory's LICENSE file for the applicable license terms.
