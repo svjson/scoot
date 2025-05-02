@@ -13,7 +13,7 @@ Scoot aims to provide a far more interactive and context-aware experience:
 
 - Evaluating queries inline
 - Inspecting results instantly
-- Interactive result setsp
+- Interactive result sets
 - Integrating seamlessly with project-specific database configurations.
 
 While all these goals are not currently fulfilled in this early version, development is ongoing.
@@ -56,10 +56,10 @@ The Makefile provided in the repository root will create a venv and setup all Py
 
 Depending on your needs, follow the relevant README:
 
-- **Emacs integration**: [`scoot-el/README.md`](scoot-el/README.md)
-- **HTTP server**: [`scoot-server/README.md`](scoot-server/README.md)
-- **Command-line tool**: [`scoot-cli/README.md`](scoot-cli/README.md)
-- **Core library**: [`scoot-core/README.md`](scoot-core/README.md)
+- **Emacs integration**: [`scoot-el/README.md`](scoot.el/README.md)
+- **HTTP server**: [`scoot-server/README.md`](server/README.md)
+- **Command-line tool**: [`scoot-cli/README.md`](cli/README.md)
+- **Core library**: [`scoot-core/README.md`](core/README.md)
 
 ## Development
 

@@ -15,8 +15,8 @@ This package does not aim to replace SQLAlchemy or necessarily abstract away its
 
 This library is not intended for standalone use. It is consumed internally by:
 
-- [`scoot-server`](../scoot-server/)
-- [`scoot-cli`](../scoot-cli/)
+- [`scoot-server`](../server/)
+- [`scoot-cli`](../cli/)
 
 ## License
 
