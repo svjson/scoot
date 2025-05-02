@@ -4,8 +4,7 @@ from functools import wraps
 from flask import Flask, request, Response
 
 from scoot_server import connmgr
-from scoot_core import metadata
-from scoot_core import query
+from scoot_core import metadata, query, config
 
 app = Flask(__name__)
 
@@ -26,7 +25,10 @@ def with_connection(func):
         try:
             connection = connmgr.get_connection(conn)
             if connection is None:
-                return error_response(f"Unknown connection: '{conn}'")
+                configured_conn = config.app_config.connections[conn]
+                if configured_conn is None:
+                    return error_response(f"Unknown connection: '{conn}'")
+                connection = connmgr.create_connection(conn, configured_conn["url"])
             return func(connection, *args, **kwargs)
         except Exception as e:
             traceback.print_exc()
@@ -40,11 +42,17 @@ def create_connection():
     data = request.get_json()
     url = data.get("url", None)
     name = data.get("name", "default")
+    persist = data.get("persist", False)
 
     if url is None:
         return error_response("No connection url provided")
     try:
         connmgr.create_connection(name, url)
+
+        if persist:
+            config.app_config.connections[name] = {"url": url}
+            config.persist()
+
         return json_response({"status": "ok"})
     except Exception as e:
         traceback.print_exc()
@@ -54,8 +62,15 @@ def create_connection():
 @app.route("/api/connection", methods=["GET"])
 def get_connections():
     result = {
-        "connections": {n: c.to_dict() for n, c in connmgr.connections.items()}
+        "connections": {
+            n: {"status": "inactive"}
+            for n, _ in config.app_config.connections.items()
+        }
     }
+
+    for n, c in connmgr.connections.items():
+        result["connections"][n] = c.to_dict()
+
     return json_response(result)
 
 

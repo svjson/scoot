@@ -1,8 +1,10 @@
 # Scoot CLI
 
-**Scoot CLI** is a lightweight command-line interface for exploring and interacting with SQL databases using the shared `scoot-core` backend.
+**Scoot CLI** is a lightweight command-line interface for exploring and
+interacting with SQL databases using the shared `scoot-core` backend.
 
-It supports listing tables, schemas, databases, describing tables, and executing arbitrary SQL queries — all over a database connection specified via URL.
+It supports listing tables, schemas, databases, describing tables, and
+executing arbitrary SQL queries — all over a database connection specified via URL.
 
 ## Installation
 
@@ -13,34 +15,17 @@ pip install .
 
 ## Usage
 
-All commands require a database connection URL, passed via the --url flag.
+### Flags
 
-### List databases
-```bash
-scoot --url postgres://user:pass@localhost/mydb db list
-```
+All commands require a database connection, either passed through the --url 
+flag or present in a persistent configuration.
 
-### List schemas
-```bash
-scoot --url postgres://user:pass@localhost/mydb schema list
-```
+| Flag               | Description                                                |
+|--------------------|------------------------------------------------------------|
+| `--url <url>`      | Use a connection string/url for connecting to a  database. |
+| `-c <config-name>` | Use a named configuration. Defaults to `scoot_default`.    |
 
-### List all tables
-```bash
-scoot --url sqlite:///my.db table list
-```
-
-### Describe a specific table
-```bash
-scoot --url sqlite:///my.db table describe users
-p```
-
-### Run a raw SQL Query
-```bash
-scoot --url sqlite:///my.db query "SELECT * FROM users LIMIT 5"
-```
-
-## Commands Overview
+### Commands Overview
 
 | Command          | Description                         |
 |------------------|-------------------------------------|
@@ -49,6 +34,32 @@ scoot --url sqlite:///my.db query "SELECT * FROM users LIMIT 5"
 | `db list`        | Lists databases (where supported)   |
 | `schema list`    | Lists schemas                       |
 | `query`          | Executes a raw SQL query            |
+
+
+#### List databases
+```bash
+scoot --url postgres://user:pass@localhost/mydb db list
+```
+
+#### List schemas
+```bash
+scoot --url postgres://user:pass@localhost/mydb schema list
+```
+
+#### List all tables
+```bash
+scoot --url sqlite:///my.db table list
+```
+
+#### Describe a specific table
+```bash
+scoot --url sqlite:///my.db table describe users
+```
+
+#### Run a raw SQL Query
+```bash
+scoot --url sqlite:///my.db query "SELECT * FROM users LIMIT 5"
+```
 
 ## Notes
 

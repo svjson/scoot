@@ -22,10 +22,15 @@ pip install .
 ## Running the Server
 
 ```bash
-python -m scoot_server -port 8000
+python -m scoot_server -p <port> -c <config_name>
 ```
 
-- `--p`: Port to run the server on (default: 8221)
+### Flags
+
+| Flag               | Description                                                |
+|--------------------|------------------------------------------------------------|
+| `-p <port>`        | Port to run the server on (default: 8221)                  |
+| `-c <config-name>` | Use a named configuration. Defaults to `scoot_default`.    |
 
 ## API Overview
 
@@ -43,7 +48,11 @@ This design allows the server to manage multiple active connections concurrently
 | `/api/connection`                            | POST   | Registers a new database connection          |
 | `/api/connection`                            | GET    | Returns a list of all registered connections |
 
-### Example Request
+## Example Requests
+
+### Execute Query
+
+#### Request
 
 ```http
 POST /api/default/query HTTP/1.1
@@ -54,7 +63,7 @@ Content-Type: application/json
 }
 ```
 
-### Example Response
+#### Response
 
 ```json
 {
@@ -65,6 +74,34 @@ Content-Type: application/json
   ]
 }
 ```
+
+### Register connection
+
+A connection can be registered and activated with a request like the one below.
+If the optional `persist` key is present in the body it will write the connection 
+to the active server configuration.
+
+#### Request
+
+```http
+POST /api/connection HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "my-application",
+  "url": "mssql+pyodbc://user:password@localhost:1433/my-app?driver=ODBC+Driver+17+for+SQL+Server",
+  "persist": true
+}
+```
+
+#### Response
+
+```json
+{
+  "status": "ok"
+}
+```
+
 
 ## Notes
 
