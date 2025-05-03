@@ -32,7 +32,7 @@ M-x scoot-new-scratch
 
 This will open a new SQL buffer in `scoot-mode`, saved (by default) to `~/.scoot/scratches/`.
 
-You can customize the location by setting:
+You can customize the location with `M-x customize-variable` or by setting it directly:
 
 ```elisp
 (setq scoot-scratch-directory "~/my/sql-work")
@@ -71,6 +71,17 @@ Example:
 ```elisp
 (global-set-key (kbd "C-c s n") #'scoot-new-scratch)
 ```
+
+## Customizable variables
+
+| Custom Variable                        | Default               | Type      | Descripton/Purpose                                                                           |
+|----------------------------------------|-----------------------|-----------|----------------------------------------------------------------------------------------------|
+| `scoot-scratch-directory`              | "~/.scoot/scratches/" | directory | Specifies the directory on disk to save Scoot scratch buffers.                               |
+| `scoot-server-host`                    | "localhost"           | string    | The host name of the Scoot Server used for database interaction.                             |
+| `scoot-server-port`                    | 8224                  | integer   | The port number of the Scoot Server used for database interaction.                           |
+| `scoot-server-default-connection-name` | "default"             | string    | The name of the connection to use if none is specified / no context is available             |
+| `scoot-auto-persist-connections`       | nil                   | boolean   | Determines if any connections created should be persisted to the active Server configuration |
+
 
 ## Dependencies
 

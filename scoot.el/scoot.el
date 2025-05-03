@@ -39,8 +39,29 @@
   "Directory to store Scoot scratch files."
   :type 'directory)
 
+(defcustom scoot-server-host "localhost"
+  "The hostname of the Scoot Server."
+  :type 'string)
+
+(defcustom scoot-server-port 8224
+  "The port of the Scoot Server."
+  :type 'integer)
+
+(defcustom scoot-server-default-connection-name "default"
+  "The name of the default connection name to use, if not provided."
+  :type 'string)
+
+(defcustom scoot-auto-persist-connections nil
+  "Determines if database connections should automatically be persisted.
+If `t` any connection created by scoot.el will be added to the currently
+active configuration of the Scoot Server."
+  :type 'boolean)
+
 (defvar scoot-connections (make-hash-table :test #'equal)
   "Table of known scoot connection names to connection strings.")
+
+(defconst scoot--json-headers '(("Content-Type" . "application/json")
+                                ("Accept" . "application/json")))
 
 (defun scoot-ensure-scratch-directory ()
   "Ensure that the configured scratch directory exists."
@@ -71,18 +92,20 @@ CONN-STRING is the connection-string to use."
   "Create a new Scoot scratch buffer."
   (interactive)
   (scoot-ensure-scratch-directory)
-  (let* ((conn-name (scoot--read-connection-name))
-         (conn-string (or (gethash conn-name scoot-connections)
-                          (read-string (format "Connection string for '%s': " conn-name))))
-         (_ (unless (gethash conn-name scoot-connections)
-              (scoot-add-connection conn-name conn-string)))
-         (scratch-name (read-string "Scratch name (default: same as connection): " nil nil conn-name))
-         (filename (expand-file-name (concat scratch-name ".scoot") scoot-scratch-directory))
-         (buffer (find-file-noselect filename)))
+  (when-let* ((conn-name (scoot--read-connection-name))
+              (conn-string (or (gethash conn-name scoot-connections)
+                               (read-string (format "Connection string for '%s': " conn-name))))
+              (_ (unless (gethash conn-name scoot-connections)
+                   (scoot-add-connection conn-name conn-string)))
+              (scratch-name (read-string "Scratch name (default: same as connection): " nil nil conn-name))
+              (filename (expand-file-name (concat scratch-name ".scoot") scoot-scratch-directory))
+              (buffer (find-file-noselect filename)))
     (with-current-buffer buffer
       (erase-buffer)
-      (insert (format "-- @connection-string: %s\n" conn-string))
-      (insert (format "-- @connection-name: %s\n\n" conn-name))
+      (when conn-string
+        (insert (format "-- @connection-string: %s\n" conn-string)))
+      (when conn-name
+        (insert (format "-- @connection-name: %s\n\n" conn-name)))
       (scoot-mode)
       (setq-local scoot-connection-name conn-name))
     (pop-to-buffer buffer)))
@@ -165,31 +188,53 @@ BEG and END describe the region start and end"
     (dolist (stmt stmts)
       (scoot-send-to-server stmt))))
 
+(defun with-contextual-connection (callback)
+  "Execute a callback/function after ensuring a connection.
+
+CALLBACK is the function to be called after verifying the connection."
+  (let* ((ctx (scoot--resolve-context-at-point))
+         (ctx-props (cdr ctx))
+         (connection-name (gethash "connection-name"
+                                   ctx-props
+                                   scoot-server-default-connection-name))
+         (connection-string (gethash "connection-string"
+                                     ctx-props
+                                     nil)))
+    (scoot--ensure-connection
+     (lambda ()
+       (funcall callback connection-name))
+     connection-name
+     connection-string)))
+
 (defun scoot--list-objects (object-type title)
   "List objects visible to the user of the current connection.
 
 OBJECT-TYPE is the type of the object to list.
 TITLE is the resultset header to be used."
   (interactive)
-  (request
-    (format "http://localhost:4444/api/default/%s" object-type)
-    :type "GET"
-    :headers '(("Content-Type" . "application/json"))
-    :parser 'json-read
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (let ((buf (get-buffer-create "*scoot-result*")))
-                  (with-current-buffer buf
-                    (read-only-mode -1)
-                    (erase-buffer)
-                    (insert (scoot--pretty-print-table (list title)
-                                                       (mapcar #'list
-                                                               (seq-into (alist-get object-type data) 'list))))
-                    (goto-char 1))
-                  (display-buffer buf))))
-    :error (cl-function
-            (lambda (&key data &allow-other-keys)
-              (message "Error: %s" data)))))
+  (with-contextual-connection
+   (lambda (connection-name)
+     (request
+       (format "%s/%s"
+               (scoot-server-base-connection-url connection-name)
+               object-type)
+       :type "GET"
+       :headers scoot--json-headers
+       :parser 'json-read
+       :success (cl-function
+                 (lambda (&key data &allow-other-keys)
+                   (let ((buf (get-buffer-create "*scoot-result*")))
+                     (with-current-buffer buf
+                       (read-only-mode -1)
+                       (erase-buffer)
+                       (insert (scoot--pretty-print-table (list title)
+                                                          (mapcar #'list
+                                                                  (seq-into (alist-get object-type data) 'list))))
+                       (goto-char 1))
+                     (display-buffer buf))))
+       :error (cl-function
+               (lambda (&key data &allow-other-keys)
+                 (message "Error: %s" data)))))))
 
 (defun scoot-list-databases ()
   "List databases visible to the user of the current connection."
@@ -218,29 +263,33 @@ If TABLE-NAME is provided, this will be used as table name."
      ((thing-at-point 'symbol t))
      (t
       (read-string "Table name: ")))))
-  (request
-    (format "http://localhost:4444/api/default/tables/%s" table-name)
-    :type "GET"
-    :headers '(("Content-Type" . "application/json"))
-    :parser 'json-read
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (let ((columns '(name type nullable primary_key default))
-                      (buf (get-buffer-create "*scoot-result*")))
-                  (with-current-buffer buf
-                    (read-only-mode -1)
-                    (erase-buffer)
-                    (insert (scoot--pretty-print-table columns
-                                                       (mapcar (lambda (entry)
-                                                                 (mapcar (lambda (col-name)
-                                                                           (alist-get col-name entry))
-                                                                         columns))
-                                                               (alist-get 'columns data))))
-                    (goto-char 1))
-                  (display-buffer buf))))
-    :error (cl-function
-            (lambda (&key data &allow-other-keys)
-              (message "Error: %s" data)))))
+  (with-contextual-connection
+   (lambda (connection-name)
+     (request
+       (format "%s/tables/%s"
+               (scoot-server-base-connection-url connection-name)
+               table-name)
+       :type "GET"
+       :headers scoot--json-headers
+       :parser 'json-read
+       :success (cl-function
+                 (lambda (&key data &allow-other-keys)
+                   (let ((columns '(name type nullable primary_key default))
+                         (buf (get-buffer-create "*scoot-result*")))
+                     (with-current-buffer buf
+                       (read-only-mode -1)
+                       (erase-buffer)
+                       (insert (scoot--pretty-print-table columns
+                                                          (mapcar (lambda (entry)
+                                                                    (mapcar (lambda (col-name)
+                                                                              (alist-get col-name entry))
+                                                                            columns))
+                                                                  (alist-get 'columns data))))
+                       (goto-char 1))
+                     (display-buffer buf))))
+       :error (cl-function
+               (lambda (&key data &allow-other-keys)
+                 (message "Error: %s" data)))))))
 
 (defun scoot-split-sql-statements (text)
   "Naively split TEXT into SQL statements using semicolons."
@@ -279,15 +328,119 @@ ROWS is a list of lists of strings."
                        (list separator))
                "\n")))
 
+(defun scoot-server-base-url ()
+  "Construct the scoot server base url."
+  (format "http://%s:%s"
+          scoot-server-host
+          scoot-server-port))
+
+(defun scoot-server-base-connection-url (&optional connection-name)
+  "Construct the scoot server base url for the API and connection.
+
+Optionally provide CONNECTION-NAME, or rely on the default name."
+  (format "%s/api/%s/"
+          (scoot-server-base-url)
+          (or connection-name scoot-server-default-connection-name)))
+
+(defun scoot--list-remote-connections (callback)
+  "Query the Scoot Server for configured connections.
+
+Successful attempts to list remote connections will invoke CALLBACK with
+the remote connection collection."
+  (request
+    (format "%s/api/connection" (scoot-server-base-url))
+    :type "GET"
+    :parser 'json-read
+    :headers scoot--json-headers
+    :success (cl-function
+              (lambda (&key data &allow-other-keys)
+                (funcall callback (alist-get 'connections  data))))
+    :error (cl-function
+              (lambda (&key data &allow-other-keys)
+                (message (format "Unsuccessful: scoot--list-remote-connections: %s" data))))))
+
+(defun scoot--register-connection (callback connection-name connection-string)
+  "Registers a database connection in the Scoot Server.
+
+CALLBACK will be called upon a successful connection made using the supplied
+CONNECTION-NAME and CONNECTION-STRING.
+
+if `scoot-auto-persist-connections` is non-nil, the connection will be persisted
+to the currently active configuration of the Scoot Server."
+  (request
+    (format "%s/api/connection" (scoot-server-base-url))
+    :type "POST"
+    :data (json-encode `((url . ,connection-string)
+                         (name . ,connection-name)
+                         (persist . ,scoot-auto-persist-connections)))
+    :parser 'json-read
+    :headers scoot--json-headers
+    :success (cl-function
+              (lambda (&key data &allow-other-keys)
+                (funcall callback)))
+    :error (cl-function
+            (lambda (&key data error-thrown &allow-other-keys)
+              (message (format "Unsuccessful: scoot--register-connection: %s %s" data error-thrown))))))
+
+(defun scoot--ensure-connection (callback
+                                 connection-name
+                                 &optional
+                                 connection-string)
+  "Ensure that the Scoot Server has configured the connection CONNECTION-NAME.
+
+When the connection is verified to be configured and ready on the server,
+CALLBACK will be called with the resulting connection as an argument to
+allow execution to resume.
+
+Optionally provide CONNECTION-STRING to create the connection if not present,
+or configured towards another target."
+  (if connection-string
+      (scoot--register-connection (lambda ()
+                                    (funcall callback))
+                                  connection-name
+                                  connection-string)
+    (scoot--list-remote-connections
+     (lambda (remote-connections)
+       (let ((connection (alist-get (intern connection-name)
+                                    remote-connections
+                                    nil)))
+         (if connection
+             (progn  (puthash connection-name
+                              (or connection-string
+                                  (gethash connection-name scoot-connections nil))
+                              scoot-connections)
+                     (funcall callback))
+           (message "Unknown connection: %s" connection-name)))))))
+
 (defun scoot-send-to-server (stmt &optional ctx-props)
   "Send SQL STMT to the scoot server.  Placeholder implementation.
 
 If CTX-PROPS are provided these will be used to create, select and/or configure
 a server connection, otherwise the buffer-local connection will be used."
 
-  ;; Later we will resolve connection etc.
+  (let ((connection-name (gethash "connection-name"
+                                  ctx-props
+                                  scoot-server-default-connection-name))
+        (connection-string (gethash "connection-string" ctx-props)))
+
+    (scoot--ensure-connection (lambda ()
+                                (scoot--send-to-server-with-connection
+                                 connection-name
+                                 stmt
+                                 ctx-props))
+                              connection-name
+                              connection-string)))
+
+(defun scoot--send-to-server-with-connection (connection-name
+                                              stmt
+                                              &optional
+                                              ctx-props)
+  "Send SQL STMT to the scoot server using a verified connection.
+
+The verified connection name is provided by CONNECTION-NAME.
+The original request information are contained in STMT and CTX-PROPS."
   (request
-    "http://localhost:4444/api/default/query"
+    (format "%s/query" (scoot-server-base-connection-url connection-name))
     :type "POST"
     :data (json-encode `(("sql" . ,stmt)))
     :headers '(("Content-Type" . "application/json"))
