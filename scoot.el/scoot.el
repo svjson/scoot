@@ -32,7 +32,7 @@
 (require 'sql)
 
 (defgroup scoot nil
-  "Scoot-mode for SQL scratch buffers."
+  "Scoot-modes for SQL interaction via SQL scratch buffers and result set buffers."
   :group 'tools)
 
 (defcustom scoot-scratch-directory (expand-file-name "~/.scoot/scratches/")
@@ -106,7 +106,7 @@ CONN-STRING is the connection-string to use."
         (insert (format "-- @connection-string: %s\n" conn-string)))
       (when conn-name
         (insert (format "-- @connection-name: %s\n\n" conn-name)))
-      (scoot-mode)
+      (scoot-scratch-mode)
       (setq-local scoot-connection-name conn-name))
     (pop-to-buffer buffer)))
 
@@ -460,7 +460,7 @@ The original request information are contained in STMT and CTX-PROPS."
               (message "Error: %s" data)))))
 
 
-(defvar scoot-mode-map
+(defvar scoot-scratch-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") #'scoot-eval-statement-before-point)
     (define-key map (kbd "C-c C-r") #'scoot-eval-region)
@@ -469,9 +469,9 @@ The original request information are contained in STMT and CTX-PROPS."
     (define-key map (kbd "C-c s t") #'scoot-list-tables)
     (define-key map (kbd "C-c d t") #'scoot-describe-table)
     map)
-  "Keymap for `scoot-mode'.")
+  "Keymap for `scoot-scratch-mode'.")
 
-(define-derived-mode scoot-mode prog-mode "Scoot"
+(define-derived-mode scoot-scratch-mode prog-mode "Scoot Scratch"
   "Major mode for Scoot SQL scratch buffers."
   (setq-local comment-start "-- ")
   (setq-local comment-end "")
@@ -479,7 +479,7 @@ The original request information are contained in STMT and CTX-PROPS."
   (when (not (when (treesit-available-p)
                (when (treesit-language-available-p 'sql)
                  (treesit-parser-create 'sql)
-                 (setq-local major-mode-remap-alist '((sql-mode . scoot-mode)))
+                 (setq-local major-mode-remap-alist '((sql-mode . scoot-scratch-mode)))
                  (treesit-major-mode-setup)
                  t)))
     (setq-local font-lock-defaults
