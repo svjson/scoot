@@ -1,6 +1,7 @@
 from typing import Optional
 
 from sqlalchemy import inspect, Table, MetaData
+from sqlalchemy.schema import CreateTable
 from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
@@ -46,7 +47,11 @@ def describe_table(conn: Connection, table_name: str) -> Optional[TableModel]:
     try:
         table = Table(table_name, MetaData(), autoload_with=conn.engine)
         inspector.reflect_table(table, include_columns=None)
-        return TableModel.from_sqlalchemy(table)
+
+        table_model = TableModel.from_sqlalchemy(
+            table, create_stmt=str(CreateTable(table).compile(conn.engine))
+        )
+        return table_model
     except NoSuchTableError:
         print(f"No such table: {table_name}")
         return None

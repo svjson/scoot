@@ -39,6 +39,7 @@ class TableModel:
         self.schema = schema
         self.columns = []
         self._column_indices = {}
+        self.create_stmt = None
 
     def add_column(self, column):
         self.columns.append(column)
@@ -57,10 +58,11 @@ class TableModel:
         return self.columns[col_index]
 
     @classmethod
-    def from_sqlalchemy(cls, sa_table):
+    def from_sqlalchemy(cls, sa_table, **kwargs):
         table = cls(name=sa_table.name, schema=sa_table.schema)
         for sa_column in sa_table.columns:
             table.add_column(ColumnModel.from_sqlalchemy(sa_column))
+        table.create_stmt = kwargs.get("create_stmt", None)
         return table
 
     def to_dict(self):
@@ -68,6 +70,7 @@ class TableModel:
             "name": self.name,
             "schema": self.schema,
             "columns": [col.to_dict() for col in self.columns],
+            "create_stmt": self.create_stmt,
         }
 
     def column_max_len(self, column_field):

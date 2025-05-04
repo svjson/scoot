@@ -148,7 +148,8 @@ If TABLE-NAME is provided, this will be used as table name."
                                                                ((name . "Primary Key")
                                                                 (type . "BOOLEAN"))
                                                                ((name . "Default")
-                                                                (type . "self(Type)"))])))))))))
+                                                                (type . "self(Type)"))])
+                                                   (sql . (("CREATE TABLE-statement" . ,(alist-get 'create_stmt data))))))))))))
        :error (scoot-connection--error-handler :op 'scoot-describe-table)))))
 
 

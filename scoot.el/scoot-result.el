@@ -83,6 +83,10 @@ table")
 (defvar-local scoot-result--result-model nil
   "The model backing the visual representation of the data set.")
 
+(defvar-local scoot-result--outline-sections 0
+  "The number of foldable headings currently in the buffer.
+Used to enable/disable `outline-minor-mode`.")
+
 (defface scoot-label-face
   '((t :inherit font-lock-function-name-face))
   "Face used for result headers."
@@ -96,6 +100,11 @@ table")
 (defface scoot-table-face
   '((t :inherit shadow))
   "Face used for resultset table borders."
+  :group 'scoot)
+
+(defface scoot-outline-header-face
+  '((t :inherit outline-1))
+  "Face used for foldable outline headers."
   :group 'scoot)
 
 (defface scoot-query-block-face
@@ -368,17 +377,65 @@ table")
   "Construct the intial buffer-backing model from QUERY-RESULT."
   query-result)
 
+(defun scoot-result--activate-outline-minor-mode ()
+  "Configure and activate `outline-minor-mode`."
+  (setq-local outline-level (lambda () 1)
+              outline-search-function #'outline-search-level
+              outline-minor-mode-cycle t
+              outline-minor-mode-highlight t
+              outline-minor-mode-use-buttons 'insert)
+  (outline-minor-mode 1))
+
+(defun scoot-result--deactivate-minor-mode ()
+  "Wipe configuration and deactivate `outline-minor-mode`, if present."
+  (dolist (var '(outline-level
+                 outline-search-function
+                 outline-minor-mode-cycle
+                 outline-minor-mode-highlight
+                 outline-minor-mode-use-buttons))
+    (when (local-variable-p var)
+      (kill-local-variable var)))
+  (when (bound-and-true-p outline-minor-mode)
+    (outline-minor-mode -1)))
+
 (defun scoot-result--insert-buffer-info ()
   "Insert result buffer basic header information."
   (scoot--insert-faced "Connection: " 'scoot-label-face)
   (insert scoot-result--result-connection-name)
   (insert "\n"))
 
+(defun scoot-propertize-sql (sql-string)
+  "Propertize SQL-STRING with syntax highlighting via font-lock."
+  (with-temp-buffer
+    (erase-buffer)
+    (sql-mode)
+    (insert sql-string)
+    (font-lock-ensure)
+    (buffer-string)))
+
+(defun scoot-insert-propertized-string (s)
+  "Insert propertized string S into current buffer, preserving its text properties.
+
+This feels like a nasty hack, but ensures that the inserted text retains its
+font-lock properties."
+  (let ((start (point)))
+    (insert s)
+    (let ((i 0)
+          (len (length s)))
+      (while (< i len)
+        (let ((props (text-properties-at i s)))
+          (when props
+            (add-text-properties (+ start i) (+ start i 1) props)))
+        (setq i (1+ i))))))
+
 (defun scoot-result-refresh-buffer ()
   "Redraw the entire buffer from scoot-result--result-model."
   (interactive)
+  (scoot-result--deactivate-minor-mode)
   (read-only-mode -1)
   (erase-buffer)
+
+  (setq-local scoot-result--outline-sections 0)
 
   (scoot-result--insert-buffer-info)
   (insert "\n")
@@ -400,6 +457,23 @@ table")
     (insert "\n"))
 
   (scoot-result--insert-result-set)
+
+  (insert "\n\n")
+
+  (when-let ((sql-meta (alist-get 'sql (alist-get 'metadata scoot-result--result-data))))
+    (dolist (sql-entry sql-meta)
+      (insert (propertize (car sql-entry)
+                          'face 'scoot-outline-header-face
+                          'outline-level 1))
+      (insert "\n")
+      (scoot-insert-propertized-string
+       (scoot-propertize-sql
+        (cdr sql-entry)))
+      (insert "\n")
+      (setq-local scoot-result--outline-sections (1+ scoot-result--outline-sections))))
+
+  (unless (zerop scoot-result--outline-sections)
+    (scoot-result--activate-outline-minor-mode))
 
   (read-only-mode 1))
 
@@ -439,13 +513,17 @@ Additional keys for type object:
                     scoot-result--original-sql-statement stmt
                     scoot-result--current-sql-statement stmt
                     scoot-result--result-data result)
+
         (scoot-result-refresh-buffer)
+        (unless (zerop scoot-result--outline-sections)
+          (outline-hide-subtree))
         (display-buffer buf)))))
 
 (defvar scoot-result-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "g") #'scoot-result-refresh-buffer)
+    (define-key map (kbd "TAB") #'outline-toggle-children)
     map)
   "Keymap for `scoot-result-mode`.")
 
