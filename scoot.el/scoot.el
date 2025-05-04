@@ -230,15 +230,18 @@ TITLE is the resultset header to be used."
        :parser 'json-read
        :success (cl-function
                  (lambda (&key data &allow-other-keys)
-                   (let ((buf (get-buffer-create "*scoot-result*")))
-                     (with-current-buffer buf
-                       (read-only-mode -1)
-                       (erase-buffer)
-                       (insert (scoot--pretty-print-table (list title)
-                                                          (mapcar #'list
-                                                                  (seq-into (alist-get object-type data) 'list))))
-                       (goto-char 1))
-                     (display-buffer buf))))
+                   (scoot--open-result-buffer
+                    (list :type 'objects
+                          :object-type object-type
+                          :result
+                          `((columns . [,title])
+                            (rows . ,(mapcar #'vector
+                                             (seq-into
+                                              (alist-get object-type data)
+                                              'vector)))
+                            (metadata . ((columns . [((name . ,title)
+                                                      (type . "OBJECT-NAME"))]))))
+                          :connection connection-name))))
        :error (cl-function
                (lambda (&key data &allow-other-keys)
                  (message "Error: %s" data)))))))
@@ -452,7 +455,11 @@ The original request information are contained in STMT and CTX-PROPS."
     :parser 'json-read
     :success (cl-function
               (lambda (&key data &allow-other-keys)
-                (scoot--open-result-buffer data connection-name stmt)))
+                (scoot--open-result-buffer
+                 (list :type 'query
+                       :result data
+                       :connection connection-name
+                       :statement stmt))))
     :error (cl-function
             (lambda (&key data &allow-other-keys)
               (message "Error: %s" data)))))

@@ -56,6 +56,23 @@
 (defvar-local scoot-result--result-connection-name nil
   "The server connection name used by the current Scoot Result Buffer.")
 
+(defvar-local scoot-result--result-type nil
+  "The type of result displayed in the current buffer.
+
+Valid values are:
+query
+objects
+table")
+
+(defvar-local scoot-result--result-object-type nil
+  "The type of object listed in the current buffer.
+Only used/valid when `scoot-result--result-type` is `objects`.
+
+Valid values are:
+database
+schema
+table")
+
 (defvar-local scoot-result--result-data nil
   "The result data model for the current Scoot Result buffer.")
 
@@ -186,6 +203,7 @@
   (let ((column-type (alist-get 'type column)))
     (cond
      ((string-prefix-p "NVARCHAR" column-type) scoot-formatter-string)
+     ((string-equal "OBJECT-NAME" column-type) scoot-formatter-string)
      ((string-equal "INTEGER" column-type) scoot-formatter-number)
      (t scoot-formatter-raw-string))))
 
@@ -340,29 +358,38 @@
   (scoot-result--insert-buffer-info)
   (insert "\n")
 
-  (scoot--insert-faced "Query: " 'scoot-label-face)
-  (insert "\n")
-  (scoot--insert-query-box (format "%s" scoot-result--current-sql-statement))
-  (insert "\n")
+  (when (eq scoot-result--result-type 'query)
+    (scoot--insert-faced "Query: " 'scoot-label-face)
+    (insert "\n")
+    (scoot--insert-query-box (format "%s" scoot-result--current-sql-statement))
+    (insert "\n"))
 
   (scoot-result--insert-result-set)
 
   (read-only-mode 1))
 
-(defun scoot--open-result-buffer (result connection stmt)
+(defun scoot--open-result-buffer (result-context)
   "Open a Scoot Result Buffer using a RESULT, CONNECTION and STMT."
 
-  ;; FIXME: Decide on a scheme to uniquely identify result buffers
-  (let ((buf (get-buffer-create "*scoot-result*")))
-    (with-current-buffer buf
-      (read-only-mode -1)
-      (scoot-result-mode)
-      (setq-local scoot-result--result-connection-name connection
-                  scoot-result--original-sql-statement stmt
-                  scoot-result--current-sql-statement stmt
-                  scoot-result--result-data result)
-      (scoot-result-refresh-buffer)
-      (display-buffer buf))))
+  (let ((result (plist-get result-context :result))
+        (connection (plist-get result-context :connection))
+        (stmt (plist-get result-context :statement))
+        (type (plist-get result-context :type))
+        (object-type (plist-get result-context :object-type)))
+
+    ;; FIXME: Decide on a scheme to uniquely identify result buffers
+    (let ((buf (get-buffer-create "*scoot-result*")))
+      (with-current-buffer buf
+        (read-only-mode -1)
+        (scoot-result-mode)
+        (setq-local scoot-result--result-connection-name connection
+                    scoot-result--result-type type
+                    scoot-result--result-object-type object-type
+                    scoot-result--original-sql-statement stmt
+                    scoot-result--current-sql-statement stmt
+                    scoot-result--result-data result)
+        (scoot-result-refresh-buffer)
+        (display-buffer buf)))))
 
 (defvar scoot-result-mode-map
   (let ((map (make-sparse-keymap)))
