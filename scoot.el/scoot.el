@@ -86,9 +86,7 @@ TITLE is the resultset header to be used."
                             (metadata . ((columns . [((name . ,title)
                                                       (type . "OBJECT-NAME"))]))))
                           :connection connection-name))))
-       :error (cl-function
-               (lambda (&key data &allow-other-keys)
-                 (message "Error: %s" data)))))))
+       :error (scoot-connection--error-handler :op 'scoot-list-objects)))))
 
 (defun scoot-list-databases ()
   "List databases visible to the user of the current connection."
@@ -151,9 +149,7 @@ If TABLE-NAME is provided, this will be used as table name."
                                                                 (type . "BOOLEAN"))
                                                                ((name . "Default")
                                                                 (type . "self(Type)"))])))))))))
-       :error (cl-function
-               (lambda (&key data &allow-other-keys)
-                 (message "Error: %s" data)))))))
+       :error (scoot-connection--error-handler :op 'scoot-describe-table)))))
 
 
 

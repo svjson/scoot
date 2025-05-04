@@ -15,8 +15,18 @@ def json_response(data, status=200):
     )
 
 
-def error_response(msg, status=400):
-    return json_response({"status": "error", "message": msg}, status)
+def error_response(msg, status=400, error_context={}):
+    return json_response(
+        {"status": "error", "message": msg} | error_context, status
+    )
+
+
+def module_not_found_error_response(module_name):
+    msg = f"Required module not installed: {module_name}"
+    print(msg)
+    return error_response(
+        msg, 503, {"error": "missing-driver", "driver": module_name}
+    )
 
 
 def with_connection(func):
@@ -30,6 +40,8 @@ def with_connection(func):
                     return error_response(f"Unknown connection: '{conn}'")
                 connection = connmgr.create_connection(conn, configured_conn["url"])
             return func(connection, *args, **kwargs)
+        except ModuleNotFoundError as mnfe:
+            return module_not_found_error_response(mnfe.name)
         except Exception as e:
             traceback.print_exc()
             return error_response(f"{e}")
@@ -59,6 +71,8 @@ def create_connection():
             config.persist()
 
         return json_response({"status": "ok"})
+    except ModuleNotFoundError as mnfe:
+        return module_not_found_error_response(mnfe.name)
     except Exception as e:
         traceback.print_exc()
         return error_response(f"{e}")

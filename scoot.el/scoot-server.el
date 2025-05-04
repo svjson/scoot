@@ -106,24 +106,31 @@
         (re-search-forward "200 OK" nil t))
     (error nil)))
 
-(defun scoot--ensure-venv ()
-  "Ensure the virtualenv and dependencies are installed."
-  (message "Ensure scoot-server virtual environment...")
+(defun scoot-server--venv-operation (op)
+  "Resolve venv root, python binary and pip binary and then execute OP."
   (let* ((venv (scoot--venv-dir))
          (python (expand-file-name "bin/python" venv))
          (pip (expand-file-name "bin/pip" venv)))
-    (unless (file-executable-p python)
-      (message "Creating .venv for Scoot...")
-      (call-process "python3" nil nil nil "-m" "venv" venv))
-    ;; Install scoot-core and scoot-server as editable packages quietly
-    (dolist (pkg `(("scoot-core" . ,(scoot--core-dir))
-                   ("scoot-server" . ,(scoot--server-dir))))
-      (let* ((pkg-name (car pkg))
-             (pkg-path (cdr pkg))
-             (check-exit (call-process pip nil nil nil "show" pkg-name)))
-        (when (/= check-exit 0)
-          (message "Installing %s..." pkg-name)
-          (call-process pip nil nil nil "install" "-e" pkg-path))))))
+    (funcall op venv python pip (scoot--project-root))))
+
+(defun scoot-server--ensure-venv ()
+  "Ensure the virtualenv and dependencies are installed."
+  (message "Ensure scoot-server virtual environment...")
+  (scoot-server--venv-operation
+   (lambda (venv python pip scoot-root)
+     ;; Create virtual environment if it doesn't exist
+     (unless (file-executable-p python)
+       (message "Creating .venv for Scoot...")
+       (call-process "python3" nil nil nil "-m" "venv" venv))
+     ;; Install scoot-core and scoot-server as editable packages quietly
+     (dolist (pkg `(("scoot-core" . ,(scoot--core-dir))
+                    ("scoot-server" . ,(scoot--server-dir))))
+       (let* ((pkg-name (car pkg))
+              (pkg-path (cdr pkg))
+              (check-exit (call-process pip nil nil nil "show" pkg-name)))
+         (unless (zerop check-exit)
+           (message "Installing %s..." pkg-name)
+           (call-process pip nil nil nil "install" "-e" pkg-path)))))))
 
 (defun scoot--build-server-args ()
   "Build the arguments to pass to scoot-server."
@@ -147,11 +154,36 @@ Returns t if the server came up in time, nil otherwise."
         (sleep-for 0.1)))
     ready))
 
+(defun scoot-server--attempt-install-driver (driver-name &optional success-callback failure-callback)
+  "Attempt to install a scoot-server driver dependency named by DRIVER-NAME.
+
+SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
+  (scoot-server--venv-operation
+   (lambda (_ _ pip scoot-root)
+     (message "Installing scoot-server dependency '%s'..." driver-name)
+     (with-temp-buffer
+       (let ((target (expand-file-name
+                      (format "server/.[%s]" driver-name)
+                      scoot-root)))
+         (if (zerop (call-process pip nil t nil "install" target))
+             (progn
+               (message "Installation successful.")
+               (when success-callback
+                 (funcall success-callback)))
+           (progn
+             (message "Failed to install scoot-server dependency '%s':\n%s install %s\n%s"
+                      driver-name
+                      pip
+                      target
+                      (buffer-string))
+             (when failure-callback
+               (funcall failure-callback)))))))))
+
 (defun scoot-start-server ()
   "Manually start the Scoot server."
   (interactive)
   (unless (scoot-server--running-p)
-    (scoot--ensure-venv)
+    (scoot-server--ensure-venv)
     (message "Starting scoot-server...")
     (let* ((server-bin (scoot-server--scoot-server-bin))
            (args (scoot--build-server-args))

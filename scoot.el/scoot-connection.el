@@ -86,6 +86,27 @@ CONN-STRING is the connection-string to use."
       (read-string prompt nil nil default))))
 
 
+(cl-defun scoot-connection--error-handler (&key op retry-fn retry-args &allow-other-keys)
+  "Return a general purpose error handler with retry capabilities.
+
+Arguments:
+OP - The operation that caused an error.
+RETRY-FN - (Optional) the function to call for retry
+RETRY-ARGS - (Optional) the arguments to :fn."
+  (cl-function
+   (lambda (&key data error-thrown &allow-other-keys)
+     (let* ((message (alist-get 'message data))
+            (error (alist-get 'error data))
+            (display-msg (or message error-thrown)))
+       (message "Unsuccessful(%s): %s" op display-msg)
+       (when (string-equal error "missing-driver")
+         (let ((driver (alist-get 'driver data)))
+           (scoot-server--attempt-install-driver
+            driver
+            (lambda ()
+              (when retry-fn
+                (apply retry-fn retry-args))))))))))
+
 (defun scoot--ensure-connection (callback
                                  connection-name
                                  &optional
@@ -139,9 +160,7 @@ The original request information are contained in STMT and CTX-PROPS."
                        :result data
                        :connection connection-name
                        :statement stmt))))
-    :error (cl-function
-            (lambda (&key data &allow-other-keys)
-              (message "Error: %s" data)))))
+    :error (scoot-connection--error-handler :op 'scoot--send-to-server-with-connection)))
 
 (defun scoot-send-to-server (stmt &optional ctx-props)
   "Send SQL STMT to the scoot server.  Placeholder implementation.
@@ -182,9 +201,9 @@ to the currently active configuration of the Scoot Server."
     :success (cl-function
               (lambda (&key data &allow-other-keys)
                 (funcall callback)))
-    :error (cl-function
-            (lambda (&key data error-thrown &allow-other-keys)
-              (message (format "Unsuccessful: scoot--register-connection: %s %s" data error-thrown))))))
+    :error (scoot-connection--error-handler :op 'scoot--register-connection
+                                            :retry-fn #'scoot--register-connection
+                                            :retry-args (list callback connection-name connection-string))))
 
 (defun scoot--list-remote-connections (callback)
   "Query the Scoot Server for configured connections.
@@ -200,9 +219,7 @@ the remote connection collection."
     :success (cl-function
               (lambda (&key data &allow-other-keys)
                 (funcall callback (alist-get 'connections  data))))
-    :error (cl-function
-            (lambda (&key data &allow-other-keys)
-              (message (format "Unsuccessful: scoot--list-remote-connections: %s" data))))))
+    :error (scoot-connection--error-handler :op 'scoot--list-remote-connections)))
 
 (provide 'scoot-connection)
 
