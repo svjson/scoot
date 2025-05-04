@@ -102,4 +102,14 @@ def list_schemas(connection):
 @with_connection
 def run_query(connection):
     data = request.get_json()
-    return json_response(query.execute(connection, data["sql"]).to_dict())
+    sql = data.get("sql")
+    include_metadata = data.get("metadata", False)
+
+    result = query.execute(connection, sql)
+    result.metadata = (
+        metadata.resolve_query_metadata(connection, sql)
+        if include_metadata
+        else None
+    )
+
+    return json_response(result.to_dict())

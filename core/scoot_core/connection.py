@@ -3,14 +3,14 @@ from sqlalchemy.engine import Engine
 from typing import Optional
 
 
-def connect(url: str) -> None:
+def connect(url: str) -> Engine:
     return create_engine(url)
 
 
 class Connection:
     def __init__(self, url):
         self.url = url
-        self.engine = connect(url)
+        self.engine: Engine = connect(url)
 
     def to_dict(self):
 
