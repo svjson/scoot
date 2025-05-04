@@ -3,9 +3,9 @@
 ;; Author: Sven Johansson (johansson.sven@gmail.com)
 ;; Maintainer: Sven Johansson (johansson.sven@gmail.com)
 ;; Version: 0.1.0
-;; Package-Requires: (dependencies)
+;; Package-Requires: ((emacs "30.1") (request "20250219") (sql "3.0))
 ;; Homepage: https://www.github.com/svjson/scoot
-;; Keywords: sql sql-client
+;; Keywords: sql, database, sql-client, tools, convenience
 
 ;; This file is not part of GNU Emacs
 
@@ -24,12 +24,14 @@
 
 ;;; Commentary:
 
-;; commentary
+;; Scoot is a SQL client for Emacs that interacts with a persistent backend server.
+;; It supports scratch buffers, result metadata, connection management, and editing.
 
 ;;; Code:
 
 (require 'request)
 (require 'sql)
+(require 'scoot-result)
 
 (defgroup scoot nil
   "Scoot-modes for SQL interaction via SQL scratch buffers and result set buffers."
@@ -37,25 +39,30 @@
 
 (defcustom scoot-scratch-directory (expand-file-name "~/.scoot/scratches/")
   "Directory to store Scoot scratch files."
-  :type 'directory)
+  :type 'directory
+  :group 'scoot)
 
 (defcustom scoot-server-host "localhost"
   "The hostname of the Scoot Server."
-  :type 'string)
+  :type 'string
+  :group 'scoot)
 
 (defcustom scoot-server-port 8224
   "The port of the Scoot Server."
-  :type 'integer)
+  :type 'integer
+  :group 'scoot)
 
 (defcustom scoot-server-default-connection-name "default"
   "The name of the default connection name to use, if not provided."
-  :type 'string)
+  :type 'string
+  :group 'scoot)
 
 (defcustom scoot-auto-persist-connections nil
   "Determines if database connections should automatically be persisted.
 If `t` any connection created by scoot.el will be added to the currently
 active configuration of the Scoot Server."
-  :type 'boolean)
+  :type 'boolean
+  :group 'scoot)
 
 (defvar scoot-connections (make-hash-table :test #'equal)
   "Table of known scoot connection names to connection strings.")
@@ -295,15 +302,12 @@ If TABLE-NAME is provided, this will be used as table name."
   "Naively split TEXT into SQL statements using semicolons."
   (split-string text ";[ \n]*" t))
 
-(defun scoot--column-width (val)
-  "Calculates the width of string value of VAL."
-  (string-width (format "%s" val)))
-
-(defun scoot--pretty-print-table (headers rows)
+(defun scoot--pretty-print-table (headers rows &optional column-metadata)
   "Return a string of a pretty-printed ASCII table.
 
 HEADERS is a list of strings.
-ROWS is a list of lists of strings."
+ROWS is a list of lists of strings.
+COLUMN-METADATA is an optional list of column-metadata."
   (let* ((columns (length headers))
          (all-rows (cons headers rows))
          (widths (apply #'cl-mapcar
@@ -442,19 +446,13 @@ The original request information are contained in STMT and CTX-PROPS."
   (request
     (format "%s/query" (scoot-server-base-connection-url connection-name))
     :type "POST"
-    :data (json-encode `(("sql" . ,stmt)))
+    :data (json-encode `(("sql" . ,stmt)
+                         ("metadata" . t)))
     :headers '(("Content-Type" . "application/json"))
     :parser 'json-read
     :success (cl-function
               (lambda (&key data &allow-other-keys)
-                (let ((buf (get-buffer-create "*scoot-result*")))
-                  (with-current-buffer buf
-                    (read-only-mode -1)
-                    (erase-buffer)
-                    (insert (scoot--pretty-print-table (seq-into (alist-get 'columns data) 'list)
-                                                       (seq-into (alist-get 'rows data) 'list)))
-                    (goto-char 1))
-                  (display-buffer buf))))
+                (scoot--open-result-buffer data connection-name stmt)))
     :error (cl-function
             (lambda (&key data &allow-other-keys)
               (message "Error: %s" data)))))
