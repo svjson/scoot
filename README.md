@@ -41,8 +41,8 @@ Scoot is composed of four interrelated subprojects:
 ## Architecture
 
 ```
-[scoot-el]  ─┬─> [scoot-server] ─> [scoot-core]
-[scoot-cli] ─┘
+[scoot-el] ──> [scoot-server] ─┬─> [scoot-core]
+               [scoot-cli] ────┘
 ```
 
 - **scoot-core** handles all low-level database logic using SQLAlchemy.
