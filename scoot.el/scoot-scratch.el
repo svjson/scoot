@@ -46,10 +46,20 @@
   :type 'directory
   :group 'scoot)
 
+(defcustom scoot-auto-enable-scratch-mode t
+  "If non-nil, automatically enable `scoot-scratch-mode` for Scoot scratch files."
+  :type 'boolean
+  :group 'scoot)
+
 (defun scoot-ensure-scratch-directory ()
   "Ensure that the configured scratch directory exists."
   (unless (file-directory-p scoot-scratch-directory)
     (make-directory scoot-scratch-directory t)))
+
+(defun scoot-scratch--list-scratch-files ()
+  "Return a list of scratch files (with full paths) in `scoot-scratch-directory`."
+  (when (file-directory-p scoot-scratch-directory)
+    (directory-files scoot-scratch-directory t "\\.scoot\\'")))
 
 (defun scoot-new-scratch ()
   "Create a new Scoot scratch buffer."
@@ -72,6 +82,15 @@
       (scoot-scratch-mode)
       (setq-local scoot-connection-name conn-name))
     (pop-to-buffer buffer)))
+
+(defun scoot-open-scratch ()
+  "Prompt to open a Scoot scratch file from `scoot-scratch-directory`."
+  (interactive)
+  (let* ((files (scoot-scratch--list-scratch-files))
+         (choices (mapcar #'file-name-nondirectory files))
+         (selection (completing-read "Open scratch: " choices))
+         (full-path (expand-file-name selection scoot-scratch-directory)))
+    (find-file full-path)))
 
 (defun scoot--preceding-delimiter-semicolon ()
   "Search backwards for a semicolon delimiter.
@@ -208,6 +227,11 @@ BEG and END describe the region start and end"
   (font-lock-flush)
   (font-lock-ensure))
 
+(defun scoot--maybe-enable-scratch-mode ()
+  "Auto-enable `scoot-scratch-mode` for scratch files, respecting user preference."
+  (when scoot-auto-enable-scratch-mode
+    (scoot-scratch-mode)))
+
 (defvar scoot-scratch-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") #'scoot-eval-statement-before-point)
@@ -232,7 +256,12 @@ BEG and END describe the region start and end"
                  t)))
     (setq-local font-lock-defaults
                 '(sql-mode-ms-font-lock-keywords nil t)))
-  (scoot-scratch--enable-font-lock))
+  (scoot-scratch--enable-font-lock)
+  (scoot-ensure-server))
+
+(unless (assoc "\\.scoot\\'" auto-mode-alist)
+  (add-to-list 'auto-mode-alist
+               '("\\.scoot\\'" . scoot--maybe-enable-scratch-mode)))
 
 (provide 'scoot-scratch)
 
