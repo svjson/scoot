@@ -155,6 +155,59 @@ BEG and END describe the region start and end"
     (dolist (stmt stmts)
       (scoot-send-to-server stmt))))
 
+(defface scoot-scratch-comment-face
+  '((t :inherit font-lock-comment-face))
+  "Face for general SQL-style comments in scoot scratch buffers."
+  :group 'scoot)
+
+(defface scoot-scratch-annotation-key-face
+  '((t :inherit font-lock-preprocessor-face))
+  "Face for the @key part in scoot annotations."
+  :group 'scoot)
+
+(defface scoot-scratch-annotation-name-face
+  '((t :inherit font-lock-variable-name-face))
+  "Face for the variable name in scoot annotations."
+  :group 'scoot)
+
+(defface scoot-scratch-annotation-value-face
+  '((t :inherit font-lock-string-face))
+  "Face for the value in scoot annotations."
+  :group 'scoot)
+
+(defun scoot-scratch--match-comment-or-annotation (limit)
+  "Match Scoot annotations or comments up to LIMIT."
+  (while (re-search-forward "^\\s-*--\\s-*\\(.*\\)$" limit t)
+    (let* ((content (match-string 1))
+           (start (match-beginning 1))
+           (end (match-end 1)))
+      (cond
+       ;; Match annotation: @key: value
+       ((string-match "^\\(@\\)\\([a-zA-Z0-9-]+\\)\\(:\\)\\(.*\\)$" content)
+        (let ((s (match-beginning 0)))
+          ;; Adjust match positions relative to buffer
+          (add-text-properties (+ start (match-beginning 1))
+                               (+ start (match-end 1))
+                               '(face scoot-scratch-annotation-key-face))
+          (add-text-properties (+ start (match-beginning 2))
+                               (+ start (match-end 2))
+                               '(face scoot-scratch-annotation-name-face))
+          (add-text-properties (+ start (match-beginning 4))
+                               (+ start (match-end 4))
+                               '(face scoot-scratch-annotation-value-face))))
+       ;; Otherwise, general comment
+       (t
+        (add-text-properties start end '(face scoot-scratch-comment-face)))))
+    t)) ; signal match found
+
+(defun scoot-scratch--enable-font-lock ()
+  "Enable Scoot-specific font-lock rules in current buffer."
+  (font-lock-add-keywords nil
+                          `((scoot-scratch--match-comment-or-annotation))
+                          'append)
+  (font-lock-flush)
+  (font-lock-ensure))
+
 (defvar scoot-scratch-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-c C-c") #'scoot-eval-statement-before-point)
@@ -178,7 +231,8 @@ BEG and END describe the region start and end"
                  (treesit-major-mode-setup)
                  t)))
     (setq-local font-lock-defaults
-                '(sql-mode-ms-font-lock-keywords nil t))))
+                '(sql-mode-ms-font-lock-keywords nil t)))
+  (scoot-scratch--enable-font-lock))
 
 (provide 'scoot-scratch)
 
