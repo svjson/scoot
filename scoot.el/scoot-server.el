@@ -70,7 +70,10 @@
 
 (defun scoot--project-root ()
   "Return the root directory where Scoot is installed."
-  (expand-file-name ".." (file-name-directory (locate-library "scoot"))))
+  (let ((lib-path (file-name-directory (locate-library "scoot"))))
+    (if (string-match-p "/straight/build" lib-path)
+        (expand-file-name "../../repos/scoot" lib-path)
+      (expand-file-name ".." lib-path))))
 
 (defun scoot--venv-dir ()
   "Return the python virtual environment root."
