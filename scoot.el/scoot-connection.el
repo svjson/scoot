@@ -36,17 +36,8 @@
 ;;; Code:
 
 (require 'request)
+(require 'scoot-server)
 (require 'scoot-result)
-
-(defcustom scoot-server-host "localhost"
-  "The hostname of the Scoot Server."
-  :type 'string
-  :group 'scoot)
-
-(defcustom scoot-server-port 8224
-  "The port of the Scoot Server."
-  :type 'integer
-  :group 'scoot)
 
 (defcustom scoot-server-default-connection-name "default"
   "The name of the default connection name to use, if not provided."
@@ -66,18 +57,12 @@ active configuration of the Scoot Server."
 (defconst scoot--json-headers '(("Content-Type" . "application/json")
                                 ("Accept" . "application/json")))
 
-(defun scoot-server-base-url ()
-  "Construct the scoot server base url."
-  (format "http://%s:%s"
-          scoot-server-host
-          scoot-server-port))
-
 (defun scoot-server-base-connection-url (&optional connection-name)
   "Construct the scoot server base url for the API and connection.
 
 Optionally provide CONNECTION-NAME, or rely on the default name."
   (format "%s/api/%s/"
-          (scoot-server-base-url)
+          (scoot-server--base-url)
           (or connection-name scoot-server-default-connection-name)))
 
 (defun scoot-add-connection (name conn-string)
@@ -139,6 +124,7 @@ or configured towards another target."
 
 The verified connection name is provided by CONNECTION-NAME.
 The original request information are contained in STMT and CTX-PROPS."
+  (scoot-ensure-server)
   (request
     (format "%s/query" (scoot-server-base-connection-url connection-name))
     :type "POST"
@@ -184,8 +170,9 @@ CONNECTION-NAME and CONNECTION-STRING.
 
 if `scoot-auto-persist-connections` is non-nil, the connection will be persisted
 to the currently active configuration of the Scoot Server."
+  (scoot-ensure-server)
   (request
-    (format "%s/api/connection" (scoot-server-base-url))
+    (format "%s/api/connection" (scoot-server--base-url))
     :type "POST"
     :data (json-encode `((url . ,connection-string)
                          (name . ,connection-name)
@@ -204,8 +191,9 @@ to the currently active configuration of the Scoot Server."
 
 Successful attempts to list remote connections will invoke CALLBACK with
 the remote connection collection."
+  (scoot-ensure-server)
   (request
-    (format "%s/api/connection" (scoot-server-base-url))
+    (format "%s/api/connection" (scoot-server--base-url))
     :type "GET"
     :parser 'json-read
     :headers scoot--json-headers
@@ -213,8 +201,8 @@ the remote connection collection."
               (lambda (&key data &allow-other-keys)
                 (funcall callback (alist-get 'connections  data))))
     :error (cl-function
-              (lambda (&key data &allow-other-keys)
-                (message (format "Unsuccessful: scoot--list-remote-connections: %s" data))))))
+            (lambda (&key data &allow-other-keys)
+              (message (format "Unsuccessful: scoot--list-remote-connections: %s" data))))))
 
 (provide 'scoot-connection)
 

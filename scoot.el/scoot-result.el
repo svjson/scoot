@@ -36,6 +36,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'scoot-server)
 
 (defcustom scoot-primary-key-icon "🔑"
   "Icon used to indicate that a column has a primary key constraint."
@@ -452,7 +453,8 @@ Additional keys for type object:
   "Major mode for displaying and interacting with SQL resultsets."
 
   (setq-local truncate-lines t)
-  (setq buffer-read-only t))
+  (setq buffer-read-only t)
+  (scoot-ensure-server))
 
 (provide 'scoot-result)
 

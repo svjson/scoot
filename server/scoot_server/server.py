@@ -37,6 +37,11 @@ def with_connection(func):
     return wrapper
 
 
+@app.route("/ping", methods=["GET"])
+def ping():
+    return json_response({"status": "ok"})
+
+
 @app.route("/api/connection", methods=["POST"])
 def create_connection():
     data = request.get_json()

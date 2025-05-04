@@ -30,6 +30,7 @@
 ;;; Code:
 
 (require 'request)
+(require 'scoot-server)
 (require 'scoot-connection)
 (require 'scoot-result)
 (require 'scoot-scratch)
@@ -118,6 +119,7 @@ If TABLE-NAME is provided, this will be used as table name."
       (read-string "Table name: ")))))
   (with-contextual-connection
    (lambda (connection-name)
+     (scoot-ensure-server)
      (request
        (format "%s/tables/%s"
                (scoot-server-base-connection-url connection-name)

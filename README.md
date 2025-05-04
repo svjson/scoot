@@ -20,6 +20,12 @@ While all these goals are not currently fulfilled in this early version, develop
 
 Scoot is built from the ground up to be developer-friendly, whether you're exploring schema changes, prototyping queries, or integrating database work into your daily programming workflow.
 
+## Emacs Integration
+
+Scoot is a modular project, but the Emacs integration - [`scoot.el`](scoot.el/) - is the reason this software exists in the first place.
+
+If you're here to actually use Scoot, you're probably looking for [`scoot.el/README.md`](scoot.el/README.md).
+
 ## Project Overview
 
 Scoot is composed of four interrelated subprojects:
@@ -29,7 +35,7 @@ Scoot is composed of four interrelated subprojects:
 | `scoot-core`    | Core Python library for database connections and query execution via SQLAlchemy. |
 | `scoot-server`  | HTTP JSON API that exposes Scoot functionality over a local or remote server. |
 | `scoot-cli`     | Command-line interface for running SQL queries and interacting with configured databases. |
-| `scoot-el`      | Emacs mode that connects to a running Scoot server, enabling SQL editing, execution, and result inspection. |
+| `scoot.el`      | Emacs mode that connects to a running Scoot server, enabling SQL editing, execution, and result inspection. |
 
 ## Use Cases
 
@@ -41,14 +47,14 @@ Scoot is composed of four interrelated subprojects:
 ## Architecture
 
 ```
-[scoot-el] ──> [scoot-server] ─┬─> [scoot-core]
+[scoot.el] ──> [scoot-server] ─┬─> [scoot-core]
                [scoot-cli] ────┘
 ```
 
 - **scoot-core** handles all low-level database logic using SQLAlchemy.
 - **scoot-server** wraps the core in an HTTP/JSON API.
 - **scoot-cli** uses the core directly for terminal use.
-- **scoot-el** connects to the server for seamless Emacs-based interaction.
+- **scoot.el** connects to the server for seamless Emacs-based interaction.
 
 ## Getting Started
 
@@ -56,7 +62,7 @@ The Makefile provided in the repository root will create a venv and setup all Py
 
 Depending on your needs, follow the relevant README:
 
-- **Emacs integration**: [`scoot-el/README.md`](scoot.el/README.md)
+- **Emacs integration**: [`scoot.el/README.md`](scoot.el/README.md)
 - **HTTP server**: [`scoot-server/README.md`](server/README.md)
 - **Command-line tool**: [`scoot-cli/README.md`](cli/README.md)
 - **Core library**: [`scoot-core/README.md`](core/README.md)
@@ -69,11 +75,11 @@ To contribute or set up a development environment, refer to the individual subpr
 
 This repository contains multiple subprojects with different licenses:
 
-- `scoot-el`: GNU General Public License v3.0 only (GPL-3.0-only)
+- `scoot.el`: GNU General Public License v3.0 only (GPL-3.0-only)
 - `scoot-core`, `scoot-server`, `scoot-cli`: MIT License
 
 See each subdirectory's `LICENSE` file for details.
 
 ---
 
-© 2025 Sven Johansson. GPL-3.0 applies to scoot-el; MIT applies to core/server/CLI. See subproject LICENSE files.
+© 2025 Sven Johansson. GPL-3.0 applies to scoot.el; MIT applies to core/server/CLI. See subproject LICENSE files.
