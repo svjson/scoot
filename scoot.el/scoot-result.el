@@ -62,7 +62,7 @@
 Valid values are:
 query
 objects
-table")
+object")
 
 (defvar-local scoot-result--result-object-type nil
   "The type of object listed in the current buffer.
@@ -72,6 +72,9 @@ Valid values are:
 database
 schema
 table")
+
+(defvar-local scoot-result--result-object-name nil
+  "The name of the object(table/schema/database) described in the buffer.")
 
 (defvar-local scoot-result--result-data nil
   "The result data model for the current Scoot Result buffer.")
@@ -119,6 +122,15 @@ table")
   "Face used for numeric values in result set cells."
   :group 'scoot)
 
+(defface scoot-cell-boolean-true-face
+  '((t :inherit font-lock-keyword-face))
+  "Face used for string values in result set cells."
+  :group 'scoot)
+
+(defface scoot-cell-boolean-false-face
+  '((t :inherit font-lock-operator-face))
+  "Face used for string values in result set cells."
+  :group 'scoot)
 
 (defun scoot--insert-faced (text face)
   "Insert TEXT with FACE applied as a text property."
@@ -184,6 +196,17 @@ table")
         (lambda (_ formatted-value)
           (scoot--insert-faced formatted-value 'scoot-cell-number-face))))
 
+(defvar scoot-formatter-boolean
+  (list :align 'right
+        :format-value (lambda (val &rest _)
+                        (if (eq val t) "true" "false"))
+        :output-cell
+        (lambda (val formatted-value)
+          (scoot--insert-faced formatted-value
+                               (if (eq val t)
+                                   'scoot-cell-boolean-true-face
+                                 'scoot-cell-boolean-false-face)))))
+
 (defvar scoot-formatter-raw-string
   (list :align 'left
         :format-value #'scoot--value-to-string
@@ -205,6 +228,7 @@ table")
      ((string-prefix-p "NVARCHAR" column-type) scoot-formatter-string)
      ((string-equal "OBJECT-NAME" column-type) scoot-formatter-string)
      ((string-equal "INTEGER" column-type) scoot-formatter-number)
+     ((string-equal "BOOLEAN" column-type) scoot-formatter-boolean)
      (t scoot-formatter-raw-string))))
 
 (defun scoot--column-width (val)
@@ -358,6 +382,16 @@ table")
   (scoot-result--insert-buffer-info)
   (insert "\n")
 
+  (when (eq scoot-result--result-type 'object)
+    (scoot--insert-faced (concat (pcase scoot-result--result-object-type
+                                   ('table "Table")
+                                   ('schema "Schema")
+                                   ('database "Database"))
+                                 ": ")
+                         'scoot-label-face)
+    (insert scoot-result--result-object-name)
+    (insert "\n\n"))
+
   (when (eq scoot-result--result-type 'query)
     (scoot--insert-faced "Query: " 'scoot-label-face)
     (insert "\n")
@@ -369,13 +403,28 @@ table")
   (read-only-mode 1))
 
 (defun scoot--open-result-buffer (result-context)
-  "Open a Scoot Result Buffer using a RESULT, CONNECTION and STMT."
+  "Open a Scoot Result Buffer with a result described by RESULT-CONTEXT.
+
+RESULT-CONTEXT is expected to be a plist, with the following possible keys:
+:result - contains the headers, rows and metadata of the result.
+:connection - describes the connection used to retrieve this result.
+:type - the type of result (query/objects/object).
+
+Additional keys for type query:
+:statement - The SQL statement that produced the result.
+
+Additional keys for type object/objects:
+:object-type - The type of object (table/schema/database).
+
+Additional keys for type object:
+:object-name - The name of the object described."
 
   (let ((result (plist-get result-context :result))
         (connection (plist-get result-context :connection))
         (stmt (plist-get result-context :statement))
         (type (plist-get result-context :type))
-        (object-type (plist-get result-context :object-type)))
+        (object-type (plist-get result-context :object-type))
+        (object-name (plist-get result-context :object-name)))
 
     ;; FIXME: Decide on a scheme to uniquely identify result buffers
     (let ((buf (get-buffer-create "*scoot-result*")))
@@ -385,6 +434,7 @@ table")
         (setq-local scoot-result--result-connection-name connection
                     scoot-result--result-type type
                     scoot-result--result-object-type object-type
+                    scoot-result--result-object-name object-name
                     scoot-result--original-sql-statement stmt
                     scoot-result--current-sql-statement stmt
                     scoot-result--result-data result)

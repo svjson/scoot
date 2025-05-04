@@ -284,19 +284,28 @@ If TABLE-NAME is provided, this will be used as table name."
        :parser 'json-read
        :success (cl-function
                  (lambda (&key data &allow-other-keys)
-                   (let ((columns '(name type nullable primary_key default))
-                         (buf (get-buffer-create "*scoot-result*")))
-                     (with-current-buffer buf
-                       (read-only-mode -1)
-                       (erase-buffer)
-                       (insert (scoot--pretty-print-table columns
-                                                          (mapcar (lambda (entry)
-                                                                    (mapcar (lambda (col-name)
-                                                                              (alist-get col-name entry))
-                                                                            columns))
-                                                                  (alist-get 'columns data))))
-                       (goto-char 1))
-                     (display-buffer buf))))
+                   (let ((columns '(name type nullable primary_key default)))
+                     (scoot--open-result-buffer
+                      (list :type 'object
+                            :object-type 'table
+                            :object-name (alist-get 'name data)
+                            :connection connection-name
+                            :result `((columns . ,columns)
+                                      (rows . ,(mapcar (lambda (entry)
+                                                         (mapcar (lambda (col-name)
+                                                                   (alist-get col-name entry))
+                                                                 columns))
+                                                       (alist-get 'columns data)))
+                                      (metadata . ((columns . [((name . "Name")
+                                                                (type . "OBJECT-NAME"))
+                                                               ((name . "Type")
+                                                                (type . "DATA-TYPE"))
+                                                               ((name . "Nullable")
+                                                                (type . "BOOLEAN"))
+                                                               ((name . "Primary Key")
+                                                                (type . "BOOLEAN"))
+                                                               ((name . "Default")
+                                                                (type . "self(Type)"))])))))))))
        :error (cl-function
                (lambda (&key data &allow-other-keys)
                  (message "Error: %s" data)))))))
@@ -304,36 +313,6 @@ If TABLE-NAME is provided, this will be used as table name."
 (defun scoot-split-sql-statements (text)
   "Naively split TEXT into SQL statements using semicolons."
   (split-string text ";[ \n]*" t))
-
-(defun scoot--pretty-print-table (headers rows &optional column-metadata)
-  "Return a string of a pretty-printed ASCII table.
-
-HEADERS is a list of strings.
-ROWS is a list of lists of strings.
-COLUMN-METADATA is an optional list of column-metadata."
-  (let* ((columns (length headers))
-         (all-rows (cons headers rows))
-         (widths (apply #'cl-mapcar
-                        (lambda (&rest col) (apply #'max (mapcar #'scoot--column-width col)))
-                        all-rows))
-         (make-row (lambda (row)
-                     (concat "| "
-                             (mapconcat
-                              (lambda (pair)
-                                (format (format "%%-%ds" (cadr pair)) (car pair)))
-                              (cl-mapcar #'list row widths)
-                              " | ")
-                             " |")))
-         (separator (concat "+-"
-                            (mapconcat (lambda (w) (make-string w ?-)) widths "-+-")
-                            "-+")))
-    (mapconcat #'identity
-               (append (list separator
-                             (funcall make-row headers)
-                             separator)
-                       (mapcar make-row rows)
-                       (list separator))
-               "\n")))
 
 (defun scoot-server-base-url ()
   "Construct the scoot server base url."
