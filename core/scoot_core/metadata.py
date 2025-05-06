@@ -73,19 +73,36 @@ def resolve_query_metadata(conn: Connection, sql: str):
         table = getattr(e, "table", None)
         column = getattr(e, "name", None)
 
+        if e.alias:
+            if e.this:
+                if e.this.__class__.__name__ == "Column":
+                    column = e.this.name
+
         if isinstance(e, sge.Star):
             if table is None and len(expr_tables) == 1:
-                table = expr_tables[0].name
-                table_model = known_tables.get(table)
-                if table_model:
-                    for c in table_model.columns:
-                        columns.append(
-                            {"name": c.name, "table": table, "column": c.name}
-                        )
+                for tbl in expr_tables:
+                    tbl_name = tbl.name
+                    table_model = known_tables.get(tbl_name)
+                    if table_model:
+                        for c in table_model.columns:
+                            columns.append(
+                                {
+                                    "name": c.name,
+                                    "table": tbl_name,
+                                    "column": c.name,
+                                }
+                            )
             continue
-        elif table == "":
-            if len(expr_tables) == 1:
-                table = expr_tables[0].name
+
+        if column and table is None or table == "":
+            for tbl_name, tbl_model in known_tables.items():
+                if tbl_model:
+                    for c in tbl_model.columns:
+                        if c.name == column:
+                            table = tbl_name
+                            break
+                if table:
+                    break
 
         columns.append({"name": name, "table": table, "column": column})
 
