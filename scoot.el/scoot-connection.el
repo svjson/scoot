@@ -294,7 +294,7 @@ the remote connection collection."
                      (let* ((name (symbol-name (car entry)))
                             (conn (cdr entry)))
                        (cons name (list :name name
-                                        :dialect (alist-get 'driver conn)
+                                        :dialect (alist-get 'dialect conn)
                                         :host (alist-get 'host conn)
                                         :port (alist-get 'port conn)
                                         :username (alist-get 'username conn)

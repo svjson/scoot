@@ -407,11 +407,74 @@ Used to enable/disable `outline-minor-mode`.")
   (when (bound-and-true-p outline-minor-mode)
     (outline-minor-mode -1)))
 
+(defun scoot-result--insert-property-grid (info)
+  "Insert a grid of properties displayed as \"Property: Value\".
+
+INFO contains the grid information as a plist with the following properties:
+:columns - The number of columns to display
+:data - A list of plists containing the properties."
+  (let* ((columns (plist-get info :columns))
+         (column-min-width 0)
+         (entries (mapcar (lambda (entry)
+                            (let* ((value (format "%s" (plist-get entry :value)))
+                                   (width (length (concat (plist-get entry :label)
+                                                          ": "
+                                                          value)))
+                                   (updated (scoot--plist-merge
+                                             entry
+                                             (list :value
+                                                   value
+                                                   :min-width
+                                                   width))))
+                              (when (> width column-min-width)
+                                (setq column-min-width width))
+                              updated))
+                          (plist-get info :data)))
+         (column-width (/ (window-width) (plist-get info :columns))))
+    (let ((index 1))
+      (mapcar
+       (lambda (entry)
+         (let ((meta (plist-get entry :meta)))
+           (scoot--insert-faced (propertize (plist-get entry :label)
+                                            'role 'data-label
+                                            'meta meta)
+                                'scoot-label-face)
+           (insert (propertize ": "
+                               'role 'data-label
+                               'meta meta))
+           (insert (propertize (plist-get entry :value)
+                               'role 'data-value
+                               'meta meta))
+           (if (zerop (% index columns))
+               (insert "\n")
+             (insert (make-string (- column-width (plist-get entry :min-width)) ?\s)))
+           (setq index (1+ index))))
+       entries))))
+
 (defun scoot-result--insert-buffer-info ()
   "Insert result buffer basic header information."
-  (scoot--insert-faced "Connection: " 'scoot-label-face)
-  (insert scoot-result--result-connection-name)
-  (insert "\n"))
+  (let ((connection (gethash scoot-result--result-connection-name scoot-connections)))
+
+    (scoot-result--insert-property-grid
+     (list :columns 2
+           :data (list (list :label "Connection"
+                             :value (plist-get connection :name)
+                             :meta 'name)
+                       (list :label "Database"
+                             :value (plist-get connection :database)
+                             :meta 'database)
+                       (list :label "Host"
+                             :value (plist-get connection :host)
+                             :meta 'host)
+                       (list :label "Port"
+                             :value (plist-get connection :port)
+                             :meta 'port)
+                       (list :label "Dialect"
+                             :value (plist-get connection :dialect)
+                             :meta 'dialect)
+                       (list :label "Driver"
+                             :value (plist-get connection :driver)
+                             :meta 'driver))))))
 
 (defun scoot-propertize-sql (sql-string)
   "Propertize SQL-STRING with syntax highlighting via font-lock."

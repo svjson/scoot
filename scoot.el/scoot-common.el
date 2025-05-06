@@ -62,6 +62,13 @@ See `scoot-local--connection-name-resolvers`")
 (declare-function helm-build-sync-source nil)
 (declare-function helm nil)
 
+(defun scoot--plist-merge (plist1 plist2)
+  "Merge PLIST1 and PLIST2. Values from PLIST2 take precedence."
+  (let ((result plist1))
+    (while plist2
+      (setq result (plist-put result (pop plist2) (pop plist2))))
+    result))
+
 (defun scoot--valid-identifier (str)
   "Test STR for a valid SQL identifier and return it."
   (when (and (stringp str)
