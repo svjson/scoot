@@ -27,7 +27,6 @@
 
 (require 'dash)
 (require 'cl-lib)
-(require 'scoot-connection)
 
 (defvar-local scoot-local--table-name-resolvers nil
   "Buffer local list of resolver functions for table-name.
@@ -59,6 +58,9 @@ See `scoot-local--table-name-resolvers`")
   "Global default list of resolver functions for connection-name.
 
 See `scoot-local--connection-name-resolvers`")
+
+(declare-function helm-build-sync-source nil)
+(declare-function helm nil)
 
 (defun scoot--valid-identifier (str)
   "Test STR for a valid SQL identifier and return it."
@@ -111,7 +113,7 @@ FALLBACK-FN is a function object, symbol or nil to attempt to invoke in case
 FN-OBJ cannot be resolved to a function.
 
 FALLBACK-VALUE is a value to simply return if all else fails."
-  (if-let (fn (scoot--resolve-fn :fn-obj fn-obj :fallback-fn))
+  (if-let (fn (scoot--resolve-fn :fn-obj fn-obj :fallback-fn fallback-fn))
       (apply fn (if slice-args (scoot--slice-arg-list fn args) args))
     fallback-value))
 
@@ -119,9 +121,9 @@ FALLBACK-VALUE is a value to simply return if all else fails."
   "Return a function object/callable object from OBJ if possible."
   (cond
    ((functionp obj) obj)
-   ((and (symbolp obj) (fboundp entry)) ((symbol-function entry))
-    (t (progn
-         (message "Warning: Invalid resolver '%s' in buffer %s" obj (buffer-name)))))))
+   ((and (symbolp obj) (fboundp obj)) (symbol-function obj))
+   (t (progn
+        (message "Warning: Invalid resolver '%s' in buffer %s" obj (buffer-name))))))
 
 (defun scoot--slice-arg-list (fn arg-list)
   "Slice ARG-LIST to match the arity of FN."
@@ -209,9 +211,9 @@ available \"completing-read backend\"."
                                                           :args (list c)
                                                           :slice-args t
                                                           :fallback-value ""))))
-                            sorted-candidates)))
+                            cds)))
               :buffer (concat "*helm " (downcase name) "*"))
-      (completing-read prompt candidates))))
+      (completing-read prompt candidates nil nil default-value))))
 
 (defun scoot--interactive-resolve-connection-name ()
   "Interactively resolve connection-name using configured resolvers."
@@ -226,9 +228,10 @@ available \"completing-read backend\"."
 
 OBJECT-TYPE is the type of the object to list.
 TITLE is the resultset header to be used."
-  (let ((connection-name (scoot--interactive-resolve-connection-name)))
+  (let* ((connection-name (scoot--interactive-resolve-connection-name))
+         (connection (gethash connection-name scoot-connections)))
     (scoot-connection--list-objects
-     connection-name
+     connection
      object-type
      (lambda (object-result)
        (scoot-result--open-result-buffer

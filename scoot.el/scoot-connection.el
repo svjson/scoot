@@ -37,7 +37,7 @@
 
 (require 'request)
 (require 'scoot-server)
-(require 'scoot-result)
+(require 'scoot-common)
 
 (defcustom scoot-server-default-connection-name "default"
   "The name of the default connection name to use, if not provided."
@@ -70,8 +70,10 @@ Optionally provide CONNECTION-NAME, or rely on the default name."
 
 NAME is the name of the connection.
 CONN-STRING is the connection-string to use."
-  (puthash name conn-string scoot-connections)
-  name)
+  (let ((connection (list :name name :url conn-string)))
+    (puthash name connection
+             scoot-connections)
+    connection))
 
 (defun scoot-connection--connection-annotation-fn (connection-name)
   "Annotate CONNECTION-NAME for display `completing-read`."
@@ -103,13 +105,14 @@ Provide a list of valid options in TABLES for completing read action`"
                               :prompt "Table: "
                               :candidates tables
                               :sort-fn #'string<)
-    (read-string "Table name: ")))
+    (read-string "Table name: " nil nil table-name)))
 
-(cl-defun scoot-connection--error-handler (&key op retry-fn retry-args &allow-other-keys)
+(cl-defun scoot-connection--error-handler (&key op url retry-fn retry-args &allow-other-keys)
   "Return a general purpose error handler with retry capabilities.
 
 Arguments:
 OP - The operation that caused an error.
+URL - The URL that the failed request was made to.
 RETRY-FN - (Optional) the function to call for retry
 RETRY-ARGS - (Optional) the arguments to :fn."
   (cl-function
@@ -117,7 +120,13 @@ RETRY-ARGS - (Optional) the arguments to :fn."
      (let* ((message (alist-get 'message data))
             (error (alist-get 'error data))
             (display-msg (or message error-thrown)))
-       (message "Unsuccessful(%s): %s" op display-msg)
+       (message "Unsuccessful(%s): %s"
+                (cond
+                 ((and op url) (format "%s: %s" op url))
+                 (op op)
+                 (url url)
+                 (t "unknown"))
+                display-msg)
        (when (string-equal error "missing-driver")
          (let ((driver (alist-get 'driver data)))
            (scoot-server--attempt-install-driver
@@ -126,10 +135,9 @@ RETRY-ARGS - (Optional) the arguments to :fn."
               (when retry-fn
                 (apply retry-fn retry-args))))))))))
 
-(defun scoot--ensure-connection (callback
-                                 connection-name
-                                 &optional
-                                 connection-string)
+(defun scoot-connection--ensure-connection-by-name-and-string (connection-name
+                                                               connection-string
+                                                               callback)
   "Ensure that the Scoot Server has configured the connection CONNECTION-NAME.
 
 When the connection is verified to be configured and ready on the server,
@@ -139,86 +147,116 @@ allow execution to resume.
 Optionally provide CONNECTION-STRING to create the connection if not present,
 or configured towards another target."
   (if connection-string
-      (scoot--register-connection (lambda ()
-                                    (funcall callback))
-                                  connection-name
-                                  connection-string)
-    (scoot--list-remote-connections
+      (scoot-connection--register-connection (lambda (connection)
+                                               (funcall callback connection))
+                                             connection-name
+                                             connection-string)
+    (scoot-connection--list-remote-connections
      (lambda (remote-connections)
        (let ((connection (alist-get (intern connection-name)
                                     remote-connections
                                     nil)))
          (if connection
-             (progn (puthash connection-name
-                             (or connection-string
-                                 (gethash connection-name scoot-connections nil))
-                             scoot-connections)
-                    (funcall callback))
-           (message "Unknown connection: %s" connection-name)))))))
+             (progn
+               (puthash connection-name
+                        (or connection-string
+                            (gethash connection-name scoot-connections nil))
+                        scoot-connections)
+               (funcall callback connection))
+           (message "Unknown connection and no connection details available: %s"
+                    connection-name)))))))
 
-(defun scoot--send-to-server-with-connection (connection-name
-                                              stmt
-                                              &optional
-                                              ctx-props)
+(cl-defun scoot-connection--send-request (&key uri
+                                               callback
+                                               (method "GET")
+                                               body
+                                               (headers scoot--json-headers)
+                                               retry-fn
+                                               retry-args
+                                               op)
+  "Send an http request to the scoot-server.
+
+This is the lowest-level http request method provided by scoot--connection,
+and all http requests are meant to use this.
+
+URI is the remote address to be called.  The host, port and protocol will be
+provied by `scoot-server--base-url`.
+
+CALLBACK is the \"success callback\" that will be invoked and passed the
+response data upon a successful request.
+
+METHOD specifies the http method to use for the request. Defaults to GET.
+
+BODY contains the request body and may be a string, an alist or nil.
+
+HEADERS may be passed to override the default of `scoot--json-headers`.
+
+RETRY-FN and RETRY-ARGS may be passed to provide a method to retry a failed
+request that is deemed to be retryable. Any such function should attempt to
+resolve the cause of the failure before trying again.
+
+OP is a symbol describing the operation that this request is a part of."
+  (scoot-ensure-server)
+  (let ((url (format "%s%s" (scoot-server--base-url) uri)))
+    (request (url-encode-url url)
+      :type method
+      :headers headers
+      :data (cond
+             ((stringp body)
+              body)
+             ((and (not (null body))
+                   (listp body))
+              (json-encode body)))
+      :parser 'json-read
+      :success (cl-function
+                (lambda (&key data &allow-other-keys)
+                  (funcall callback data)))
+      :error (scoot-connection--error-handler :op op
+                                              :url url
+                                              :retry-fn retry-fn
+                                              :retry-args retry-args)
+      :complete (cl-function
+                 (lambda (&key response &allow-other-keys)
+                   (when-let ((buf (request-response--buffer response)))
+                     (when (buffer-live-p buf)
+                       (kill-buffer buf))))))))
+
+(defun scoot-connection--execute-statement (connection stmt callback)
   "Send SQL STMT to the scoot server using a verified connection.
 
-The verified connection name is provided by CONNECTION-NAME.
+The verified connection is provided by the plist CONNECTION.
 The original request information are contained in STMT and CTX-PROPS."
   (scoot-ensure-server)
-  (request
-    (format "%s/query" (scoot-server-base-connection-url connection-name))
-    :type "POST"
-    :data (json-encode `(("sql" . ,stmt)
-                         ("metadata" . t)))
-    :headers '(("Content-Type" . "application/json"))
-    :parser 'json-read
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (scoot-result--open-result-buffer
-                 (list :type 'query
-                       :result data
-                       :connection connection-name
-                       :statement stmt))))
-    :error (scoot-connection--error-handler :op 'scoot--send-to-server-with-connection)))
+  (let ((connection-name (plist-get connection :name)))
+    (scoot-connection--send-request
+     :op 'execute-statement
+     :uri (format "/api/%s/query" connection-name)
+     :method "POST"
+     :body `(("sql" . ,stmt)
+             ("metadata" . t))
+     :callback (lambda (data)
+                 (funcall
+                  callback
+                  (list :type 'query
+                        :result data
+                        :connection connection-name
+                        :statement stmt))))))
 
-(defun scoot-send-to-server (stmt &optional ctx-props)
-  "Send SQL STMT to the scoot server.  Placeholder implementation.
 
-If CTX-PROPS are provided these will be used to create, select and/or configure
-a server connection, otherwise the buffer-local connection will be used."
-
-  (let ((connection-name (gethash "connection-name"
-                                  ctx-props
-                                  scoot-server-default-connection-name))
-        (connection-string (gethash "connection-string" ctx-props)))
-
-    (scoot--ensure-connection (lambda ()
-                                (scoot--send-to-server-with-connection
-                                 connection-name
-                                 stmt
-                                 ctx-props))
-                              connection-name
-                              connection-string)))
-
-(defun scoot-connection--list-objects (connection-name object-type callback)
-  "List objects of type OBJECT-TYPE visible to connection CONNECTION-NAME.
+(defun scoot-connection--list-objects (connection object-type callback)
+  "List objects of type OBJECT-TYPE visible to connection CONNECTION.
 
 Invokes CALLBACK with the result if successful."
 
   (scoot-ensure-server)
-  (request
-    (format "%s/%s"
-            (scoot-server-base-connection-url connection-name)
-            object-type)
-    :type "GET"
-    :headers scoot--json-headers
-    :parser 'json-read
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (funcall callback data)))
-    :error (scoot-connection--error-handler :op 'scoot-connection--list-objects)))
+  (scoot-connection--send-request
+   :uri (format "/api/%s/%s"
+                (plist-get connection :name)
+                object-type)
+   :op (intern (concat "list-" (symbol-name object-type)))
+   :callback callback))
 
-(defun scoot--register-connection (callback connection-name connection-string)
+(defun scoot-connection--register-connection (callback connection-name connection-string)
   "Registers a database connection in the Scoot Server.
 
 CALLBACK will be called upon a successful connection made using the supplied
@@ -227,81 +265,83 @@ CONNECTION-NAME and CONNECTION-STRING.
 if `scoot-auto-persist-connections` is non-nil, the connection will be persisted
 to the currently active configuration of the Scoot Server."
   (scoot-ensure-server)
-  (request
-    (format "%s/api/connection" (scoot-server--base-url))
-    :type "POST"
-    :data (json-encode `((url . ,connection-string)
-                         (name . ,connection-name)
-                         (persist . ,scoot-auto-persist-connections)))
-    :parser 'json-read
-    :headers scoot--json-headers
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (scoot-add-connection connection-name connection-string)
-                (funcall callback)))
-    :error (scoot-connection--error-handler :op 'scoot--register-connection
-                                            :retry-fn #'scoot--register-connection
-                                            :retry-args (list callback connection-name connection-string))))
+  (scoot-connection--send-request
+   :uri "/api/connection"
+   :method "POST"
+   :body `((url . ,connection-string)
+           (name . ,connection-name)
+           (persist . ,scoot-auto-persist-connections))
+   :callback (lambda (_)
+               (funcall callback
+                        (scoot-add-connection connection-name connection-string)))
+   :retry-fn #'scoot-connection--register-connection
+   :retry-args (list callback connection-name connection-string)))
 
-(defun scoot--list-remote-connections (callback)
+(defun scoot-connection--list-remote-connections (callback)
   "Query the Scoot Server for configured connections.
 
 Successful attempts to list remote connections will invoke CALLBACK with
 the remote connection collection."
   (scoot-ensure-server)
-  (request
-    (format "%s/api/connection" (scoot-server--base-url))
-    :type "GET"
-    :parser 'json-read
-    :headers scoot--json-headers
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (funcall callback (alist-get 'connections  data))))
-    :error (scoot-connection--error-handler :op 'scoot--list-remote-connections)))
+  (scoot-connection--send-request
+   :uri "/api/connection"
+   :callback (lambda (data)
+               (let ((connections (alist-get 'connections data)))
+                 (funcall
+                  callback
+                  (mapcar
+                   (lambda (entry)
+                     (let* ((name (symbol-name (car entry)))
+                            (conn (cdr entry)))
+                       (cons name (list :name name
+                                        :dialect (alist-get 'driver conn)
+                                        :host (alist-get 'host conn)
+                                        :port (alist-get 'port conn)
+                                        :username (alist-get 'username conn)
+                                        :database (alist-get 'database conn)
+                                        :driver (alist-get 'driver conn)))))
+                   connections))))))
 
-(defun scoot-connection--describe-table (table-name connection-name callback)
+(defun scoot-connection--describe-table (connection table-name callback)
   "Send a request to the scoot server to describe table TABLE-NAME.
 
-CONNECTION-NAME needs to have been resolved and verified before calling
+CONNECTION needs to have been resolved and verified before calling
 this function.
 
 If the request is successful CALLBACK will be called with the formatted
 result."
   (scoot-ensure-server)
-  (request
-    (format "%s/tables/%s"
-            (scoot-server-base-connection-url connection-name)
-            table-name)
-    :type "GET"
-    :headers scoot--json-headers
-    :parser 'json-read
-    :success (cl-function
-              (lambda (&key data &allow-other-keys)
-                (let ((columns '(name type nullable primary_key default)))
-                  (funcall
-                   callback
-                   (list :type 'object
-                         :object-type 'table
-                         :object-name (alist-get 'name data)
-                         :connection connection-name
-                         :result `((columns . ,columns)
-                                   (rows . ,(mapcar (lambda (entry)
-                                                      (mapcar (lambda (col-name)
-                                                                (alist-get col-name entry))
-                                                              columns))
-                                                    (alist-get 'columns data)))
-                                   (metadata . ((columns . [((name . "Name")
-                                                             (type . "OBJECT-NAME"))
-                                                            ((name . "Type")
-                                                             (type . "DATA-TYPE"))
-                                                            ((name . "Nullable")
-                                                             (type . "BOOLEAN"))
-                                                            ((name . "Primary Key")
-                                                             (type . "BOOLEAN"))
-                                                            ((name . "Default")
-                                                             (type . "self(Type)"))])
-                                                (sql . (("CREATE TABLE-statement" . ,(alist-get 'create_stmt data))))))))))))
-    :error (scoot-connection--error-handler :op 'scoot-describe-table)))
+  (let ((connection-name (plist-get connection :name)))
+    (scoot-connection--send-request
+     :uri (format "/api/%s/tables/%s"
+                  connection-name
+                  table-name)
+     :op 'describe-table
+     :callback (lambda (data)
+                 (let ((columns '(name type nullable primary_key default)))
+                   (funcall
+                    callback
+                    (list :type 'object
+                          :object-type 'table
+                          :object-name (alist-get 'name data)
+                          :connection connection-name
+                          :result `((columns . ,columns)
+                                    (rows . ,(mapcar (lambda (entry)
+                                                       (mapcar (lambda (col-name)
+                                                                 (alist-get col-name entry))
+                                                               columns))
+                                                     (alist-get 'columns data)))
+                                    (metadata . ((columns . [((name . "Name")
+                                                              (type . "OBJECT-NAME"))
+                                                             ((name . "Type")
+                                                              (type . "DATA-TYPE"))
+                                                             ((name . "Nullable")
+                                                              (type . "BOOLEAN"))
+                                                             ((name . "Primary Key")
+                                                              (type . "BOOLEAN"))
+                                                             ((name . "Default")
+                                                              (type . "self(Type)"))])
+                                                 (sql . (("CREATE TABLE-statement" . ,(alist-get 'create_stmt data))))))))))))))
 
 (provide 'scoot-connection)
 

@@ -36,7 +36,9 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'outline)
 (require 'scoot-server)
+(require 'scoot-connection)
 
 (defcustom scoot-primary-key-icon "🔑"
   "Icon used to indicate that a column has a primary key constraint."
@@ -141,6 +143,11 @@ Used to enable/disable `outline-minor-mode`.")
   '((t :inherit font-lock-operator-face))
   "Face used for string values in result set cells."
   :group 'scoot)
+
+(declare-function scoot-describe-table "scoot")
+(declare-function scoot-list-databases "scoot")
+(declare-function scoot-list-schemas "scoot")
+(declare-function scoot-list-tables "scoot")
 
 (defun scoot--insert-faced (text face)
   "Insert TEXT with FACE applied as a text property."
@@ -479,7 +486,7 @@ font-lock properties."
 
   (read-only-mode 1))
 
-(cl-defun scoot-result--tables-in-result (&key table-name &allow-other-keys)
+(cl-defun scoot-result--tables-in-result (&allow-other-keys)
   "Describe a table, either TABLE-NAME or tables involved in the query/result."
   (interactive)
   (let* ((result-tables (plist-get scoot-result--result-model :tables))

@@ -99,12 +99,13 @@
 
 (defun scoot-server--running-p ()
   "Return non-nil if the Scoot server appears to be running."
-  (condition-case nil
-      (with-current-buffer
-          (url-retrieve-synchronously (format "%s/ping" (scoot-server--base-url)) t t 1)
-        (goto-char (point-min))
-        (re-search-forward "200 OK" nil t))
-    (error nil)))
+  (let (url-buf)
+  (unwind-protect
+      (when (setq url-buf (url-retrieve-synchronously (format "%s/ping" (scoot-server--base-url)) t t 1))
+        (with-current-buffer url-buf
+          (goto-char (point-min))
+          (re-search-forward "200 OK" nil t)))
+    (when url-buf (kill-buffer url-buf)))))
 
 (defun scoot-server--venv-operation (op)
   "Resolve venv root, python binary and pip binary and then execute OP."
@@ -117,7 +118,7 @@
   "Ensure the virtualenv and dependencies are installed."
   (message "Ensure scoot-server virtual environment...")
   (scoot-server--venv-operation
-   (lambda (venv python pip scoot-root)
+   (lambda (venv python pip _)
      ;; Create virtual environment if it doesn't exist
      (unless (file-executable-p python)
        (message "Creating .venv for Scoot...")
@@ -216,9 +217,14 @@ SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
         (scoot-start-server))
     (scoot-stop-server)))
 
-(defun scoot-ensure-server ()
-  "Ensure the Scoot server is running.  Start it if not."
-  (when scoot-auto-start-server
+(defun scoot-ensure-server (&optional force-start)
+  "Ensure that the Scoot server is running.  Start it if it is not.
+
+Calling this function interactively or with a non-nil FORCE-START will always
+make an attempt to start the server, otherwise `scoot-auto-start-server` will
+be honored."
+  (interactive (list t))
+  (when (or scoot-auto-start-server force-start)
     (unless (scoot-server--running-p)
       (scoot-start-server))))
 

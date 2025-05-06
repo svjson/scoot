@@ -40,6 +40,7 @@
 (require 'treesit)
 (require 'sql)
 (require 'scoot-connection)
+(require 'scoot-result)
 
 (defcustom scoot-scratch-directory (expand-file-name "~/.scoot/scratches/")
   "Directory to store Scoot scratch files."
@@ -160,15 +161,47 @@ Returns point or nil."
          (ctx-props (cdr ctx)))
     (gethash "connection-name" ctx-props)))
 
+(defun scoot-scratch--ensure-ctx-connection (ctx-props callback)
+  "Ensure that the connection specified in the scratch context CTX-PROPS is valid.
+
+The verified connection will be passed as an argument to CALLBACK to allow
+execution to resume."
+  (let ((connection-name (gethash "connection-name" ctx-props))
+        (connection-string (gethash "connection-string" ctx-props)))
+    (scoot-connection--ensure-connection-by-name-and-string
+     connection-name
+     connection-string
+     callback)))
+
+(defun scoot-scratch--ctx-operation-at-point (callback)
+  "Prepare the stage for an operation depending on scratch context.
+
+Resolves the current context and ensures the configured connection,
+and then calls CALLBACK with the resolved information."
+  (let* ((ctx (scoot-scratch--resolve-context-at-point))
+         (ctx-content (car ctx))
+         (ctx-props (cdr ctx)))
+    (scoot-scratch--ensure-ctx-connection
+     ctx-props
+     (lambda (connection)
+       (funcall callback
+                connection
+                ctx
+                ctx-content
+                ctx-props)))))
+
 (defun scoot-eval-statement-before-point ()
   "Evaluate SQL statement before point."
   (interactive)
-  (let ((ctx (scoot-scratch--resolve-context-at-point)))
-    (with-temp-buffer
-      (insert (car ctx))
-      (goto-char (point-max))
-      (let ((stmt (scoot-statement-before-point)))
-        (scoot-send-to-server stmt (cdr ctx))))))
+  (scoot-scratch--ctx-operation-at-point
+   (lambda (connection _ ctx-content &rest _)
+     (with-temp-buffer
+       (insert ctx-content)
+       (goto-char (point-max))
+       (scoot-connection--execute-statement
+        connection
+        (scoot-statement-before-point)
+        #'scoot-result--open-result-buffer)))))
 
 (defun scoot-eval-region (beg end)
   "Evaluate all SQL statements in the selected region.
@@ -177,8 +210,13 @@ BEG and END describe the region start and end"
   (interactive "r")
   (let* ((region (buffer-substring-no-properties beg end))
          (stmts (scoot-split-sql-statements region)))
-    (dolist (stmt stmts)
-      (scoot-send-to-server stmt))))
+    (scoot-scratch--ctx-operation-at-point
+     (lambda (connection &rest _)
+       (dolist (stmt stmts)
+         (scoot-connection--execute-statement
+          connection
+          stmt
+          #'scoot-result--open-result-buffer))))))
 
 (defface scoot-scratch-comment-face
   '((t :inherit font-lock-comment-face))
@@ -200,6 +238,11 @@ BEG and END describe the region start and end"
   "Face for the value in scoot annotations."
   :group 'scoot)
 
+(declare-function scoot-describe-table "scoot")
+(declare-function scoot-list-databases "scoot")
+(declare-function scoot-list-schemas "scoot")
+(declare-function scoot-list-tables "scoot")
+
 (defun scoot-scratch--match-comment-or-annotation (limit)
   "Match Scoot annotations or comments up to LIMIT.
 
@@ -211,7 +254,7 @@ scratch comments and configuration annotations."
            (end (match-end 1)))
       (cond
        ((string-match "^\\(@\\)\\([a-zA-Z0-9-]+\\)\\(:\\)\\(.*\\)$" content)
-        (let ((s (match-beginning 0)))
+        (let ((_ (match-beginning 0)))
           (add-text-properties (+ start (match-beginning 1))
                                (+ start (match-end 1))
                                '(face scoot-scratch-annotation-key-face))

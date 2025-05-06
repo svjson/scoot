@@ -62,15 +62,16 @@ TABLE-NAME and CONNECTION-NAME are optional, and will be attempted to be
 resolved using the context of the function call, if called interactively."
   (interactive)
   (let* ((conn-name (or connection-name
-                        (scoot--interactive-resolve-connection-name )))
+                        (scoot--interactive-resolve-connection-name)))
+         (conn (gethash conn-name scoot-connections))
          (tbl (or table-name
                   (scoot--try-resolvers
                    'scoot-local--table-name-resolvers
                    'scoot-default--table-name-resolvers
                    (list :connection-name conn-name
                          :interactive t)))))
-    (scoot-connection--describe-table tbl
-                                      conn-name
+    (scoot-connection--describe-table conn
+                                      tbl
                                       #'scoot-result--open-result-buffer)))
 
 (provide 'scoot)
