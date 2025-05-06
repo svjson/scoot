@@ -9,6 +9,7 @@ from sqlglot import expressions as sge
 from scoot_core import query
 from scoot_core.connection import Connection
 from scoot_core.model import TableModel
+from scoot_core.exceptions import ScootSchemaException
 
 
 def list_schemas(conn: Connection) -> list[str]:
@@ -53,8 +54,7 @@ def describe_table(conn: Connection, table_name: str) -> Optional[TableModel]:
         )
         return table_model
     except NoSuchTableError:
-        print(f"No such table: {table_name}")
-        return None
+        raise ScootSchemaException("table", table_name)
 
 
 def resolve_query_metadata(conn: Connection, sql: str):
