@@ -151,20 +151,20 @@ or configured towards another target."
                                                (funcall callback connection))
                                              connection-name
                                              connection-string)
-    (scoot-connection--list-remote-connections
-     (lambda (remote-connections)
-       (let ((connection (alist-get (intern connection-name)
-                                    remote-connections
-                                    nil)))
-         (if connection
-             (progn
-               (puthash connection-name
-                        (or connection-string
-                            (gethash connection-name scoot-connections nil))
-                        scoot-connections)
-               (funcall callback connection))
-           (message "Unknown connection and no connection details available: %s"
-                    connection-name)))))))
+    (progn
+      (scoot-connection--list-remote-connections
+       (lambda (remote-connections)
+         (let ((connection (cdr (assoc connection-name
+                                       remote-connections)))
+               (local-conn (gethash connection-name scoot-connections nil)))
+           (if connection
+               (progn
+                 (puthash connection-name
+                          (scoot--plist-merge local-conn connection)
+                          scoot-connections)
+                 (funcall callback connection))
+             (message "Unknown connection and no connection details available: %s"
+                      connection-name))))))))
 
 (cl-defun scoot-connection--send-request (&key uri
                                                callback
