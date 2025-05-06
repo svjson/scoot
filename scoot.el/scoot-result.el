@@ -265,6 +265,11 @@ Used to enable/disable `outline-minor-mode`.")
                               column-metadata)
                              :metadata column-metadata)))
                    columns-metadata))
+         (tables (cl-remove-duplicates (mapcar
+                                        (lambda (h)
+                                          (alist-get 'table (plist-get h :metadata)))
+                                        headers)
+                                       :test 'string-equal))
          (raw-table-data (alist-get 'rows scoot-result--result-data))
          (records (cl-mapcar
                    (lambda (row)
@@ -298,6 +303,7 @@ Used to enable/disable `outline-minor-mode`.")
                   headers)))
     (setq scoot-result--result-model
           (list :headers headers
+                :tables tables
                 :widths widths
                 :formatters formatters
                 :records records))))
@@ -372,10 +378,6 @@ Used to enable/disable `outline-minor-mode`.")
   (mapc #'scoot-result--insert-table-row
         (plist-get scoot-result--result-model :records))
   (scoot-result--insert-table-divider))
-
-(defun scoot-result--build-initial-buffer-model (query-result)
-  "Construct the intial buffer-backing model from QUERY-RESULT."
-  query-result)
 
 (defun scoot-result--activate-outline-minor-mode ()
   "Configure and activate `outline-minor-mode`."
@@ -477,7 +479,19 @@ font-lock properties."
 
   (read-only-mode 1))
 
-(defun scoot--open-result-buffer (result-context)
+(cl-defun scoot-result--tables-in-result (&key table-name &allow-other-keys)
+  "Describe a table, either TABLE-NAME or tables involved in the query/result."
+  (interactive)
+  (let* ((result-tables (plist-get scoot-result--result-model :tables))
+         (table-count (length result-tables)))
+    (cond
+     ((eq table-count 1)
+      (car result-tables))
+
+     ((> table-count 1)
+      (scoot-connection--table-prompt :tables result-tables)))))
+
+(defun scoot-result--open-result-buffer (result-context)
   "Open a Scoot Result Buffer with a result described by RESULT-CONTEXT.
 
 RESULT-CONTEXT is expected to be a plist, with the following possible keys:
@@ -524,11 +538,18 @@ Additional keys for type object:
     (set-keymap-parent map special-mode-map)
     (define-key map (kbd "g") #'scoot-result-refresh-buffer)
     (define-key map (kbd "TAB") #'outline-toggle-children)
+    (define-key map (kbd "C-c s d") #'scoot-list-databases)
+    (define-key map (kbd "C-c s s") #'scoot-list-schemas)
+    (define-key map (kbd "C-c s t") #'scoot-list-tables)
+    (define-key map (kbd "C-c d t") #'scoot-describe-table)
     map)
   "Keymap for `scoot-result-mode`.")
 
 (define-derived-mode scoot-result-mode special-mode "Scoot Result"
   "Major mode for displaying and interacting with SQL resultsets."
+  (setq-local scoot-local--connection-name-resolvers '((lambda () scoot-result--result-connection-name)))
+  (setq-local scoot-local--table-name-resolvers '(scoot-result--tables-in-result
+                                                  scoot-connection--table-prompt))
 
   (setq-local truncate-lines t)
   (setq buffer-read-only t)

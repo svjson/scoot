@@ -65,23 +65,23 @@
   "Create a new Scoot scratch buffer."
   (interactive)
   (scoot-ensure-scratch-directory)
-  (when-let* ((conn-name (scoot--read-connection-name))
+  (when-let* ((conn-name (scoot-connection--connection-prompt))
               (conn-string (or (gethash conn-name scoot-connections)
-                               (read-string (format "Connection string for '%s': " conn-name))))
-              (_ (unless (gethash conn-name scoot-connections)
-                   (scoot-add-connection conn-name conn-string)))
-              (scratch-name (read-string "Scratch name (default: same as connection): " nil nil conn-name))
-              (filename (expand-file-name (concat scratch-name ".scoot") scoot-scratch-directory))
-              (buffer (find-file-noselect filename)))
-    (with-current-buffer buffer
-      (erase-buffer)
-      (when conn-string
-        (insert (format "-- @connection-string: %s\n" conn-string)))
-      (when conn-name
-        (insert (format "-- @connection-name: %s\n\n" conn-name)))
-      (scoot-scratch-mode)
-      (setq-local scoot-connection-name conn-name))
-    (pop-to-buffer buffer)))
+                               (read-string (format "Connection string for '%s': " conn-name)))))
+    (unless (gethash conn-name scoot-connections)
+      (scoot-add-connection conn-name conn-string))
+    (when-let* ((scratch-name (read-string (format "Scratch name: ") nil nil conn-name))
+                (filename (expand-file-name (concat scratch-name ".scoot") scoot-scratch-directory))
+                (buffer (find-file-noselect filename)))
+      (with-current-buffer buffer
+        (erase-buffer)
+        (when conn-string
+          (insert (format "-- @connection-string: %s\n" conn-string)))
+        (when conn-name
+          (insert (format "-- @connection-name: %s\n\n" conn-name)))
+        (scoot-scratch-mode)
+        (setq-local scoot-connection-name conn-name))
+      (pop-to-buffer buffer))))
 
 (defun scoot-open-scratch ()
   "Prompt to open a Scoot scratch file from `scoot-scratch-directory`."
@@ -129,7 +129,7 @@ Returns point or nil."
     (cons (match-string 1 line)
           (string-trim (match-string 2 line)))))
 
-(defun scoot--resolve-context-at-point ()
+(defun scoot-scratch--resolve-context-at-point ()
   "Extracts relevant SQL lines and connection context."
   (save-excursion
     (let ((lines '())
@@ -154,10 +154,16 @@ Returns point or nil."
       (cons (string-join lines "\n")
             context-props))))
 
+(cl-defun scoot-scratch--context-resolve-connection-name (&allow-other-keys)
+  "Resolve the connection-name from the annotated context at point."
+  (let* ((ctx (scoot-scratch--resolve-context-at-point))
+         (ctx-props (cdr ctx)))
+    (gethash "connection-name" ctx-props)))
+
 (defun scoot-eval-statement-before-point ()
   "Evaluate SQL statement before point."
   (interactive)
-  (let ((ctx (scoot--resolve-context-at-point)))
+  (let ((ctx (scoot-scratch--resolve-context-at-point)))
     (with-temp-buffer
       (insert (car ctx))
       (goto-char (point-max))
@@ -195,16 +201,17 @@ BEG and END describe the region start and end"
   :group 'scoot)
 
 (defun scoot-scratch--match-comment-or-annotation (limit)
-  "Match Scoot annotations or comments up to LIMIT."
+  "Match Scoot annotations or comments up to LIMIT.
+
+Used to extend the basic `sql-mode` font-locking to handle
+scratch comments and configuration annotations."
   (while (re-search-forward "^\\s-*--\\s-*\\(.*\\)$" limit t)
     (let* ((content (match-string 1))
            (start (match-beginning 1))
            (end (match-end 1)))
       (cond
-       ;; Match annotation: @key: value
        ((string-match "^\\(@\\)\\([a-zA-Z0-9-]+\\)\\(:\\)\\(.*\\)$" content)
         (let ((s (match-beginning 0)))
-          ;; Adjust match positions relative to buffer
           (add-text-properties (+ start (match-beginning 1))
                                (+ start (match-end 1))
                                '(face scoot-scratch-annotation-key-face))
@@ -214,10 +221,9 @@ BEG and END describe the region start and end"
           (add-text-properties (+ start (match-beginning 4))
                                (+ start (match-end 4))
                                '(face scoot-scratch-annotation-value-face))))
-       ;; Otherwise, general comment
        (t
         (add-text-properties start end '(face scoot-scratch-comment-face)))))
-    t)) ; signal match found
+    t))
 
 (defun scoot-scratch--enable-font-lock ()
   "Enable Scoot-specific font-lock rules in current buffer."
@@ -248,6 +254,16 @@ BEG and END describe the region start and end"
   (setq-local comment-start "-- ")
   (setq-local comment-end "")
   (setq-local scoot-connection-name nil)
+
+  (setq-local scoot-local--connection-name-resolvers
+              '(scoot-scratch--context-resolve-connection-name
+                scoot-connection--connection-prompt))
+
+  (setq-local scoot-local--table-name-resolvers
+              '(scoot--object-name-in-region
+                scoot--object-name-at-point
+                scoot-connection--table-prompt))
+
   (when (not (when (treesit-available-p)
                (when (treesit-language-available-p 'sql)
                  (treesit-parser-create 'sql)

@@ -34,59 +34,11 @@
 (require 'scoot-connection)
 (require 'scoot-result)
 (require 'scoot-scratch)
+(require 'scoot-common)
 
 (defgroup scoot nil
   "Scoot-modes for SQL interaction via SQL scratch buffers and result set buffers."
   :group 'tools)
-
-(defun with-contextual-connection (callback)
-  "Execute a callback/function after ensuring a connection.
-
-CALLBACK is the function to be called after verifying the connection."
-  (let* ((ctx (scoot--resolve-context-at-point))
-         (ctx-props (cdr ctx))
-         (connection-name (gethash "connection-name"
-                                   ctx-props
-                                   scoot-server-default-connection-name))
-         (connection-string (gethash "connection-string"
-                                     ctx-props
-                                     nil)))
-    (scoot--ensure-connection
-     (lambda ()
-       (funcall callback connection-name))
-     connection-name
-     connection-string)))
-
-(defun scoot--list-objects (object-type title)
-  "List objects visible to the user of the current connection.
-
-OBJECT-TYPE is the type of the object to list.
-TITLE is the resultset header to be used."
-  (interactive)
-  (with-contextual-connection
-   (lambda (connection-name)
-     (request
-       (format "%s/%s"
-               (scoot-server-base-connection-url connection-name)
-               object-type)
-       :type "GET"
-       :headers scoot--json-headers
-       :parser 'json-read
-       :success (cl-function
-                 (lambda (&key data &allow-other-keys)
-                   (scoot--open-result-buffer
-                    (list :type 'objects
-                          :object-type object-type
-                          :result
-                          `((columns . [,title])
-                            (rows . ,(mapcar #'vector
-                                             (seq-into
-                                              (alist-get object-type data)
-                                              'vector)))
-                            (metadata . ((columns . [((name . ,title)
-                                                      (type . "OBJECT-NAME"))]))))
-                          :connection connection-name))))
-       :error (scoot-connection--error-handler :op 'scoot-list-objects)))))
 
 (defun scoot-list-databases ()
   "List databases visible to the user of the current connection."
@@ -103,57 +55,23 @@ TITLE is the resultset header to be used."
   (interactive)
   (scoot--list-objects 'tables "Table Name"))
 
-(defun scoot-describe-table (table-name)
-  "Describe a database table.
+(defun scoot-describe-table (&optional table-name connection-name)
+  "Describe a table as defined by arguments or selected interactively.
 
-If TABLE-NAME is provided, this will be used as table name."
-  (interactive
-   (list
-    (cond
-     ((use-region-p)
-      (buffer-substring-no-properties (region-beginning) (region-end)))
-     ((thing-at-point 'symbol t))
-     (t
-      (read-string "Table name: ")))))
-  (with-contextual-connection
-   (lambda (connection-name)
-     (scoot-ensure-server)
-     (request
-       (format "%s/tables/%s"
-               (scoot-server-base-connection-url connection-name)
-               table-name)
-       :type "GET"
-       :headers scoot--json-headers
-       :parser 'json-read
-       :success (cl-function
-                 (lambda (&key data &allow-other-keys)
-                   (let ((columns '(name type nullable primary_key default)))
-                     (scoot--open-result-buffer
-                      (list :type 'object
-                            :object-type 'table
-                            :object-name (alist-get 'name data)
-                            :connection connection-name
-                            :result `((columns . ,columns)
-                                      (rows . ,(mapcar (lambda (entry)
-                                                         (mapcar (lambda (col-name)
-                                                                   (alist-get col-name entry))
-                                                                 columns))
-                                                       (alist-get 'columns data)))
-                                      (metadata . ((columns . [((name . "Name")
-                                                                (type . "OBJECT-NAME"))
-                                                               ((name . "Type")
-                                                                (type . "DATA-TYPE"))
-                                                               ((name . "Nullable")
-                                                                (type . "BOOLEAN"))
-                                                               ((name . "Primary Key")
-                                                                (type . "BOOLEAN"))
-                                                               ((name . "Default")
-                                                                (type . "self(Type)"))])
-                                                   (sql . (("CREATE TABLE-statement" . ,(alist-get 'create_stmt data))))))))))))
-       :error (scoot-connection--error-handler :op 'scoot-describe-table)))))
-
-
-
+TABLE-NAME and CONNECTION-NAME are optional, and will be attempted to be
+resolved using the context of the function call, if called interactively."
+  (interactive)
+  (let* ((conn-name (or connection-name
+                        (scoot--interactive-resolve-connection-name )))
+         (tbl (or table-name
+                  (scoot--try-resolvers
+                   'scoot-local--table-name-resolvers
+                   'scoot-default--table-name-resolvers
+                   (list :connection-name conn-name
+                         :interactive t)))))
+    (scoot-connection--describe-table tbl
+                                      conn-name
+                                      #'scoot-result--open-result-buffer)))
 
 (provide 'scoot)
 
