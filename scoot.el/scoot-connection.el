@@ -221,19 +221,25 @@ OP is a symbol describing the operation that this request is a part of."
                      (when (buffer-live-p buf)
                        (kill-buffer buf))))))))
 
-(defun scoot-connection--execute-statement (connection stmt callback)
-  "Send SQL STMT to the scoot server using a verified connection.
+(defun scoot-connection--statement-operation (connection stmt request-op action callback)
+  "Send a SQL STMT operation to the scoot server using a verified connection.
+
+Operations include actions like \"execute\" and \"modify\".
 
 The verified connection is provided by the plist CONNECTION.
-The original request information are contained in STMT and CTX-PROPS."
+STMT is the statement to operate on.
+REQUEST-OP is a symbol describing the purpose of the server request.
+ACTION is an alist describing the action of the operation..
+CALLBACK will be invoked with the result if the operation is successful."
   (scoot-ensure-server)
   (let ((connection-name (plist-get connection :name)))
     (scoot-connection--send-request
-     :op 'execute-statement
+     :op request-op
      :uri (format "/api/%s/query" connection-name)
      :method "POST"
      :body `(("sql" . ,stmt)
-             ("metadata" . t))
+             ("metadata" . t)
+             ("action" . ,action))
      :callback (lambda (data)
                  (funcall
                   callback
@@ -242,6 +248,38 @@ The original request information are contained in STMT and CTX-PROPS."
                         :connection connection-name
                         :statement stmt))))))
 
+(defun scoot-connection--execute-statement (connection stmt callback)
+  "Send SQL STMT to the scoot server using a verified connection.
+
+The verified connection is provided by the plist CONNECTION.
+STMT is the statement to execute.
+CALLBACK will be invoked with the result if the operation is successful."
+  (scoot-connection--statement-operation
+   connection
+   stmt
+   'execute-statement
+   '((action . "execute"))
+   callback))
+
+(defun scoot-connection--modify-statement (connection stmt modify-op modify-conds callback)
+  "Request to modify SQL STMT to the scoot server using a verified connection.
+
+The verified connection is provided by the plist CONNECTION.
+STMT is the statement to modify.
+MODIFY-OP is a tuple describing what to modify, ie (`WHERE `add).
+MODIFY-CONDS is a list of modifications, ie (\"account_id\" \"=\" \"5\").
+CALLBACK will be invoked with the result if the operation is successful."
+  (scoot-connection--statement-operation
+   connection
+   stmt
+   'modify-statement
+   (list (cons 'action "modify")
+         (cons 'target (car modify-op))
+         (cons 'operation (cadr modify-op))
+         (cons 'conditions (list (list (cons 'lhs (nth 0 modify-conds))
+                                       (cons 'cmp (nth 1 modify-conds))
+                                       (cons 'rhs (nth 2 modify-conds))))))
+   callback))
 
 (defun scoot-connection--list-objects (connection object-type callback)
   "List objects of type OBJECT-TYPE visible to connection CONNECTION.

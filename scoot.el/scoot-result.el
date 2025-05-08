@@ -144,6 +144,9 @@ Used to enable/disable `outline-minor-mode`.")
   "Face used for string values in result set cells."
   :group 'scoot)
 
+(declare-function which-key-add-keymap-based-replacements nil)
+(declare-function which-key-add-key-based-replacements nil)
+
 (declare-function scoot-describe-table "scoot")
 (declare-function scoot-list-databases "scoot")
 (declare-function scoot-list-schemas "scoot")
@@ -204,14 +207,19 @@ Used to enable/disable `outline-minor-mode`.")
         :format-value #'scoot--value-to-string
         :output-cell
         (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-string-face))))
+          (scoot--insert-faced formatted-value 'scoot-cell-string-face))
+        :sql-literal
+        (lambda (value)
+          (concat "'" value "'"))))
 
 (defvar scoot-formatter-number
   (list :align 'right
         :format-value #'scoot--value-to-string
         :output-cell
         (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-number-face))))
+          (scoot--insert-faced formatted-value 'scoot-cell-number-face))
+        :sql-literal
+        #'identity))
 
 (defvar scoot-formatter-boolean
   (list :align 'right
@@ -222,21 +230,30 @@ Used to enable/disable `outline-minor-mode`.")
           (scoot--insert-faced formatted-value
                                (if (eq val t)
                                    'scoot-cell-boolean-true-face
-                                 'scoot-cell-boolean-false-face)))))
+                                 'scoot-cell-boolean-false-face)))
+        (lambda (value)
+          (cond
+           (value "TRUE")
+           (t "FALSE")))))
 
 (defvar scoot-formatter-raw-string
   (list :align 'left
         :format-value #'scoot--value-to-string
         :output-cell
         (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-generic-face))))
+          (scoot--insert-faced formatted-value 'scoot-cell-generic-face))
+        :sql-literal
+        (lambda (value)
+          (concat "'" value "'"))))
 
 (defvar scoot-formatter-null
   (list :align 'right
         :format-value (lambda (_) "NULL")
         :output-cell
         (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-null-face))))
+          (scoot--insert-faced formatted-value 'scoot-cell-null-face))
+        :sql-literal
+        (lambda (_) "NULL")))
 
 (defun scoot--resolve-formatter-from-column-metadata (column)
   "Resolve cell formatter based on COLUMN type."
@@ -354,15 +371,21 @@ Used to enable/disable `outline-minor-mode`.")
 (defun scoot-result--insert-table-row (row)
   "Insert the table row ROW."
 
-  (cl-mapc (lambda (cell width fmt)
+  (cl-mapc (lambda (header cell width fmt)
              (scoot--insert-faced "| " 'scoot-table-face)
-             (let* ((value (plist-get cell :value))
+             (let* ((cell-start (- (point) 1))
+                    (value (plist-get cell :value))
                     (formatted-value (plist-get cell :formatted-value))
                     (formatter (if (null value)
                                    scoot-formatter-null
                                  fmt))
                     (align (plist-get formatter :align))
-                    (padding (- width (string-width formatted-value))))
+                    (padding (- width (string-width formatted-value)))
+                    (header-meta (plist-get header :metadata))
+                    (cell-props (list 'thing 'table-cell
+                                      'column-meta header-meta
+                                      'formatter formatter
+                                      'value value)))
                (when (eq align 'right)
                  (insert (make-string padding ?\s)))
                (funcall
@@ -371,7 +394,9 @@ Used to enable/disable `outline-minor-mode`.")
                 formatted-value)
                (when (eq align 'left)
                  (insert (make-string padding ?\s)))
-               (insert " ")))
+               (insert " ")
+               (add-text-properties cell-start (point) cell-props)))
+           (plist-get scoot-result--result-model :headers)
            row
            (plist-get scoot-result--result-model :widths)
            (plist-get scoot-result--result-model :formatters))
@@ -577,14 +602,12 @@ Additional keys for type object/objects:
 
 Additional keys for type object:
 :object-name - The name of the object described."
-
   (let ((result (plist-get result-context :result))
         (connection (plist-get result-context :connection))
         (stmt (plist-get result-context :statement))
         (type (plist-get result-context :type))
         (object-type (plist-get result-context :object-type))
         (object-name (plist-get result-context :object-name)))
-
     ;; FIXME: Decide on a scheme to uniquely identify result buffers
     (let ((buf (get-buffer-create "*scoot-result*")))
       (with-current-buffer buf
@@ -594,14 +617,95 @@ Additional keys for type object:
                     scoot-result--result-type type
                     scoot-result--result-object-type object-type
                     scoot-result--result-object-name object-name
-                    scoot-result--original-sql-statement stmt
-                    scoot-result--current-sql-statement stmt
                     scoot-result--result-data result)
+
+        (unless scoot-result--original-sql-statement
+          (setq-local scoot-result--original-sql-statement stmt))
+
+        (setq-local scoot-result--current-sql-statement
+                    (or (alist-get 'stmt (alist-get 'metadata result))
+                        stmt))
 
         (scoot-result-refresh-buffer)
         (unless (zerop scoot-result--outline-sections)
           (outline-hide-subtree))
         (display-buffer buf)))))
+
+(defun scoot-result--cell-at-point ()
+  "Return the result set table cell at point."
+  (let* ((text-props (text-properties-at (point)))
+         (props (cl-loop for (prop val) on text-props by #'cddr collect (cons prop val))))
+    (list :type (alist-get 'thing props)
+          :column (alist-get 'column-meta props)
+          :value (alist-get 'value props)
+          :formatter (alist-get 'formatter props))))
+
+(defun scoot-result--buffer-connection ()
+  "Get the connection used to retrieve the current result."
+  (gethash scoot-result--result-connection-name scoot-connections))
+
+(defun scoot-result--modify-where (op cmp &optional allow-null)
+  "Perform a modification of the WHERE-clause using the table cell at point.
+
+OP is either `add or `remove.
+CMP is the comparison to do in the WHERE-clause, ie \"=\" or \">\".
+ALLOW-NULL signals whether this operation is legal for NULL values."
+  (interactive)
+  (let ((cell (scoot-result--cell-at-point)))
+    (when-let ((type (plist-get cell :type))
+               (column (plist-get cell :column))
+               (formatter (plist-get cell :formatter)))
+      (let* ((value (plist-get cell :value)))
+        (when (or value allow-null)
+          (scoot-connection--modify-statement
+           (scoot-result--buffer-connection)
+           scoot-result--current-sql-statement
+           `("WHERE" ,op)
+           (list (alist-get 'name column)
+                 (if value cmp
+                   (pcase cmp
+                     ("=" "IS")
+                     ("!=" "IS NOT")))
+                 (funcall
+                  (plist-get formatter :sql-literal)
+                  value))
+           #'scoot-result--open-result-buffer))))))
+
+(defun scoot-result--add-or-remove-prefix-map (op)
+  "Generate a prefixed keymap for adding or removing to/from the query.
+
+OP is either `add or `remove."
+  (let ((map (make-sparse-keymap))
+        (where-prefix (make-sparse-keymap))
+        (op-name (if (eq op 'add) "Add" "Remove"))
+        (op-dir (if (eq op 'add) "to" "from")))
+    (define-key where-prefix (kbd "e")
+                (lambda () (interactive) (scoot-result--modify-where op "=" t)))
+    (define-key where-prefix (kbd "=")
+                (lambda () (interactive) (scoot-result--modify-where op "=" t)))
+    (define-key where-prefix (kbd "!")
+                (lambda () (interactive) (scoot-result--modify-where op "!=" t)))
+    (define-key where-prefix (kbd "n")
+                (lambda () (interactive) (scoot-result--modify-where op "!=" t)))
+    (define-key where-prefix (kbd "<")
+                (lambda () (interactive) (scoot-result--modify-where op "<")))
+    (define-key where-prefix (kbd ">")
+                (lambda () (interactive) (scoot-result--modify-where op ">")))
+    (define-key where-prefix (kbd "l")
+                (lambda () (interactive) (scoot-result--modify-where op "<=")))
+    (define-key where-prefix (kbd "g")
+                (lambda () (interactive) (scoot-result--modify-where op ">=")))
+    (define-key map (kbd "w") where-prefix)
+
+    (when (featurep 'which-key)
+      (which-key-add-keymap-based-replacements map
+        "w" (concat op-name " " op-dir " WHERE clause"))
+
+      (which-key-add-keymap-based-replacements where-prefix
+        "e" (concat op-name " = " op-dir " WHERE-clause")
+        "<" (concat op-name " < " op-dir " WHERE-clause")
+        ">" (concat op-name " > " op-dir " WHERE-clause")))
+    map))
 
 (defvar scoot-result-mode-map
   (let ((map (make-sparse-keymap)))
@@ -612,6 +716,8 @@ Additional keys for type object:
     (define-key map (kbd "C-c s s") #'scoot-list-schemas)
     (define-key map (kbd "C-c s t") #'scoot-list-tables)
     (define-key map (kbd "C-c d t") #'scoot-describe-table)
+    (define-key map (kbd "a") (scoot-result--add-or-remove-prefix-map 'add))
+    (define-key map (kbd "r") (scoot-result--add-or-remove-prefix-map 'remove))
     map)
   "Keymap for `scoot-result-mode`.")
 

@@ -8,6 +8,7 @@ Unlike `sql-mode`, scoot.el is designed for an iterative development workflow �
 
 - SQL scratch buffers that persist between sessions
 - Per-buffer or per-block connection configuration
+- Interactive result set tables
 - Evaluation of single statements or regions
 - Commands for listing tables, schemas, databases
 - Optional connection autoload via metadata blocks
@@ -65,7 +66,7 @@ Create a new scratch buffer using:
 M-x scoot-new-scratch
 ```
 
-This will open a new SQL buffer in `scoot-mode`, saved (by default) to `~/.scoot/scratches/`.
+This will open a new SQL buffer in `scoot-scratch-mode`, saved (by default) to `~/.scoot/scratches/`.
 
 You can customize the location with `M-x customize-variable` or by setting it directly:
 
@@ -73,23 +74,84 @@ You can customize the location with `M-x customize-variable` or by setting it di
 (setq scoot-scratch-directory "~/my/sql-work")
 ```
 
-## Scratch Buffer Format
+No global keybindings are defined — if you want global keybindings open scoot scratches you should bind `scoot-new-scratch` to a key of your choice.
 
-You can include optional metadata blocks at the top or above each statement:
+Example:
+```elisp
+(global-set-key (kbd "C-c s n") #'scoot-new-scratch)
+```
+
+Existing scratch buffers can be listed and recalled by invoking `scoot-open-scratch`.
+
+```elisp
+M-x scoot-open-scratch
+```
+
+## Scratch Mode (scoot-scratch-mode)
+
+Scratch Mode provides a flexible workspace for writing, testing, and executing SQL statements 
+directly from Emacs. This mode is particularly useful for exploring or updating databases 
+without the need for separate query tools.
+
+
+### Creating a Scratch Buffer
+
+To open a new scratch buffer, use the command scoot-new-scratch. By default, this inserts 
+connection details at the top of the buffer as comments, allowing you to define or refer 
+to database connections.
+
+### Scratch Buffer Structure
+
+A scratch buffer primarily consists of SQL statements and optional connection annotations. 
+The SQL syntax is based on the dialect of the connected database server, but scoot.el also 
+recognizes specific configuration annotations within ANSI SQL-style comments.
+
+Example:
 
 ```sql
 -- @connection-string: mssql+pyodbc://sa:password@localhost:1433/my-database?driver=ODBC+Driver+17+for+SQL+Server
 -- @connection-name: test2
 
 SELECT * FROM accounts;
+
+SELECT * FROM accounts WHERE postal_code = 'S-112 30';
 ```
 
-- `@connection-string` registers a new connection if needed
-- `@connection-name` refers to an already-registered connection
-- If both are provided, the string is used to register (or re-register) the given name
-- Multiple metadata blocks can exist in the same file; the one nearest *above* a query is used
+- `@connection-string`: Defines or overrides the connection string for subsequent SQL statements.
+- `@connection-name`: Associates a name with the connection string or references an existing connection by name.
 
-## Keybindings (in `scoot-mode`)
+If both annotations are provided, the connection string will register or update the named connection
+
+### Multiple Connections in a Single Buffer
+
+You can define multiple connection contexts within a single scratch buffer. A block of uninterrupted 
+annotation lines defines the active connection context for the SQL statements that follow:
+
+You can divide a scratch buffer into multiple sections using different connections.
+A group of uninterrupted lines containing configuration annotations is used as the connection context for all statements that follow:
+
+```sql
+-- @connection-string: mssql+pyodbc://sa:password@localhost:1433/my-database?driver=ODBC+Driver+17+for+SQL+Server
+-- @connection-name: dev-db
+
+SELECT * FROM accounts;
+
+SELECT * FROM accounts WHERE postal_code = 'S-112 30';
+
+-- @connection-string: mssql+pyodbc://sa:password@localhost:14331/appdb?driver=ODBC+Driver+17+for+SQL+Server
+-- @connection-name: myapp-test-env-tunnel
+
+SELECT * FROM accounts WHERE postal_code = 'S-112 30';
+
+-- @connection-name: dev-db
+
+SELECT DISTINCT account_id FROM orders WHERE postal_code = 'S-112 30';
+```
+
+A connection context remains active until the next connection annotation block or the end of the buffer. This 
+allows you to work with multiple databases seamlessly within the same buffer.
+
+### Keybindings (in `scoot-scratch-mode`)
 
 | Binding   | Action                              |
 |-----------|-------------------------------------|
@@ -100,14 +162,73 @@ SELECT * FROM accounts;
 | `C-c s t` | List tables                         |
 | `C-c d t` | Describe table at point             |
 
-No global bindings are defined — you should bind `scoot-new-scratch` to a key of your choice if desired.
+### Customizable variables
 
-Example:
-```elisp
-(global-set-key (kbd "C-c s n") #'scoot-new-scratch)
-```
+| Custom Variable                  | Default               | Type               | Description/Purpose                                                    |
+|----------------------------------|-----------------------|--------------------|------------------------------------------------------------------------|
+| `scoot-auto-enable-scratch-mode` | t                     | boolean            | Automatically enable scoot-scratch-mode in scratch buffers.            |
+| `scoot-scratch-directory`        | "~/.scoot/scratches/" | string (directory) | Directory on disk where Scoot scratch buffers are saved and read from. |
 
-## Customizable variables
+## Result Mode (scoot-result-mode)
+
+Result Mode in `scoot.el` displays query results and metadata as an interactive 
+ASCII-style table. This mode provides keybindings for quickly adding or removing 
+WHERE-clause conditions based on the values in the table.
+
+### Interacting with Results
+
+In Result Mode, the table is interactive. You can navigate the cells using the 
+arrow keys and execute commands to adjust query conditions directly from the table. 
+The available commands are organized under a for adding conditions and r for removing 
+them.
+
+### Keybindings (in `scoot-result-mode`)
+
+| Binding            | Context        | Action                                                                                                    |
+|--------------------|----------------|-----------------------------------------------------------------------------------------------------------|
+| `g`                | -              | Refresh the buffer                                                                                        |
+| `TAB`              | Folded outline | Hide/show folded outline seection.                                                                        |
+| `a w e` or `a w =` | Table cell     | Add this column/value to the WHERE-clause with an equals(=) expression.                                   |
+| `a w n` or `a w !` | Table cell     | Add this column/value to the WHERE-clause with a not equals(!=) expression.                               |
+| `a w >`            | Table cell     | Add this column/value to the WHERE-clause with a greater than(>) expression.                              |
+| `a w g`            | Table cell     | Add this column/value to the WHERE-clause with a greater than or equals(>=) expression.                   |
+| `a w <`            | Table cell     | Add this column/value to the WHERE-clause with a less than(<) expression.                                 |
+| `a w l`            | Table cell     | Add this column/value to the WHERE-clause with a less than or equals(<=) expression.                      |
+| `r w e` or `r w =` | Table cell     | Remove an existing equals(=) expression against this column/value from the WHERE-clause.                  |
+| `r w n` or `r w !` | Table cell     | Remove an existing not equals(!=) expression against this column/value from the WHERE-clause.             |
+| `r w >`            | Table cell     | Remove an existing greater than(>) expression against this column/value from the WHERE-clause..           |
+| `r w g`            | Table cell     | Remove an existing greater than or equals(>=) expression against this column/value from the WHERE-clause. |
+| `r w <`            | Table cell     | Remove an existing less than(<) expression against this column/value from the WHERE-clause.               |
+| `r w l`            | Table cell     | Remove an existing less than or equals(<=) expression against this column/value from the WHERE-clause.    |
+
+### Customizable variables (in `scoot-result-mode`)
+
+You can adjust the appearance and behavior of the result table using these customizable 
+variables:
+
+| Custom Variable          | Default | Type   | Description/Purpose                                 |
+|--------------------------|---------|--------|-----------------------------------------------------|
+| `scoot-primary-key-icon` | "🔑"    | string | Icon used in table headers for primary key columns. |
+| `scoot-foreign-key-icon` | "🗝️"    | string | Icon used in table headers for foreign key columns. |
+
+
+## Commands for global use
+
+| Command                | Args                                       | Description                                                                                                                                                                              |
+|------------------------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `scoot-new-scratch`    |                                            | Create and open a new scratch buffer.                                                                                                                                                    |
+| `scoot-open-scratch`   |                                            | Open a scratch buffer from disk. Will list all `.scoot`-files in `scoot-scratch-directory`.                                                                                              |
+| `scoot-start-server`   |                                            | Start the scoot-server                                                                                                                                                                   |
+| `scoot-stop-server`    |                                            | Stop the running scoot-server                                                                                                                                                            |
+| `scoot-restart-server` |                                            | Restart the rhe running scoot-server                                                                                                                                                     |
+| `scoot-ensure-server`  | (&optional `force-start`)                  | Start the server if it is not running. If `scoot-auto-start-server` is set to `nil`, this will not make attempt to start the server unless a non-nil value is provided for `force-start` |
+| `scoot-list-tables`    |                                            | List tables (if no contextual connection is available, this opens a prompt to select a connection.)                                                                                      |
+| `scoot-describe-table` | (&optional `table-name` `connection-name`) | Describe a table (if table-name and/or connection-name is not provided, this opens prompts.)                                                                                             |
+| `scoot-list-databases` |                                            | List databases (if no contextual connection is available, this opens a prompt to select a connection.)                                                                                   |
+| `scoot-list-schemas`   |                                            | List schemas (if no contextual connection is available, this opens a prompt to select a connection.)                                                                                     |
+
+
+## Customizable variables (general)
 
 ### Server Management
 
@@ -120,22 +241,12 @@ Example:
 | `scoot-show-server-buffer`   | nil         | boolean | Enable/disable server output in *scoot-server* buffer                                               |
 | `scoot-server-start-timeout` | 5           | number  | Timeout, in seconds, to wait for the scoot-server to become available after issuing a start command |
 
-
 ### Connection Management
 
 | Custom Variable                        | Default   | Type    | Description/Purpose                                                                          |
 |----------------------------------------|-----------|---------|----------------------------------------------------------------------------------------------|
 | `scoot-server-default-connection-name` | "default" | string  | The name of the connection to use if none is specified / no context is available             |
 | `scoot-auto-persist-connections`       | nil       | boolean | Determines if any connections created should be persisted to the active Server configuration |
-
-
-### Scratch Buffers
-
-| Custom Variable                  | Default               | Type      | Description/Purpose                                                                   |
-|----------------------------------|-----------------------|-----------|---------------------------------------------------------------------------------------|
-| `scoot-auto-enable-scratch-mode` | t                     | boolean   | Enable/disable auto-enabling of scoot-scratch-mode when opening Scoot scratch buffers |
-| `scoot-scratch-directory`        | "~/.scoot/scratches/" | directory | Specifies the directory on disk to save Scoot scratch buffers.                        |
-
 
 ## Dependencies
 

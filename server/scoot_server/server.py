@@ -157,16 +157,21 @@ def list_schemas(connection):
 @app.route("/api/<string:conn>/query", methods=["POST"])
 @with_error_handler
 @with_connection
-def run_query(connection):
+def query_operation(connection):
     data = request.get_json()
     sql = data.get("sql")
     include_metadata = data.get("metadata", False)
+    action = data.get("action", {"action": "execute"})
 
-    result = query.execute(connection, sql)
-    result.metadata = (
+    result = query.perform_action(connection, sql, action)
+
+    query_metadata = (
         metadata.resolve_query_metadata(connection, sql)
         if include_metadata
         else None
     )
+
+    if query_metadata:
+        result.metadata = (result.metadata or {}) | query_metadata
 
     return json_response(result.to_dict())
