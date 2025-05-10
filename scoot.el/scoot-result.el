@@ -37,9 +37,11 @@
 
 (require 'cl-lib)
 (require 'outline)
+(require 'xref)
 (require 'scoot-query-block)
 (require 'scoot-server)
 (require 'scoot-connection)
+(require 'scoot-xref)
 
 (defcustom scoot-primary-key-icon "🔑"
   "Icon used to indicate that a column has a primary key constraint."
@@ -169,7 +171,7 @@ Used to enable/disable `outline-minor-mode`.")
                                   "")
                                 name))
         :output-cell (lambda (_ formatted-value)
-                        (scoot--insert-faced formatted-value 'scoot-header-face))))
+                       (scoot--insert-faced formatted-value 'scoot-header-face))))
 
 (defvar scoot-formatter-string
   (list :align 'left
@@ -317,7 +319,8 @@ Used to enable/disable `outline-minor-mode`.")
 
   (cl-mapc (lambda (header width)
              (scoot--insert-faced "| " 'scoot-table-face)
-             (let* ((align (plist-get scoot-formatter-header :align))
+             (let* ((header-begin (1- (point)))
+                    (align (plist-get scoot-formatter-header :align))
                     (name (plist-get header :name))
                     (header-label (plist-get header :header-label))
                     (padding (- width (string-width header-label))))
@@ -329,7 +332,11 @@ Used to enable/disable `outline-minor-mode`.")
                 header-label)
                (when (eq align 'left)
                  (insert (make-string padding ?\s)))
-               (insert " ")))
+               (insert " ")
+               (add-text-properties header-begin (point) (list 'thing 'table-header
+                                                               'header name
+                                                               'column (alist-get 'column (plist-get header :metadata))
+                                                               'table (alist-get 'table (plist-get header :metadata))))))
            (plist-get scoot-result--result-model :headers)
            (plist-get scoot-result--result-model :widths))
   (scoot--insert-faced "|" 'scoot-table-face)
@@ -342,7 +349,7 @@ Used to enable/disable `outline-minor-mode`.")
 
   (cl-mapc (lambda (header cell width fmt)
              (scoot--insert-faced "| " 'scoot-table-face)
-             (let* ((cell-start (- (point) 1))
+             (let* ((cell-start (1- (point)))
                     (value (plist-get cell :value))
                     (formatted-value (plist-get cell :formatted-value))
                     (formatter (if (null value)
@@ -508,13 +515,15 @@ font-lock properties."
   (insert "\n")
 
   (when (eq scoot-result--result-type 'object)
-    (scoot--insert-faced (concat (pcase scoot-result--result-object-type
+    (insert (propertize (concat (pcase scoot-result--result-object-type
                                    ('table "Table")
                                    ('schema "Schema")
                                    ('database "Database"))
-                                 ": ")
-                         'scoot-label-face)
-    (insert scoot-result--result-object-name)
+                                ": ")
+                        'face 'scoot-label-face))
+    (insert (propertize scoot-result--result-object-name
+                        'thing (intern (concat (symbol-name scoot-result--result-object-type)
+                                               "-name"))))
     (insert "\n\n"))
 
   (when (eq scoot-result--result-type 'query)
@@ -602,7 +611,8 @@ Additional keys for type object:
           (save-excursion
             (goto-char (point-max))
             (outline-hide-subtree)))
-        (display-buffer buf)))))
+        (display-buffer buf))
+      buf)))
 
 (defun scoot-result--check-cursor-position ()
   "Check cursor position and handle query block activation/deactivation."
@@ -657,6 +667,82 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
                   (plist-get formatter :sql-literal)
                   value))
            #'scoot-result--open-result-buffer))))))
+
+(cl-defmethod scoot-xref--point-is-thing-p ((_type (eql 'column)) _point xref-target props)
+  "Test PROPS for thing of TYPE `column against XREF-TARGET."
+  (when (equal scoot-result--result-object-type 'table)
+    (let* ((column-meta (alist-get 'column-meta props) ))
+      (and (equal (alist-get 'thing props) 'table-cell)
+           (equal (alist-get 'type column-meta) "OBJECT-NAME")
+           (equal (alist-get 'value props) (plist-get xref-target :column))))))
+
+(cl-defmethod scoot-xref--point-is-thing-p ((_type (eql 'table)) _point xref-target props)
+  "Test PROPS for ting of TYPE `table against XREF-TARGET."
+  (and (equal scoot-result--result-object-type 'table)
+       (equal scoot-result--result-object-name (plist-get xref-target :table))
+       (equal (alist-get 'thing props) 'table-name)))
+
+(defun scoot-result--xref-action (xref-target)
+  "Find location for XREF-TARGET."
+  (let* ((xref-conn-cache (scoot-xref--get-conn-cache (scoot-result--buffer-connection)))
+         (identifier (plist-get xref-target :xref))
+         (cached-xref (gethash identifier xref-conn-cache)))
+    (if (scoot-xref--is-valid-xref cached-xref xref-target)
+        (list cached-xref)
+      (let* ((target (plist-get xref-target :target))
+             (t-table (plist-get xref-target :table))
+             (xref-async-response
+              (xref-make identifier
+                         (make-scoot-xref-async-location :identifier identifier :marker nil :pending t))))
+        (cond
+         ((or (member target '(:column :table)))
+          (progn (scoot-connection--describe-table (scoot-result--buffer-connection)
+                                                   t-table
+                                                   (lambda (result-context)
+                                                     (let* ((buf (scoot-result--open-result-buffer result-context))
+                                                            (pos (scoot-xref--find-buffer-location buf xref-target))
+                                                            (loc (xref-make-buffer-location buf pos)))
+                                                       (puthash identifier
+                                                                (xref-make identifier loc)
+                                                                xref-conn-cache)
+                                                       (xref-find-definitions identifier))))
+                 (list xref-async-response))))))))
+
+(defun scoot-result--xref-id-at-point ()
+  "Resolve identifier for xref at point."
+  (let ((props (scoot--props-at-point)))
+    (cond
+     ((eq 'query scoot-result--result-type)
+      (pcase (alist-get 'thing props)
+        ('table-header (scoot-xref--column-identifier (list :column (alist-get 'column props)
+                                                            :name (alist-get 'name props)
+                                                            :table (alist-get 'table props))))))
+     ((eq 'tables scoot-result--result-object-type)
+      (pcase (alist-get 'thing props)
+        ('table-cell (scoot-xref--table-identifier
+                      (list :name (alist-get 'value props))))))
+
+     ((eq 'databases scoot-result--result-object-type)
+      (pcase (alist-get 'thing props)
+        ('table-cell (scoot-xref--database-identifier
+                      (list :name (alist-get 'value props)))))))))
+
+(defun scoot-result--xref-completions ()
+  "Identifiers to show in xref completion prompt."
+  (cond
+   ((eq 'query scoot-result--result-type)
+    (append (mapcar (lambda (tbl) (scoot-xref--table-identifier (list :name tbl)))
+                    (plist-get scoot-result--result-model :tables))
+            (mapcar
+             (lambda (h)
+               (let ((md (plist-get h :metadata)))
+                 (scoot-xref--column-identifier (list :column (alist-get 'column md)
+                                                      :name (alist-get 'name md)
+                                                      :table (alist-get 'table md)))))
+             (plist-get scoot-result--result-model :headers))))
+   ((eq 'tables scoot-result--result-object-type)
+    (append (mapcar (lambda (row) (scoot-xref--table-identifier (list :name (plist-get (car row) :value))))
+                    (plist-get scoot-result--result-model :records))))))
 
 (defun scoot-result--add-or-remove-prefix-map (op)
   "Generate a prefixed keymap for adding or removing to/from the query.
@@ -719,7 +805,12 @@ OP is either `add or `remove."
 
   (setq-local truncate-lines t)
   (setq buffer-read-only t)
-  (add-hook 'post-command-hook 'scoot-result--check-cursor-position nil t))
+  (add-hook 'post-command-hook 'scoot-result--check-cursor-position nil t)
+
+  (setq-local scoot-xref-action-fn 'scoot-result--xref-action)
+  (setq-local scoot-xref-identifier-at-point-fn 'scoot-result--xref-id-at-point)
+  (setq-local scoot-xref-completion-provider-fn 'scoot-result--xref-completions)
+  (add-hook 'xref-backend-functions #'scoot--xref-backend nil t))
 
 (provide 'scoot-result)
 
