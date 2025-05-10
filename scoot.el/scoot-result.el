@@ -599,7 +599,9 @@ Additional keys for type object:
 
         (scoot-result-refresh-buffer)
         (unless (zerop scoot-result--outline-sections)
-          (outline-hide-subtree))
+          (save-excursion
+            (goto-char (point-max))
+            (outline-hide-subtree)))
         (display-buffer buf)))))
 
 (defun scoot-result--check-cursor-position ()
