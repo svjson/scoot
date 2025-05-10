@@ -180,6 +180,7 @@ SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
              (when failure-callback
                (funcall failure-callback)))))))))
 
+;;;###autoload
 (defun scoot-start-server ()
   "Manually start the Scoot server."
   (interactive)
@@ -197,6 +198,7 @@ SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
         (error "Scoot server failed to respond within %s seconds"
                scoot-server-start-timeout)))))
 
+;;;###autoload
 (defun scoot-stop-server ()
   "Stop the running Scoot server, if any."
   (interactive)
@@ -208,6 +210,7 @@ SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
         (message "Scoot server stopped."))
     (message "No running managed Scoot server.")))
 
+;;;###autoload
 (defun scoot-restart-server ()
   "Restart the Scoot server cleanly."
   (interactive)
@@ -217,6 +220,7 @@ SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
         (scoot-start-server))
     (scoot-stop-server)))
 
+;;;###autoload
 (defun scoot-ensure-server (&optional force-start)
   "Ensure that the Scoot server is running.  Start it if it is not.
 

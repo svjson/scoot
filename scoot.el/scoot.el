@@ -40,21 +40,25 @@
   "Scoot-modes for SQL interaction via SQL scratch buffers and result set buffers."
   :group 'tools)
 
+;;;###autoload
 (defun scoot-list-databases ()
   "List databases visible to the user of the current connection."
   (interactive)
   (scoot--list-objects 'databases "Database Name"))
 
+;;;###autoload
 (defun scoot-list-schemas ()
   "List schemas visible to the user of the current connection."
   (interactive)
   (scoot--list-objects 'schemas "Schema Name"))
 
+;;;###autoload
 (defun scoot-list-tables ()
   "List tables visible to the user of the current connection."
   (interactive)
   (scoot--list-objects 'tables "Table Name"))
 
+;;;###autoload
 (defun scoot-describe-table (&optional table-name connection-name)
   "Describe a table as defined by arguments or selected interactively.
 

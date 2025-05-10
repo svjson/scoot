@@ -62,6 +62,7 @@
   (when (file-directory-p scoot-scratch-directory)
     (directory-files scoot-scratch-directory t "\\.scoot\\'")))
 
+;;;###autoload
 (defun scoot-new-scratch ()
   "Create a new Scoot scratch buffer."
   (interactive)
@@ -84,6 +85,7 @@
         (setq-local scoot-connection-name conn-name))
       (pop-to-buffer buffer))))
 
+;;;###autoload
 (defun scoot-open-scratch ()
   "Prompt to open a Scoot scratch file from `scoot-scratch-directory`."
   (interactive)
@@ -292,6 +294,7 @@ scratch comments and configuration annotations."
     map)
   "Keymap for `scoot-scratch-mode'.")
 
+;;;###autoload
 (define-derived-mode scoot-scratch-mode prog-mode "Scoot Scratch"
   "Major mode for Scoot SQL scratch buffers."
   (setq-local comment-start "-- ")

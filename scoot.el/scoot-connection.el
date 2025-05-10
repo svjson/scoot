@@ -51,6 +51,7 @@ active configuration of the Scoot Server."
   :type 'boolean
   :group 'scoot)
 
+;;;###autoload
 (defvar scoot-connections (make-hash-table :test #'equal)
   "Table of known scoot connection names to connection strings.")
 
@@ -65,6 +66,7 @@ Optionally provide CONNECTION-NAME, or rely on the default name."
           (scoot-server--base-url)
           (or connection-name scoot-server-default-connection-name)))
 
+;;;###autoload
 (defun scoot-add-connection (name conn-string)
   "Add a named connection to the scoot connections table.
 
