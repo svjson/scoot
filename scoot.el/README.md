@@ -175,6 +175,14 @@ Result Mode in `scoot.el` displays query results and metadata as an interactive
 ASCII-style table. This mode provides keybindings for quickly adding or removing 
 WHERE-clause conditions based on the values in the table.
 
+The mode is designed to streamline query adjustments, allowing rapid iteration and 
+refinement without leaving the result view.
+
+### Refining your query
+
+The query backing the result set is fully editable. Modify the query as needed and
+re-execute it with `C-c C-c`.
+
 ### Interacting with Results
 
 In Result Mode, the table is interactive. You can navigate the cells using the 
@@ -188,6 +196,9 @@ them.
 |--------------------|----------------|-----------------------------------------------------------------------------------------------------------|
 | `g`                | -              | Refresh the buffer                                                                                        |
 | `TAB`              | Folded outline | Hide/show folded outline seection.                                                                        |
+| `C-c C-c`          | -              | Execute query                                                                                             |
+| `h` or `?`         | -              | Describe mode                                                                                             |
+| `q`                | -              | Quit window                                                                                                          |
 | `a w e` or `a w =` | Table cell     | Add this column/value to the WHERE-clause with an equals(=) expression.                                   |
 | `a w n` or `a w !` | Table cell     | Add this column/value to the WHERE-clause with a not equals(!=) expression.                               |
 | `a w >`            | Table cell     | Add this column/value to the WHERE-clause with a greater than(>) expression.                              |

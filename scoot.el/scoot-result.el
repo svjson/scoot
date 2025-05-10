@@ -37,6 +37,7 @@
 
 (require 'cl-lib)
 (require 'outline)
+(require 'scoot-query-block)
 (require 'scoot-server)
 (require 'scoot-connection)
 
@@ -85,7 +86,7 @@ table")
 (defvar-local scoot-result--result-model nil
   "The model backing the visual representation of the data set.")
 
-(defvar-local scoot-result--outline-sections 0
+(defvar-local scoot-result--outline-sections nil
   "The number of foldable headings currently in the buffer.
 Used to enable/disable `outline-minor-mode`.")
 
@@ -107,11 +108,6 @@ Used to enable/disable `outline-minor-mode`.")
 (defface scoot-outline-header-face
   '((t :inherit outline-1))
   "Face used for foldable outline headers."
-  :group 'scoot)
-
-(defface scoot-query-block-face
-  '((t :inherit highlight :background "#222222" :extend nil))
-  "Face used fo query blocks."
   :group 'scoot)
 
 (defface scoot-cell-null-face
@@ -157,33 +153,6 @@ Used to enable/disable `outline-minor-mode`.")
   (let ((beg (point)))
     (insert text)
     (put-text-property beg (point) 'face face)))
-
-(defun scoot--wrap-string (str width)
-  "Wrap STR into lines no longer than WIDTH using word boundaries."
-  (let ((words (split-string str " "))
-        (lines '())
-        (current ""))
-    (dolist (word words)
-      (if (> (+ (length current) (length word) 1) width)
-          (progn
-            (push current lines)
-            (setq current word))
-        (setq current (if (string-empty-p current)
-                          word
-                        (concat current " " word)))))
-    (when (not (string-empty-p current))
-      (push current lines))
-    (nreverse lines)))
-
-(defun scoot--insert-query-box (query)
-  "Insert QUERY string with wrapping and box-like styling."
-  (let* ((width (window-body-width))
-         (wrapped-lines (scoot--wrap-string query width)))
-    (dolist (line wrapped-lines)
-      (let ((beg (point)))
-        (insert line)
-        (insert "\n")
-        (put-text-property beg (point) 'face 'scoot-query-block-face)))))
 
 (defun scoot--value-to-string (val &rest _)
   "Stringify a value, VAL, for display in a result set table."
@@ -528,6 +497,7 @@ font-lock properties."
 (defun scoot-result-refresh-buffer ()
   "Redraw the entire buffer from scoot-result--result-model."
   (interactive)
+  (scoot--save-cursor)
   (scoot-result--deactivate-minor-mode)
   (read-only-mode -1)
   (erase-buffer)
@@ -550,7 +520,7 @@ font-lock properties."
   (when (eq scoot-result--result-type 'query)
     (scoot--insert-faced "Query: " 'scoot-label-face)
     (insert "\n")
-    (scoot--insert-query-box (format "%s" scoot-result--current-sql-statement))
+    (scoot-qb--insert-query-block (format "%s" scoot-result--current-sql-statement))
     (insert "\n"))
 
   (scoot-result--insert-result-set)
@@ -572,7 +542,8 @@ font-lock properties."
   (unless (zerop scoot-result--outline-sections)
     (scoot-result--activate-outline-minor-mode))
 
-  (read-only-mode 1))
+  (read-only-mode 1)
+  (scoot--restore-cursor))
 
 (cl-defun scoot-result--tables-in-result (&allow-other-keys)
   "Describe a table, either TABLE-NAME or tables involved in the query/result."
@@ -631,10 +602,15 @@ Additional keys for type object:
           (outline-hide-subtree))
         (display-buffer buf)))))
 
+(defun scoot-result--check-cursor-position ()
+  "Check cursor position and handle query block activation/deactivation."
+  (if (scoot-qb--query-block-at-point-p)
+      (unless scoot-query-block-mode (scoot-query-block-mode 1))
+    (when scoot-query-block-mode (scoot-query-block-mode -1))))
+
 (defun scoot-result--cell-at-point ()
   "Return the result set table cell at point."
-  (let* ((text-props (text-properties-at (point)))
-         (props (cl-loop for (prop val) on text-props by #'cddr collect (cons prop val))))
+  (let* ((props (scoot--props-at-point)))
     (list :type (alist-get 'thing props)
           :column (alist-get 'column-meta props)
           :value (alist-get 'value props)
@@ -643,6 +619,15 @@ Additional keys for type object:
 (defun scoot-result--buffer-connection ()
   "Get the connection used to retrieve the current result."
   (gethash scoot-result--result-connection-name scoot-connections))
+
+(defun scoot-result--execute-query ()
+  "Execute the current query in this result buffer."
+  (interactive)
+  (setq scoot-result--current-sql-statement (scoot-qb--get-query))
+  (scoot-connection--execute-statement
+   (scoot-result--buffer-connection)
+   scoot-result--current-sql-statement
+   #'scoot-result--open-result-buffer))
 
 (defun scoot-result--modify-where (op cmp &optional allow-null)
   "Perform a modification of the WHERE-clause using the table cell at point.
@@ -709,19 +694,22 @@ OP is either `add or `remove."
 
 (defvar scoot-result-mode-map
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map special-mode-map)
+    (define-key map (kbd "q") #'quit-window)
     (define-key map (kbd "g") #'scoot-result-refresh-buffer)
+    (define-key map (kbd "h") #'describe-mode)
+    (define-key map (kbd "?") #'describe-mode)
     (define-key map (kbd "TAB") #'outline-toggle-children)
     (define-key map (kbd "C-c s d") #'scoot-list-databases)
     (define-key map (kbd "C-c s s") #'scoot-list-schemas)
     (define-key map (kbd "C-c s t") #'scoot-list-tables)
     (define-key map (kbd "C-c d t") #'scoot-describe-table)
+    (define-key map (kbd "C-c C-c") #'scoot-result--execute-query)
     (define-key map (kbd "a") (scoot-result--add-or-remove-prefix-map 'add))
     (define-key map (kbd "r") (scoot-result--add-or-remove-prefix-map 'remove))
     map)
   "Keymap for `scoot-result-mode`.")
 
-(define-derived-mode scoot-result-mode special-mode "Scoot Result"
+(define-derived-mode scoot-result-mode fundamental-mode "Scoot Result"
   "Major mode for displaying and interacting with SQL resultsets."
   (setq-local scoot-local--connection-name-resolvers '((lambda () scoot-result--result-connection-name)))
   (setq-local scoot-local--table-name-resolvers '(scoot-result--tables-in-result
@@ -729,7 +717,7 @@ OP is either `add or `remove."
 
   (setq-local truncate-lines t)
   (setq buffer-read-only t)
-  (scoot-ensure-server))
+  (add-hook 'post-command-hook 'scoot-result--check-cursor-position nil t))
 
 (provide 'scoot-result)
 

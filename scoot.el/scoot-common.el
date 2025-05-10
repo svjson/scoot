@@ -59,8 +59,25 @@ See `scoot-local--table-name-resolvers`")
 
 See `scoot-local--connection-name-resolvers`")
 
+(defvar-local scoot--saved-cursor-pos nil
+  "Temporary storage of cursor position during buffer modification.")
+
+(defvar scoot-connections)
+(declare-function scoot-connection--list-objects "scoot-connection")
+(declare-function scoot-result--open-result-buffer "scoot-result")
 (declare-function helm-build-sync-source nil)
 (declare-function helm nil)
+
+(defun scoot--wrap-string (str width)
+  "Wrap STR to WIDTH, preserving whitespace and \n boundaries."
+  (let ((lines (split-string str "\n"))
+        (result '()))
+    (dolist (line lines)
+      (while (> (length line) width)
+        (push (substring line 0 width) result)
+        (setq line (substring line width)))
+      (push line result))
+    (apply #'list (nreverse result))))
 
 (defun scoot--plist-merge (plist1 plist2)
   "Merge PLIST1 and PLIST2. Values from PLIST2 take precedence."
@@ -76,11 +93,46 @@ See `scoot-local--connection-name-resolvers`")
     (let ((name (match-string 1 str)))
       name)))
 
+(defun scoot--props-at (pt)
+  "Return `text-properties` at PT as an alist."
+  (let* ((text-props (text-properties-at pt)))
+    (cl-loop for (prop val) on text-props by #'cddr collect (cons prop val))))
+
+(defun scoot--props-at-point ()
+  "Return `text-properties` at point as an alist."
+  (scoot--props-at (point)))
+
 (defun scoot--object-name-at-point ()
   "Test the `thing-at-point`, if any, for a valid SQL identifier and return it."
   (scoot--valid-identifier (cond
                             ((thing-at-point 'symbol t)
                              (thing-at-point 'symbol t)))))
+
+(defun scoot--pos-to-point (pos)
+  "Translate position POS to point in the current buffer.
+
+The term \"position\" refers to the plist format of:
+\(:line <line number>
+ :col <column number>)"
+  (save-excursion
+    (goto-char (point-min))
+    (forward-line (1- (plist-get pos :line)))
+    (forward-char (min (plist-get pos :col) (- (line-end-position) (line-beginning-position))))
+    (point)))
+
+(defun scoot--save-cursor (&optional var-name)
+  "Save the current cursor position.
+
+Stores the position to the buffer-local variable `scoot--saved-cursor-pos`,
+unless optionally overriden by VAR-NAME."
+  (let ((target-var-name (or var-name 'scoot--saved-cursor-pos)))
+    (set (make-local-variable target-var-name)
+         (list :line (line-number-at-pos)
+               :col (current-column)))))
+
+(defun scoot--restore-cursor ()
+  "Restore the cursor to the saved position in `scoot--saved-cursor-pos`."
+  (goto-char (scoot--pos-to-point scoot--saved-cursor-pos)))
 
 (defun scoot--object-name-in-region ()
   "Test the active region, if any, for a valid SQL identifier and return it."
