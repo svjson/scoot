@@ -266,6 +266,18 @@ variables:
 | `scoot-server-default-connection-name` | "default" | string  | The name of the connection to use if none is specified / no context is available             |
 | `scoot-auto-persist-connections`       | nil       | boolean | Determines if any connections created should be persisted to the active Server configuration |
 
+### xref Symbols
+
+These custom variables are used for displaying xref-definitions, and also serve as hints
+for the xref backend when determining definition type.
+
+| Custom Variable            | Default                           | Type   |
+|----------------------------|-----------------------------------|--------|
+| `scoot-xref-database-icon` | " " / nf-fa-database / f1c0      | string |
+| `scoot-xref-table-icon`    | " " / nf-fa-table_cells / f00a   | string |
+| `scoot-xref-column-icon`   | " " / nf-fa-table_columns / f0db | string |
+
+
 ## Dependencies
 
 - Python 3.13 / pip / virtualenv
