@@ -108,6 +108,19 @@ See `scoot-local--connection-name-resolvers`")
                             ((thing-at-point 'symbol t)
                              (thing-at-point 'symbol t)))))
 
+(defun scoot--object-type-name (object-type &optional plural)
+  "Get human readable name of OBJECT-TYPE.
+
+If PLURAL is non-nil, return the plural form."
+  (pcase object-type
+    ('table (if plural "Tables" "Table"))
+    ('tables (if plural "Tables" "Table"))
+    ('schema (if plural "Schemas" "Schema"))
+    ('schemas (if plural "Schemas" "Schema"))
+    ('database (if plural "Databases" "Database"))
+    ('databases (if plural "Databases" "Database"))
+    (_ (if plural "Objects" "Object"))))
+
 (defun scoot--pos-to-point (pos)
   "Translate position POS to point in the current buffer.
 

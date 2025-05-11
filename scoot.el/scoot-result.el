@@ -53,6 +53,14 @@
   :type 'string
   :group 'scoot)
 
+(defconst scoot-result--buffer-default-name "*scoot result*"
+  "The default result buffer name to use if all other naming methods fail.")
+
+(defvar scoot-result-buffer-default-name scoot-result--buffer-default-name)
+
+(defvar scoot-generate-result-buffer-name-function 'scoot-result--generate-buffer-name
+  "Function used to generate scoot result buffer names.")
+
 (defvar-local scoot-result--original-sql-statement nil
   "The original SQL statement that the current buffer is based on.")
 
@@ -566,6 +574,30 @@ font-lock properties."
      ((> table-count 1)
       (scoot-connection--table-prompt :tables result-tables)))))
 
+(defun scoot-result--generate-buffer-name (connection
+                                           _result
+                                           _stmt
+                                           type
+                                           object-type
+                                           object-name)
+  "Generate a buffer named based on the result to show.
+
+CONNECTION is the connection used to retrieve the result.
+RESULT is the result to show in the buffer.
+STMT is the SQL statement that produced the result.
+TYPE is the type of result (query/objects/object).
+OBJECT-TYPE is the type of object (table/schema/database).
+OBJECT-NAME is the name of the object described."
+  (concat (format "*scoot(%s)" connection)
+          (pcase type
+            ('query ": query")
+            ('object (concat " "
+                             (scoot--object-type-name object-type)
+                             ": "
+                             object-name))
+            ('objects (concat ": " (scoot--object-type-name object-type t))))
+          "*"))
+
 (defun scoot-result--open-result-buffer (result-context)
   "Open a Scoot Result Buffer with a result described by RESULT-CONTEXT.
 
@@ -588,8 +620,14 @@ Additional keys for type object:
         (type (plist-get result-context :type))
         (object-type (plist-get result-context :object-type))
         (object-name (plist-get result-context :object-name)))
-    ;; FIXME: Decide on a scheme to uniquely identify result buffers
-    (let ((buf (get-buffer-create "*scoot-result*")))
+    (let* ((buf-name (cond ((null scoot-generate-result-buffer-name-function) scoot-result-buffer-default-name)
+                           ((symbolp scoot-generate-result-buffer-name-function)
+                            (let ((gen-fn (symbol-function scoot-generate-result-buffer-name-function)))
+                              (if (functionp gen-fn)
+                                  (funcall gen-fn connection result stmt type object-type object-name)
+                                scoot-result-buffer-default-name)))
+                           (t scoot-result-buffer-default-name)))
+           (buf (get-buffer-create (or buf-name scoot-result--buffer-default-name))))
       (with-current-buffer buf
         (read-only-mode -1)
         (scoot-result-mode)

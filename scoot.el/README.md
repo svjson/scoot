@@ -222,6 +222,13 @@ variables:
 | `scoot-primary-key-icon` | "🔑"    | string | Icon used in table headers for primary key columns. |
 | `scoot-foreign-key-icon` | "🗝️"    | string | Icon used in table headers for foreign key columns. |
 
+### Regular variables (in `scoot-result-mode`)
+
+| Variable                                     | Default                             | Type   | Description/Purpose                                                                  |
+|----------------------------------------------|-------------------------------------|--------|--------------------------------------------------------------------------------------|
+| `scoot-generate-result-buffer-name-function` | 'scoot-result--generate-buffer-name | symbol | Can be overriden to control the naming scheme for Scoot's result buffers             |
+| `scoot-result-default-buffer-name`           | "*scoot result*                     | string | Default result buffer name to use name generation fails, is disabled or returns nil. |
+
 
 ## Commands for global use
 
