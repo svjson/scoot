@@ -25,6 +25,13 @@ class ScootSchemaException(ScootError):
         )
 
 
+class ScootQueryException(ScootError):
+    """Signals a query syntax or execution error."""
+
+    def __init__(self, message):
+        super().__init__("query-error", message)
+
+
 class ScootDriverException(ScootError):
     """Signals a problem with a database driver."""
 

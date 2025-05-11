@@ -1,6 +1,5 @@
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
-from typing import Optional
 
 
 def connect(url: str) -> Engine:

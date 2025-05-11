@@ -1,4 +1,8 @@
-from sqlalchemy import text
+from functools import wraps
+import re
+
+from sqlalchemy import text, exc
+from scoot_core.exceptions import ScootQueryException
 from scoot_core.connection import Connection
 from scoot_core.model import ResultSet
 
@@ -82,18 +86,68 @@ class SQLQueryModifier:
         return self.ast.sql()
 
 
+def handler_generic(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def handler_pyodbc(func):
+
+    def extract_sql_message(exc):
+        if len(exc.args) > 1:
+            message = exc.args[1]
+            # Extract only the main error message
+            match = re.search(r"(\[SQL Server\]\s*.*?)(?:\s*\(\d+\).*)?$", message)
+            if match:
+                return match.group(1).strip()
+            return str(exc)
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        import pyodbc
+
+        try:
+            return func(*args, **kwargs)
+        except exc.ProgrammingError as pe:
+            if isinstance(pe.__cause__, pyodbc.ProgrammingError):
+                root_exc: pyodbc.ProgrammingError = pe.__cause__
+                raise ScootQueryException(extract_sql_message(root_exc))
+            else:
+                raise pe
+
+    return wrapper
+
+
+def get_dialect_error_handler(driver_name):
+    handlers = {"pyodbc": handler_pyodbc}
+
+    return handlers.get(driver_name, handler_generic)
+
+
 def execute(connection: Connection, sql: str) -> ResultSet:
     """Execute a raw SQL query.
+
+    Wraps execution in a driver-specific exception handler, attempting
+    to produce meaningful error messages.
 
     Returns:
       columns: list of column names
       rows: list of rows (each row is a list of values)
     """
-    with connection.engine.connect() as conn:
-        result = conn.execute(text(sql))
-        columns = list(result.keys())
-        rows = [list(row) for row in result]
-    return ResultSet(columns, rows)
+    error_handler = get_dialect_error_handler(connection.engine.driver)
+
+    @error_handler
+    def do_execute(connection: Connection, sql: str):
+        with connection.engine.connect() as conn:
+            result = conn.execute(text(sql))
+            columns = list(result.keys())
+            rows = [list(row) for row in result]
+            return ResultSet(columns, rows)
+
+    return do_execute(connection, sql)
 
 
 def modify(connection: Connection, sql: str, action_instr: dict) -> ResultSet:
