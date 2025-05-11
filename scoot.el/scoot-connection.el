@@ -122,13 +122,16 @@ RETRY-ARGS - (Optional) the arguments to :fn."
      (let* ((message (alist-get 'message data))
             (error (alist-get 'error data))
             (display-msg (or message error-thrown)))
-       (message "Unsuccessful(%s): %s"
-                (cond
-                 ((and op url) (format "%s: %s" op url))
-                 (op op)
-                 (url url)
-                 (t "unknown"))
-                display-msg)
+
+       (pcase error
+         ("query-error" (message "%s" display-msg))
+         (_ (message "Unsuccessful(%s): %s"
+                   (cond
+                    ((and op url) (format "%s: %s" op url))
+                    (op op)
+                    (url url)
+                    (t "unknown"))
+                   display-msg)))
        (when (string-equal error "missing-driver")
          (let ((driver (alist-get 'driver data)))
            (scoot-server--attempt-install-driver
