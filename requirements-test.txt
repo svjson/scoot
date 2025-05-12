@@ -1,0 +1,9 @@
+pytest
+sqlglot
+docker
+PyYAML
+SQLAlchemy
+psycopg2
+PyMySQL
+cx_Oracle
+cryptography

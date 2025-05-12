@@ -2,14 +2,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 
 
-def connect(url: str) -> Engine:
-    return create_engine(url)
-
-
 class Connection:
     def __init__(self, url):
         self.url = url
-        self.engine: Engine = connect(url)
+        self.engine: Engine = create_engine(url)
 
     def to_dict(self):
 

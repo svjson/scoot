@@ -2,3 +2,15 @@
 line-length = 84
 target-version = ["py313"]
 skip-string-normalization = true
+skip-magic-trailing-comma = true
+
+[tool.pytest.ini_options]
+testpaths = ["system_test"]
+pythonpath = ["core/scoot_core"]
+markers = [
+  "backend: Database backend to test against"
+]
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(asctime)s - %(levelname)s - %(message)s"
+

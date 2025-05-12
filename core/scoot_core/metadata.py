@@ -35,6 +35,9 @@ def list_databases(conn: Connection) -> list[str]:
             conn, "SELECT name FROM sys.databases WHERE HAS_DBACCESS(name) = 1"
         )
         return [str(row[0]) for row in resultset.rows]
+    elif dialect == "mysql":
+        resultset = query.execute(conn, "SHOW DATABASES;")
+        return [str(row[0]) for row in resultset.rows]
 
     raise NotImplementedError(
         f"list databases is not currently supported for dialect '{dialect}'"
