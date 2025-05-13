@@ -1,4 +1,4 @@
-from system_test.conftest import BACKENDS
+from system_test.db.backends import BACKENDS
 
 
 def pytest_addoption(parser):

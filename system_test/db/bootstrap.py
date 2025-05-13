@@ -4,15 +4,16 @@ from sqlalchemy.schema import CreateTable
 from typing import Optional, override
 
 from .log import log
-from .schema_parser import DbSchema
+from .schema_parser import DbSchema, SchemaParser
+from .service import BackendService
 
 
 class DbBootstrapper:
-    def __init__(self, connection, backend, db_schema: DbSchema):
+    def __init__(self, backend, db_schema: DbSchema):
         self.backend = backend
         self.db_schema = db_schema
-        self.connection = connection
-        self.engine = connection.engine
+        self.connection = backend.connection
+        self.engine = self.connection.engine
 
     def _execute(self, statement):
         try:
@@ -113,7 +114,7 @@ class Oracle23cBootstrapper(DbBootstrapper):
         pass
 
 
-def get_bootstrapper(connection, backend, db_schema):
+def get_bootstrapper(backend: BackendService, db_schema):
     bootstrap_impl = {
         "mssql": MSSQLBootstrapper,
         "postgres": PostgresBootstrapper,
@@ -122,4 +123,13 @@ def get_bootstrapper(connection, backend, db_schema):
         "oracle_11g": Oracle11gBootstrapper,
         "oracle_23c": Oracle23cBootstrapper,
     }
-    return bootstrap_impl.get(backend.get("name"))(connection, backend, db_schema)
+    return bootstrap_impl.get(backend.name)(backend, db_schema)
+
+
+def bootstrap_database(backend: BackendService) -> None:
+    schema_parser = SchemaParser.from_file(
+        "system_test/db/schema/nexartrade_v1.yaml"
+    )
+    db_schema = schema_parser.parse()
+    bootstrapper = get_bootstrapper(backend, db_schema)
+    bootstrapper.bootstrap()

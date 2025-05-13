@@ -1,10 +1,10 @@
-from system_test.conftest import TestBackend
+from system_test.db.service import BackendService
 from system_test.db.log import log
 from scoot_core import metadata
 from scoot_core.model import TableModel
 
 
-def test__describe_users(backend, db_backend):
+def test__describe_users(db_backend: BackendService):
 
     table = metadata.describe_table(db_backend.connection, "users")
 
