@@ -62,6 +62,11 @@
   :type 'boolean
   :group 'scoot)
 
+(defcustom scoot-server-buffer-name "*scoot-server*"
+  "The name of the Scoot server output buffer."
+  :type 'string
+  :group 'scoot)
+
 (defvar scoot-server-start-timeout 5
   "Timeout for waiting for a managed Scoot server to become responsive.")
 
@@ -190,7 +195,7 @@ SUCCESS-CALLBACK and/or FAILURE-CALLBACK can optionally be provided."
     (let* ((server-bin (scoot-server--scoot-server-bin))
            (args (scoot--build-server-args))
            (default-directory (scoot--server-dir))
-           (buffer (if scoot-show-server-buffer "*scoot-server*" nil)))
+           (buffer (if scoot-show-server-buffer scoot-server-buffer-name nil)))
       (setq scoot-server--process
             (apply #'start-process "scoot-server" buffer server-bin args))
       (if (scoot--wait-for-server scoot-server-start-timeout)

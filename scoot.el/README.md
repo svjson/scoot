@@ -250,14 +250,15 @@ variables:
 
 ### Server Management
 
-| Custom Variable              | Default     | Type    | Description/Purpose                                                                                 |
-|------------------------------|-------------|---------|-----------------------------------------------------------------------------------------------------|
-| `scoot-auto-start-server`    | t           | boolean | Enable/disable auto-start of scoot-server when required.                                            |
-| `scoot-server-config-name`   | "default"   | string  | The server configuration name/id to use for the managed server.                                     |
-| `scoot-server-host`          | "localhost" | string  | The host name of the Scoot Server used for database interaction.                                    |
-| `scoot-server-port`          | 8224        | integer | The port number of the Scoot Server used for database interaction.                                  |
-| `scoot-show-server-buffer`   | nil         | boolean | Enable/disable server output in *scoot-server* buffer                                               |
-| `scoot-server-start-timeout` | 5           | number  | Timeout, in seconds, to wait for the scoot-server to become available after issuing a start command |
+| Custom Variable              | Default          | Type    | Description/Purpose                                                                                 |
+|------------------------------|------------------|---------|-----------------------------------------------------------------------------------------------------|
+| `scoot-auto-start-server`    | t                | boolean | Enable/disable auto-start of scoot-server when required.                                            |
+| `scoot-server-config-name`   | "default"        | string  | The server configuration name/id to use for the managed server.                                     |
+| `scoot-server-host`          | "localhost"      | string  | The host name of the Scoot Server used for database interaction.                                    |
+| `scoot-server-port`          | 8224             | integer | The port number of the Scoot Server used for database interaction.                                  |
+| `scoot-show-server-buffer`   | nil              | boolean | Enable/disable server output in *scoot-server* buffer                                               |
+| `scoot-server-buffer-name`   | "*scoot-server*" | string  | Name of the Scoot server buffer, if enabled by `scoot-show-server-buffer`                           |
+| `scoot-server-start-timeout` | 5                | number  | Timeout, in seconds, to wait for the scoot-server to become available after issuing a start command |
 
 ### Connection Management
 
