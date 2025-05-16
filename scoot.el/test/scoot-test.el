@@ -32,7 +32,7 @@
     (funcall fn)))
 
 (ert-deftest scoot-statement-before-point--single-statement-without-semicolon ()
-    (should (equal
+  (should (equal
              (let ((sql "SELECT * FROM orders"))
                (scoot-test--with-buffer sql
                                         (+ (length sql) 1)

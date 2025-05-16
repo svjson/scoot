@@ -174,9 +174,13 @@ Used to enable/disable `outline-minor-mode`.")
   (list :align 'left
         :format-value (lambda (name metadata)
                         (format "%s%s"
-                                (if (eq t (alist-get 'primary_key metadata))
-                                    scoot-primary-key-icon
-                                  "")
+                                (cond ((eq t (alist-get 'primary_key metadata))
+                                       scoot-primary-key-icon)
+
+                                      ((cl-some (lambda (con) (equal (alist-get 'type con) "fk")) (alist-get 'constraints metadata))
+                                       scoot-foreign-key-icon)
+
+                                      (t ""))
                                 name))
         :output-cell (lambda (_ formatted-value)
                        (scoot--insert-faced formatted-value 'scoot-header-face))))
@@ -245,8 +249,16 @@ Used to enable/disable `outline-minor-mode`.")
      (t scoot-formatter-raw-string))))
 
 (defun scoot--column-width (val)
-  "Calculates the width of string value of VAL."
-  (string-width (format "%s" val)))
+  "Calculates the width of string value of VAL.
+
+Uses `string-pixel-width' of the string representation of VAL to account
+for special characters and icons/emojis that do not align with the the
+default width of the, presumably, otherwise fixed-width font."
+  (if (display-graphic-p)
+      (let* ((pixel-width (string-pixel-width (format "%s" val)))
+             (char-width (default-font-width)))
+        (/ pixel-width char-width))
+    (string-width (format "%s" val))))
 
 (defun scoot-result--refresh-visual-model ()
   "Build the model backing the visual representation of the result set."
@@ -331,7 +343,7 @@ Used to enable/disable `outline-minor-mode`.")
                     (align (plist-get scoot-formatter-header :align))
                     (name (plist-get header :name))
                     (header-label (plist-get header :header-label))
-                    (padding (- width (string-width header-label))))
+                    (padding (- width (scoot--column-width header-label))))
                (when (eq align 'right)
                  (insert (make-string padding ?\s)))
                (funcall

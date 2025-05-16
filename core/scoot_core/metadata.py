@@ -73,8 +73,11 @@ def resolve_query_metadata(conn: Connection, sql: str):
 
     for e in expr.expressions:
         name = e.alias_or_name
-        table = getattr(e, "table", None)
-        column = getattr(e, "name", None)
+        table: str | None = getattr(e, "table", None)
+        column: str | None = getattr(e, "name", None)
+        constraints = []
+        table_model: TableModel | None = known_tables.get(table, None)
+
 
         if e.alias:
             if e.this:
@@ -93,6 +96,9 @@ def resolve_query_metadata(conn: Connection, sql: str):
                                     "name": c.name,
                                     "table": tbl_name,
                                     "column": c.name,
+                                    "constraints": table_model.get_constraints_for_column(
+                                        c.name
+                                    ),
                                 }
                             )
             continue
@@ -107,7 +113,17 @@ def resolve_query_metadata(conn: Connection, sql: str):
                 if table:
                     break
 
-        columns.append({"name": name, "table": table, "column": column})
+        if table_model:
+            constraints = table_model.get_constraints_for_column(column)
+
+        columns.append(
+            {
+                "name": name,
+                "table": table,
+                "column": column,
+                "constraints": constraints,
+            }
+        )
 
     columns = [
         (

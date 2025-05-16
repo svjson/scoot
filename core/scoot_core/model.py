@@ -1,4 +1,5 @@
 from typing import Any, override
+from sqlalchemy import Table, ForeignKeyConstraint
 
 
 class ColumnModel:
@@ -11,7 +12,7 @@ class ColumnModel:
 
     @classmethod
     def from_sqlalchemy(cls, sa_column):
-        return cls(
+        return ColumnModel(
             name=sa_column.name,
             type_=str(sa_column.type),
             nullable=sa_column.nullable,
@@ -40,6 +41,7 @@ class TableModel:
         self.columns = []
         self._column_indices = {}
         self.create_stmt = None
+        self.constraints = []
 
     def add_column(self, column):
         self.columns.append(column)
@@ -58,20 +60,24 @@ class TableModel:
         return self.columns[col_index]
 
     @classmethod
-    def from_sqlalchemy(cls, sa_table, **kwargs):
-        table = cls(name=sa_table.name, schema=sa_table.schema)
+    def from_sqlalchemy(cls, sa_table: Table, **kwargs):
+        table = TableModel(name=sa_table.name, schema=sa_table.schema)
         for sa_column in sa_table.columns:
             table.add_column(ColumnModel.from_sqlalchemy(sa_column))
+        for sa_con in sa_table.constraints:
+            if isinstance(sa_con, ForeignKeyConstraint):
+                table.constraints.append(
+                    {
+                        "type": "fk",
+                        "columns": [ck for ck in sa_con.column_keys],
+                        "reference": {
+                            "table": sa_con.referred_table.name,
+                            "columns": [fk.column.name for fk in sa_con.elements],
+                        },
+                    }
+                )
         table.create_stmt = kwargs.get("create_stmt", None)
         return table
-
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "schema": self.schema,
-            "columns": [col.to_dict() for col in self.columns],
-            "create_stmt": self.create_stmt,
-        }
 
     def column_max_len(self, column_field):
         ml = len(column_field)
@@ -80,6 +86,20 @@ class TableModel:
             if l > ml:
                 ml = l
         return ml
+
+    def get_constraints_for_column(self, column_name: str):
+        return [
+            con for con in self.constraints if column_name in con.get("columns")
+        ]
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "schema": self.schema,
+            "columns": [col.to_dict() for col in self.columns],
+            "constraints": [self.constraints],
+            "create_stmt": self.create_stmt,
+        }
 
 
 class ResultSet:
