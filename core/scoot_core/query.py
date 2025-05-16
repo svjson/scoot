@@ -141,10 +141,14 @@ def execute(connection: Connection, sql: str) -> ResultSet:
 
     @error_handler
     def do_execute(connection: Connection, sql: str):
-        with connection.engine.connect() as conn:
+
+        with connection.engine.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as conn:
             result = conn.execute(text(sql))
             columns = list(result.keys())
             rows = [list(row) for row in result]
+
             return ResultSet(columns, rows)
 
     return do_execute(connection, sql)
