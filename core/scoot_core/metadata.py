@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, cast
 
 from sqlalchemy import inspect, Table, MetaData
 from sqlalchemy.schema import CreateTable
@@ -44,30 +44,86 @@ def list_databases(conn: Connection) -> list[str]:
     )
 
 
-def describe_table(conn: Connection, table_name: str) -> Optional[TableModel]:
-    """Describe the structure of a database table"""
+def get_identifier_name(identifier):
+    """
+    Extracts the string value from a sqlglot Identifier object.
+    If the value is None, returns None.
+    """
+    if identifier is None:
+        return None
+    return (
+        identifier.this
+        if isinstance(identifier, sge.Identifier)
+        else str(identifier)
+    )
+
+
+def parse_table_name(table_name) -> tuple[Optional[str], Optional[str], str]:
+    """
+    Parses a fully qualified table name using sqlglot.
+    """
+    expr = sqlglot.parse_one(f"SELECT * FROM {table_name}")
+    table_expr = expr.find(sge.Table)
+
+    if not table_expr:
+        raise ValueError(f"Could not parse table name: '{table_name}'.")
+
+    return (
+        get_identifier_name(table_expr.args.get("catalog")),
+        get_identifier_name(table_expr.args.get("db")),
+        cast(str, get_identifier_name(table_expr.args.get("this"))),
+    )
+
+
+def describe_table(
+    conn: Connection, table_expression: str, ignore_failure=False
+) -> Optional[TableModel]:
+    """Describe the structure of a database table.
+
+    FIXME: Some system tables and constructs that appear to be tables in certain
+    RDBMS systems will not be found and reflected by SQLAlchemy's MetaData, meaning
+    that we will need to allow failure in these cases - until a workaround is
+    devised.
+
+    This pertains to SQL Servers sys.* views, for example."""
     inspector = inspect(conn.engine)
 
+    table_name = None
+    schema_name = None
+
     try:
-        table = Table(table_name, MetaData(), autoload_with=conn.engine)
+        _, schema_name, table_name = parse_table_name(table_expression)
+
+        md = MetaData()
+        md.reflect(bind=conn.engine)
+        table = Table(table_name, md, schema=schema_name, autoload_with=conn.engine)
+
         inspector.reflect_table(table, include_columns=None)
 
         table_model = TableModel.from_sqlalchemy(
             table, create_stmt=str(CreateTable(table).compile(conn.engine))
         )
+
         return table_model
-    except NoSuchTableError:
-        raise ScootSchemaException("table", table_name)
+    except NoSuchTableError as e:
+        if ignore_failure:
+            print(
+                f"describe_table: {table_expression} [{schema_name} {table_name}] {e}"
+            )
+            return None
+        else:
+            raise ScootSchemaException("table", table_expression)
 
 
 def resolve_query_metadata(conn: Connection, sql: str):
-
     expr = sqlglot.parse_one(sql)
 
     expr_tables = list(expr.find_all(sge.Table))
     known_tables = {}
     for tbl in expr_tables:
-        known_tables[tbl.name] = describe_table(conn, tbl.name)
+        known_tables[tbl.sql()] = describe_table(
+            conn, tbl.sql(), ignore_failure=True
+        )
 
     columns = []
 
@@ -78,7 +134,6 @@ def resolve_query_metadata(conn: Connection, sql: str):
         constraints = []
         table_model: TableModel | None = known_tables.get(table, None)
 
-
         if e.alias:
             if e.this:
                 if e.this.__class__.__name__ == "Column":
@@ -88,13 +143,13 @@ def resolve_query_metadata(conn: Connection, sql: str):
             if table is None and len(expr_tables) == 1:
                 for tbl in expr_tables:
                     tbl_name = tbl.name
-                    table_model = known_tables.get(tbl_name)
+                    table_model = known_tables.get(tbl.sql())
                     if table_model:
                         for c in table_model.columns:
                             columns.append(
                                 {
                                     "name": c.name,
-                                    "table": tbl_name,
+                                    "table": tbl.sql(),
                                     "column": c.name,
                                     "constraints": table_model.get_constraints_for_column(
                                         c.name

@@ -1,32 +1,34 @@
 from sqlalchemy import Connection
-from sqlalchemy import text, Table
+from sqlalchemy import text
 from sqlalchemy.schema import CreateTable
-from typing import Optional, override
+from typing import override, Type
 
 from .log import log
 from .schema_parser import DbSchema, SchemaParser
-from .service import BackendService
+from .service import BackendService, Prop
 
 
 class DbBootstrapper:
-    def __init__(self, backend, db_schema: DbSchema):
+    def __init__(self, backend: BackendService, db_schema: DbSchema):
         self.backend = backend
         self.db_schema = db_schema
         self.connection = backend.connection
-        self.engine = self.connection.engine
 
     def _execute(self, statement):
         try:
             conn: Connection = self.connection.engine.connect().execution_options(
                 isolation_level="AUTOCOMMIT"
             )
-
             result = conn.execute(text(statement))
             conn.close()
             return result
         except Exception as e:
             log.error(f"Error executing '{statement}': {e}")
             raise e
+
+    def _reconfigure(self):
+        self.connection.close()
+        self.connection.reconfigure(self.backend.get_active_connection_url())
 
     def bootstrap(self):
         log.info("Creating container...")
@@ -36,8 +38,11 @@ class DbBootstrapper:
             log.info(f"Creating schema '{schema.name}'")
             self.create_schema(schema)
             for table in schema.tables:
-                log.info(f"Creating table '{table.name}'")
-                self._execute(str(CreateTable(table).compile(self.engine)))
+                log.info(f"Creating table '{table.fullname}'")
+                table.metadata.reflect(bind=self.connection.engine)
+                self._execute(
+                    str(CreateTable(table).compile(self.connection.engine))
+                )
 
     def create_container(self):
         pass
@@ -55,17 +60,21 @@ class MariaDBBootstrapper(DbBootstrapper):
 
     def create_schema(self, schema):
         self._execute(f"CREATE DATABASE {schema.name};")
-        self._execute(f"USE {schema.name};")
+        self._reconfigure()
 
 
 class MSSQLBootstrapper(DbBootstrapper):
     @override
     def create_container(self):
         self._execute(f"CREATE DATABASE {self.db_schema.name};")
+        self._execute(f"USE {self.db_schema.name};")
+        pass
 
     @override
     def create_schema(self, schema):
+
         self._execute(f"CREATE SCHEMA {schema.name};")
+        self._reconfigure()
 
 
 class PostgresBootstrapper(DbBootstrapper):
@@ -88,7 +97,7 @@ class MySQLBootstrapper(DbBootstrapper):
     def create_schema(self, schema):
         # No direct CREATE SCHEMA equivalent in MySQL. Default to CREATE DATABASE.
         self._execute(f"CREATE DATABASE {schema.name};")
-        self._execute(f"USE {schema.name};")
+        self._reconfigure()
 
 
 class Oracle11gBootstrapper(DbBootstrapper):
@@ -110,20 +119,25 @@ class Oracle23cBootstrapper(DbBootstrapper):
         pass
 
     def create_schema(self, schema):
-        # no op - use container-provide table space for now
+        # no op - schema user is created during container initialization
+        assert schema is not None
         pass
 
 
-def get_bootstrapper(backend: BackendService, db_schema):
-    bootstrap_impl = {
-        "mssql": MSSQLBootstrapper,
-        "postgres": PostgresBootstrapper,
-        "mysql": MySQLBootstrapper,
-        "mariadb": MariaDBBootstrapper,
-        "oracle_11g": Oracle11gBootstrapper,
-        "oracle_23c": Oracle23cBootstrapper,
-    }
-    return bootstrap_impl.get(backend.name)(backend, db_schema)
+bootstrap_impl: dict[Prop, Type[DbBootstrapper]] = {
+    "mssql": MSSQLBootstrapper,
+    "postgres": PostgresBootstrapper,
+    "mysql": MySQLBootstrapper,
+    "mariadb": MariaDBBootstrapper,
+    "oracle_11g": Oracle11gBootstrapper,
+    "oracle_23c": Oracle23cBootstrapper,
+}
+
+
+def get_bootstrapper(backend: BackendService, db_schema) -> DbBootstrapper:
+    Bootstrapper_cls = bootstrap_impl.get(backend.name or "")
+    assert Bootstrapper_cls is not None
+    return Bootstrapper_cls(backend, db_schema)
 
 
 def bootstrap_database(backend: BackendService) -> None:

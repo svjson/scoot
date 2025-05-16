@@ -8,6 +8,9 @@ def pytest_addoption(parser):
         default=[],
         help="Specify database backends to run tests against. Options: mssql, oracle, mysql, mariadb, postgres, all.",
     )
+    parser.addoption(
+        "--emacs", action="store_true", help="Enable emacs integration tests"
+    )
 
 
 def pytest_generate_tests(metafunc):

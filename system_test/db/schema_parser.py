@@ -26,9 +26,6 @@ class DbSchema:
         self.version = version
         self.schemas = schemas
 
-    def to_sql(self, dialect):
-        return "sql goes here"
-
 
 class TblSchema:
     def __init__(self, name, tables: list[Table]):
@@ -46,19 +43,16 @@ class SchemaParser:
             schema = yaml.safe_load(f)
         return SchemaParser(schema)
 
-    def parse_entity(self, entity):
+    def parse_entity(self, entity, metadata):
         table_name = entity["name"]
         columns = []
-        foreign_keys = []
         checks = []
         primary_key = []
-        metadata = MetaData()
 
         for col in entity['columns']:
             col_name = col['name']
             col_type = col['type'].lower()
             is_pk = col.get('primary_key', False)
-            is_fk = col.get('foreign_key', False)
             references = col.get('references')
             unique = col.get('unique', False)
             check = col.get('check')
@@ -91,7 +85,7 @@ class SchemaParser:
             if is_pk:
                 primary_key.append(column)
 
-            if is_fk and references:
+            if references:
                 ref_table, ref_column = references.rstrip(')').split('(')
                 column.append_foreign_key(ForeignKey(f'{ref_table}.{ref_column}'))
 
@@ -103,47 +97,10 @@ class SchemaParser:
         # Define table
         return Table(table_name, metadata, *columns, *checks, *primary_key)
 
-        # for col in entity["columns"]:
-        #     col_name = col["name"]
-        #     col_type = col["type"]
-        #     is_pk = col.get("primary_key", False)
-        #     is_fk = col.get("foreign_key", False)
-        #     references = col.get('references')
-        #     unique = col.get('unique', False)
-        #     check = col.get('check')
-
-        #     column = Column(name=col_name, data_type=col_type, unique=unique)
-
-        #     if is_pk:
-        #         primary_key = col_name
-
-        #     if is_fk and references:
-        #         ref_table, ref_column = references.split("(")
-        #         ref_column, ref_column = ref_column.rstrip(")")
-        #         foreign_keys.append(
-        #             ForeignKey(
-        #                 column=col_name,
-        #                 table=ref_table,
-        #                 referenced_column=ref_column,
-        #             )
-        #         )
-
-        #     if check:
-        #         checks.append(Check(expression=check))
-
-        #     columns.append(column)
-
-        # return Table(
-        #     name=table_name,
-        #     columns=columns,
-        #     primary_key=primary_key,
-        #     foreign_keys=foreign_keys,
-        #     checks=checks,
-        # )
-
     def parse_schema(self, schema):
         entities = schema.get("entities", [])
-        tables = [self.parse_entity(entity) for entity in entities]
+        metadata = MetaData(schema=schema.get("name"))
+        tables = [self.parse_entity(entity, metadata) for entity in entities]
         return TblSchema(name=schema.get("name"), tables=tables)
 
     def parse(self):

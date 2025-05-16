@@ -6,7 +6,9 @@ from scoot_core.model import TableModel
 
 def test__describe_users(db_backend: BackendService):
 
-    table = metadata.describe_table(db_backend.connection, "users")
+    table = metadata.describe_table(
+        db_backend.connection, "nexartrade_staging.users"
+    )
 
     assert [column.name for column in table.columns] == [
         "id",

@@ -29,6 +29,11 @@ class BackendService:
         self.container_name = container.name
         self.name = config.get("name")
 
+    def get_active_connection_url(self):
+        return self.config.get(
+            "active_connection_url", self.config.get("connection_url")
+        )
+
     def teardown(self):
         try:
             self.connection.close()
