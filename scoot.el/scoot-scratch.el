@@ -170,10 +170,24 @@ The verified connection will be passed as an argument to CALLBACK to allow
 execution to resume."
   (let ((connection-name (gethash "connection-name" ctx-props))
         (connection-string (gethash "connection-string" ctx-props)))
-    (scoot-connection--ensure-connection-by-name-and-string
-     connection-name
-     connection-string
-     callback)))
+    (cond
+     ((and connection-name connection-string)
+      (scoot-connection--ensure-connection-by-name-and-string
+       connection-name
+       connection-string
+       callback))
+
+     ((and connection-name (gethash connection-name scoot-connections))
+      (funcall callback (gethash connection-name scoot-connections)))
+
+     (connection-string
+      (let ((match nil))
+        (maphash (lambda (_ conn)
+                   (when (and (null match)
+                              (equal (plist-get conn :url) connection-string))
+                     (setq match conn)))
+                 scoot-connections)
+        (funcall callback match))))))
 
 (defun scoot-scratch--ctx-operation-at-point (callback)
   "Prepare the stage for an operation depending on scratch context.
