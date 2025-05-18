@@ -190,7 +190,10 @@ values in result set cells."
                                 (cond ((eq t (alist-get 'primary_key metadata))
                                        scoot-primary-key-icon)
 
-                                      ((cl-some (lambda (con) (equal (alist-get 'type con) "fk")) (alist-get 'constraints metadata))
+                                      ((cl-some
+                                        (lambda (con)
+                                          (equal (alist-get 'type con) "fk"))
+                                        (alist-get 'constraints metadata))
                                        scoot-foreign-key-icon)
 
                                       (t ""))
@@ -759,6 +762,10 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
                   value))
            #'scoot-result--open-result-buffer))))))
 
+
+
+;; xref implementation for result buffers
+
 (cl-defmethod scoot-xref--point-is-thing-p ((_type (eql 'column)) _point xref-target props)
   "Test PROPS for thing of TYPE `column against XREF-TARGET."
   (when (equal scoot-result--result-object-type 'table)
@@ -768,10 +775,19 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
            (equal (alist-get 'value props) (plist-get xref-target :column))))))
 
 (cl-defmethod scoot-xref--point-is-thing-p ((_type (eql 'table)) _point xref-target props)
-  "Test PROPS for ting of TYPE `table against XREF-TARGET."
+  "Test PROPS for thing of TYPE `table against XREF-TARGET."
   (and (equal scoot-result--result-object-type 'table)
        (equal scoot-result--result-object-name (plist-get xref-target :table))
        (equal (alist-get 'thing props) 'table-name)))
+
+(cl-defmethod scoot-xref--point-is-thing-p ((_type (eql 'expr)) _point xref-target props)
+  "Test PROPS for thing of TYPE `expr against XREF-TARGET."
+  (and (equal (alist-get 'thing props) 'table-cell)
+       (cl-some (lambda (expr)
+                  (equal
+                   (plist-get expr :lhs)
+                   (alist-get 'column (alist-get 'column-meta props))))
+                (plist-get xref-target :expr))))
 
 (defun scoot-result--xref-action (xref-target)
   "Find location for XREF-TARGET."
@@ -797,7 +813,41 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
                                                                 (xref-make identifier loc)
                                                                 xref-conn-cache)
                                                        (xref-find-definitions identifier))))
+                 (list xref-async-response)))
+         ((equal target :expr)
+          (progn (scoot-connection--execute-statement (scoot-result--buffer-connection)
+                                                      (concat
+                                                       (format "SELECT * FROM %s WHERE " (plist-get xref-target :table))
+                                                       (string-join
+                                                        (mapcar
+                                                         (lambda (expr)
+                                                           (concat (plist-get expr :lhs)
+                                                                   (plist-get expr :oper)
+                                                                   (plist-get expr :rhs)))
+                                                         (plist-get xref-target :expr))
+                                                        " AND "))
+                                                      (lambda (result-context)
+                                                        (let* ((buf (scoot-result--open-result-buffer result-context))
+                                                               (pos (scoot-xref--find-buffer-location buf xref-target))
+                                                               (loc (xref-make-buffer-location buf pos)))
+                                                          (puthash identifier
+                                                                   (xref-make identifier loc)
+                                                                   xref-conn-cache)
+                                                          (xref-find-definitions identifier))))
                  (list xref-async-response))))))))
+
+(defun scoot-result--xref-resolve-table-cell-identifier (props)
+  "Analyze the cell PROPS and determine the identifier type, if any."
+  (let* ((col-meta (alist-get 'column-meta props))
+         (ref (alist-get 'reference (seq-find
+                                     (lambda (con)
+                                       (equal (alist-get 'type con) "fk"))
+                                     (alist-get 'constraints col-meta)))))
+    (cond
+     (ref (scoot-xref--record-reference-identifier
+           (list :table (alist-get 'table ref)
+                 :columns (alist-get 'columns ref)
+                 :value (alist-get 'value props)))))))
 
 (defun scoot-result--xref-id-at-point ()
   "Resolve identifier for xref at point."
@@ -807,7 +857,8 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
       (pcase (alist-get 'thing props)
         ('table-header (scoot-xref--column-identifier (list :column (alist-get 'column props)
                                                             :name (alist-get 'name props)
-                                                            :table (alist-get 'table props))))))
+                                                            :table (alist-get 'table props))))
+        ('table-cell (scoot-result--xref-resolve-table-cell-identifier props))))
      ((eq 'tables scoot-result--result-object-type)
       (pcase (alist-get 'thing props)
         ('table-cell (scoot-xref--table-identifier
@@ -834,6 +885,8 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
    ((eq 'tables scoot-result--result-object-type)
     (append (mapcar (lambda (row) (scoot-xref--table-identifier (list :name (plist-get (car row) :value))))
                     (plist-get scoot-result--result-model :records))))))
+
+
 
 (defun scoot-result--add-or-remove-prefix-map (op)
   "Generate a prefixed keymap for adding or removing to/from the query.

@@ -277,6 +277,7 @@ for the xref backend when determining definition type.
 | `scoot-xref-database-icon` | " " / nf-fa-database / f1c0      | string |
 | `scoot-xref-table-icon`    | " " / nf-fa-table_cells / f00a   | string |
 | `scoot-xref-column-icon`   | " " / nf-fa-table_columns / f0db | string |
+| `scoot-xref-expr-icon`     | " " / nf-fa-superscript / ed2c   | string |
 
 
 ## Dependencies

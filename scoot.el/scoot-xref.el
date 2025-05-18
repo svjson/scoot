@@ -63,6 +63,13 @@ Should be unique among scoot-xref icons"
   :type 'string
   :group 'scoot)
 
+(defcustom scoot-xref-expr-icon " "
+  "Icon used to prefix expressions in xref identifier.
+
+Should be unique among scoot-xref icons"
+  :type 'string
+  :group 'scoot)
+
 (defun scoot-xref--database-identifier (db)
   "Construct a database identifier recognized by scoot-xref from DB."
   (concat (propertize
@@ -90,6 +97,52 @@ Should be unique among scoot-xref icons"
       'face 'font-lock-constant-face)
      (plist-get col :column))))
 
+(defun scoot-xref--expr-identifier (exprl)
+  "Construct an expression identifier recognized by scoot-xref from EXPRL.
+
+EXPRL is expected to be a list of plists."
+  (concat
+   (propertize
+    (copy-sequence scoot-xref-expr-icon)
+    'face 'font-lock-function-name-face)
+   (string-join (mapcar
+                 (lambda (expr)
+                   (concat
+                    (plist-get expr :lhs)
+                    (pcase (plist-get expr :type)
+                      ('equals "=")
+                      (_ "?"))
+                    (format "%s" (plist-get expr :rhs))))
+                 exprl)
+                ",")))
+
+(defun scoot-xref--record-reference-identifier (ref)
+  "Construct a record reference identifier recognized by scoot-xref from REF."
+  (let* ((table (plist-get ref :table))
+         (columns (plist-get ref :columns))
+         (table-identifier (scoot-xref--table-identifier
+                            (list :name table))))
+    (concat
+     table-identifier
+     (propertize " / " 'face 'window-divider)
+     (scoot-xref--expr-identifier (mapcar
+                                   (lambda (col-name)
+                                     (list :type 'equals
+                                           :lhs col-name
+                                           :rhs (plist-get ref :value)))
+                                   columns)))))
+
+(defun scoot-xref--destructure-expr (expr-str)
+  "Destructure expression segment EXPR-STR into :lhs, :oper and :rhs."
+  (mapcar
+   (lambda (expr)
+     (let ((match (string-match "\\(.*?\\)\\([=!<>]+\\)\\(.*\\)" expr)))
+       (when match
+         (list :lhs (match-string 1 expr)
+               :oper (match-string 2 expr)
+               :rhs (match-string 3 expr)))))
+   (string-split expr-str",")))
+
 (defun scoot-xref--destructure-xref (xref)
   "Destructure an XREF symbol and identify its parts."
   (let* ((segments
@@ -98,11 +151,14 @@ Should be unique among scoot-xref icons"
              (let* ((typec (cond
                             ((string-prefix-p scoot-xref-database-icon seg) :database)
                             ((string-prefix-p scoot-xref-column-icon seg) :column)
-                            ((string-prefix-p scoot-xref-table-icon seg) :table))))
+                            ((string-prefix-p scoot-xref-table-icon seg) :table)
+                            ((string-prefix-p scoot-xref-expr-icon seg) :expr))))
                (cons typec (cond
                             ((eq typec :database) (substring seg (length scoot-xref-database-icon)))
                             ((eq typec :column) (substring seg (length scoot-xref-column-icon)))
                             ((eq typec :table) (substring seg (length scoot-xref-table-icon)))
+                            ((eq typec :expr) (scoot-xref--destructure-expr
+                                               (substring seg (length scoot-xref-expr-icon))))
                             (t seg)))))
            (split-string xref " / ")))
          (result (list :xref xref
