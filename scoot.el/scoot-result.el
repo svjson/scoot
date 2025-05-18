@@ -763,7 +763,6 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
            #'scoot-result--open-result-buffer))))))
 
 
-
 ;; xref implementation for result buffers
 
 (cl-defmethod scoot-xref--point-is-thing-p ((_type (eql 'column)) _point xref-target props)

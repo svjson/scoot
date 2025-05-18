@@ -31,6 +31,9 @@
 (require 'cl-lib)
 (require 'scoot-common)
 
+
+;; Variables
+
 (defvar-local scoot-xref-action-fn nil
   "Function to handle xref actions, specified locally by each buffer.")
 
@@ -41,6 +44,9 @@
   "Function to provide buffer-local completion alternatives.")
 
 (defvar scoot-xref-async-cache (make-hash-table :test 'equal))
+
+
+;; Customization Options
 
 (defcustom scoot-xref-database-icon " "
   "Icon used to prefix databases in xref identifiers.
@@ -69,6 +75,9 @@ Should be unique among scoot-xref icons"
 Should be unique among scoot-xref icons"
   :type 'string
   :group 'scoot)
+
+
+;; xref identifier construction
 
 (defun scoot-xref--database-identifier (db)
   "Construct a database identifier recognized by scoot-xref from DB."
@@ -132,6 +141,9 @@ EXPRL is expected to be a list of plists."
                                            :rhs (plist-get ref :value)))
                                    columns)))))
 
+
+;; xref identifier destructuring/analysis
+
 (defun scoot-xref--destructure-expr (expr-str)
   "Destructure expression segment EXPR-STR into :lhs, :oper and :rhs."
   (mapcar
@@ -145,27 +157,28 @@ EXPRL is expected to be a list of plists."
 
 (defun scoot-xref--destructure-xref (xref)
   "Destructure an XREF symbol and identify its parts."
-  (let* ((segments
+  (let* ((types `((:database . ,scoot-xref-database-icon)
+                  (:column . ,scoot-xref-column-icon)
+                  (:table . ,scoot-xref-table-icon)
+                  (:expr . ,scoot-xref-expr-icon)))
+         (segments
           (mapcar
            (lambda (seg)
-             (let* ((typec (cond
-                            ((string-prefix-p scoot-xref-database-icon seg) :database)
-                            ((string-prefix-p scoot-xref-column-icon seg) :column)
-                            ((string-prefix-p scoot-xref-table-icon seg) :table)
-                            ((string-prefix-p scoot-xref-expr-icon seg) :expr))))
-               (cons typec (cond
-                            ((eq typec :database) (substring seg (length scoot-xref-database-icon)))
-                            ((eq typec :column) (substring seg (length scoot-xref-column-icon)))
-                            ((eq typec :table) (substring seg (length scoot-xref-table-icon)))
-                            ((eq typec :expr) (scoot-xref--destructure-expr
-                                               (substring seg (length scoot-xref-expr-icon))))
-                            (t seg)))))
+             (let* ((segment-type (seq-find (lambda (type) (string-prefix-p (cdr type) seg)) types))
+                    (token (if segment-type (substring seg (length (cdr segment-type))) seg)))
+               (cons (car segment-type)
+                     (pcase (car segment-type)
+                       (:expr (scoot-xref--destructure-expr token))
+                       (_ token)))))
            (split-string xref " / ")))
          (result (list :xref xref
                        :target (caar (last segments)))))
     (dolist (seg segments)
       (plist-put result (car seg) (cdr seg)))
     result))
+
+
+;; Utility Functions
 
 (defun scoot-xref--get-conn-cache (connection)
   "Get the xref lookup cache for CONNECTION.  Will be created it if uninitialized."
@@ -210,6 +223,9 @@ EXPRL is expected to be a list of plists."
                 (_ (scoot-xref--buffer-point-is-p buf (xref-buffer-location-position loc) target)))
       t)))
 
+
+;; xref backend
+
 (defun scoot--xref-backend ()
   "Xref backend for scoot-result-mode."
   'scoot-modes-xref)
@@ -248,6 +264,8 @@ still pending."
   (when (and scoot-xref-completion-provider-fn
              (symbol-function scoot-xref-completion-provider-fn))
     (funcall scoot-xref-completion-provider-fn)))
+
+
 
 (provide 'scoot-xref)
 
