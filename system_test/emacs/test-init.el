@@ -1,4 +1,4 @@
-;;; init.el --- summary -*- lexical-binding: t -*-
+;;; test-init.el --- summary -*- lexical-binding: t -*-
 
 ;;; Commentary:
 
@@ -7,7 +7,7 @@
 
 ;;; Code:
 
-
+
 ;; Install dependencies for scoot.el
 
 (require 'package)
@@ -20,18 +20,16 @@
 
 
 
-
 ;; Set up test dependencies
 
 (require 'ert)
-(load-file "system_test/emacs/tests/scoot-test-base.el")
 
+(add-to-list 'load-path (expand-file-name "system_test/emacs/tests/" default-directory))
 (require 'scoot-test-base)
 (require 'scoot-server)
 (setq scoot-show-server-buffer t)
 
 
-
 ;; Test runner functions used to trigger tests and format result
 
 (defun scoot-test--cut-after-backtrace-frame (str)
@@ -95,7 +93,6 @@
 
 
 
-
 ;; Attempt to clean up stray gpg-agents and scdaemons on exit
 
 (defun scoot-test--cleanup-gpg ()
@@ -108,9 +105,7 @@
 
 (add-hook 'kill-emacs-hook #'scoot-test--cleanup-gpg)
 
-
 
-
 ;; Export the PID of the emaces daemon so we can predictably kill it if it
 ;; refuses to exit gracefully.
 
@@ -118,4 +113,7 @@
   (princ (emacs-pid) (current-buffer)))
 
 
-;;; init.el ends here
+;;; test-init.el ends here
+;; Local Variables:
+;; flycheck-emacs-lisp-checkdoc-include-package-file: nil
+;; End:
