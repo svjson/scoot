@@ -109,29 +109,39 @@ Provide a list of valid options in TABLES for completing read action`"
                               :sort-fn #'string<)
     (read-string "Table name: " nil nil table-name)))
 
-(cl-defun scoot-connection--error-handler (&key op url retry-fn retry-args &allow-other-keys)
+(cl-defun scoot-connection--error-handler (&key op url retry-fn retry-args connection &allow-other-keys)
   "Return a general purpose error handler with retry capabilities.
 
 Arguments:
 OP - The operation that caused an error.
 URL - The URL that the failed request was made to.
 RETRY-FN - (Optional) the function to call for retry
-RETRY-ARGS - (Optional) the arguments to :fn."
+RETRY-ARGS - (Optional) the arguments to :fn.
+CONNECTION - (Optional) Used to register connections unknown to the server."
   (cl-function
    (lambda (&key data error-thrown &allow-other-keys)
      (let* ((message (alist-get 'message data))
             (error (alist-get 'error data))
-            (display-msg (or message error-thrown)))
+            (display-msg (or message error-thrown))
+            (unhandled-error-msg (lambda ()
+                                   (message "Unsuccessful(%s): %s"
+                                            (cond
+                                             ((and op url) (format "%s: %s" op url))
+                                             (op op)
+                                             (url url)
+                                             (t "unknown"))
+                                            display-msg))))
 
        (pcase error
          ("query-error" (message "%s" display-msg))
-         (_ (message "Unsuccessful(%s): %s"
-                   (cond
-                    ((and op url) (format "%s: %s" op url))
-                    (op op)
-                    (url url)
-                    (t "unknown"))
-                   display-msg)))
+         ("unknown-connection" (if (and retry-fn connection)
+                                   (scoot-connection--register-connection
+                                    (lambda (_)
+                                      (apply retry-fn retry-args))
+                                    (plist-get connection :name)
+                                    (plist-get connection :url))
+                                 (funcall unhandled-error-msg)))
+         (_ (funcall unhandled-error-msg)))
        (when (string-equal error "missing-driver")
          (let ((driver (alist-get 'driver data)))
            (scoot-server--attempt-install-driver
@@ -178,7 +188,8 @@ or configured towards another target."
                                                (headers scoot--json-headers)
                                                retry-fn
                                                retry-args
-                                               op)
+                                               op
+                                               connection)
   "Send an http request to the scoot-server.
 
 This is the lowest-level http request method provided by scoot--connection,
@@ -200,7 +211,10 @@ RETRY-FN and RETRY-ARGS may be passed to provide a method to retry a failed
 request that is deemed to be retryable. Any such function should attempt to
 resolve the cause of the failure before trying again.
 
-OP is a symbol describing the operation that this request is a part of."
+OP is a symbol describing the operation that this request is a part of.
+
+CONNECTION can optionally be supplied to assist the error handler in retrying
+recoverable errors."
   (scoot-ensure-server)
   (let ((url (format "%s%s" (scoot-server--base-url) uri)))
     (request (url-encode-url url)
@@ -219,7 +233,8 @@ OP is a symbol describing the operation that this request is a part of."
       :error (scoot-connection--error-handler :op op
                                               :url url
                                               :retry-fn retry-fn
-                                              :retry-args retry-args)
+                                              :retry-args retry-args
+                                              :connection connection)
       :complete (cl-function
                  (lambda (&key response &allow-other-keys)
                    (when-let ((buf (request-response--buffer response)))
@@ -239,12 +254,15 @@ CALLBACK will be invoked with the result if the operation is successful."
   (scoot-ensure-server)
   (let ((connection-name (plist-get connection :name)))
     (scoot-connection--send-request
+     :connection connection
      :op request-op
      :uri (format "/api/%s/query" connection-name)
      :method "POST"
      :body `(("sql" . ,stmt)
              ("metadata" . t)
              ("action" . ,action))
+     :retry-fn #'scoot-connection--statement-operation
+     :retry-args (list connection stmt request-op action callback)
      :callback (lambda (data)
                  (funcall
                   callback
