@@ -77,6 +77,10 @@ CONN-STRING is the connection-string to use."
              scoot-connections)
     connection))
 
+(defun scoot-connection--store-connection (connection)
+  "Store a complete CONNECTION with metadata to the scoot connections table."
+  (puthash (plist-get connection :name) connection scoot-connections))
+
 (defun scoot-connection--connection-annotation-fn (connection-name)
   "Annotate CONNECTION-NAME for display `completing-read`."
   (if-let (conn (gethash connection-name scoot-connections nil))
@@ -332,9 +336,13 @@ to the currently active configuration of the Scoot Server."
    :body `((url . ,connection-string)
            (name . ,connection-name)
            (persist . ,scoot-auto-persist-connections))
-   :callback (lambda (_)
+   :callback (lambda (data)
                (funcall callback
-                        (scoot-add-connection connection-name connection-string)))
+                        (scoot-connection--store-connection
+                         (scoot--plist-merge
+                          (scoot--alist-to-plist (alist-get 'connection data))
+                          (list :name connection-name
+                                :url connection-string)))))
    :retry-fn #'scoot-connection--register-connection
    :retry-args (list callback connection-name connection-string)))
 
@@ -354,13 +362,9 @@ the remote connection collection."
                    (lambda (entry)
                      (let* ((name (symbol-name (car entry)))
                             (conn (cdr entry)))
-                       (cons name (list :name name
-                                        :dialect (alist-get 'dialect conn)
-                                        :host (alist-get 'host conn)
-                                        :port (alist-get 'port conn)
-                                        :username (alist-get 'username conn)
-                                        :database (alist-get 'database conn)
-                                        :driver (alist-get 'driver conn)))))
+                       (cons name (scoot--plist-merge
+                                   (list :name name)
+                                   (scoot--alist-to-plist conn)))))
                    connections))))))
 
 (defun scoot-connection--describe-table (connection table-name callback)

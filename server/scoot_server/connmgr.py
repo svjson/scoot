@@ -4,7 +4,7 @@ from typing import Optional
 connections = {}
 
 
-def create_connection(name: str, url: str) -> Optional[Connection]:
+def create_connection(name: str, url: str) -> Connection:
     conn = Connection(url)
     global connections
     if connections.get(name):

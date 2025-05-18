@@ -72,7 +72,6 @@ def with_connection(func):
     def wrapper(conn, *args, **kwargs):
         connection = connmgr.get_connection(conn)
         if connection is None:
-            print(f"Connection Manager has nothing.")
             configured_conn = config.app_config.connections.get(conn, None)
             if configured_conn is None:
                 raise ScootConnectionException(
@@ -108,13 +107,13 @@ def create_connection():
             )
         )
 
-    connmgr.create_connection(name, url)
+    conn = connmgr.create_connection(name, url)
 
     if persist:
         config.app_config.connections[name] = {"url": url}
         config.persist()
 
-    return json_response({"status": "ok"})
+    return json_response({"status": "ok", "connection": conn.to_dict()})
 
 
 @app.route("/api/connection", methods=["GET"])

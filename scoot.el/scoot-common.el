@@ -86,6 +86,10 @@ See `scoot-local--connection-name-resolvers`")
       (setq result (plist-put result (pop plist2) (pop plist2))))
     result))
 
+(defun scoot--alist-to-plist (alist)
+  "Convert ALIST to plist, transforming `key to :key."
+  (cl-loop for (key . value) in alist append (list (intern (format ":%s" key)) value)))
+
 (defun scoot--valid-identifier (str)
   "Test STR for a valid SQL identifier and return it."
   (when (and (stringp str)
