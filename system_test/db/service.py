@@ -2,6 +2,7 @@ from typing import Union, Optional
 
 import docker
 from docker.models.containers import Container
+import sqlalchemy
 from sqlalchemy import text
 
 from .backends import BACKENDS
@@ -29,6 +30,14 @@ class BackendService:
         self.container_name = container.name
         self.name = config.get("name")
 
+    def connect(self) -> sqlalchemy.Connection:
+        return self.connection.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        )
+
+    def disconnect(self, conn: sqlalchemy.Connection):
+        self.connection.disconnect(conn)
+
     def get_active_connection_url(self):
         return self.config.get(
             "active_connection_url", self.config.get("connection_url")
@@ -36,6 +45,7 @@ class BackendService:
 
     def teardown(self):
         try:
+            log.info("Closing connections...")
             self.connection.close()
         finally:
             if self.container is not None:

@@ -150,6 +150,12 @@ Used to enable/disable `outline-minor-mode`.")
   "Face used for string values in result set cells."
   :group 'scoot)
 
+(defface scoot-cell-temporal-face
+  '((t :inherit font-lock-constant-face))
+  "Face used for temportal values (dates, datetime, timestamps, dateoffsets, etc)
+values in result set cells."
+  :group 'scoot)
+
 (declare-function which-key-add-keymap-based-replacements nil)
 (declare-function which-key-add-key-based-replacements nil)
 
@@ -169,6 +175,13 @@ Used to enable/disable `outline-minor-mode`.")
   (if (null val)
       "NULL"
     (format "%s" val)))
+
+(defun scoot--format-temporal (val &rest _)
+  "Format a temporal value, VAL, for display in a result set table."
+  (let ((str-val (scoot--value-to-string val)))
+    (if (null val)
+        str-val
+      (replace-regexp-in-string "[+-][0-1][0-9]:[0-6][0-9]" "" str-val))))
 
 (defvar scoot-formatter-header
   (list :align 'left
@@ -219,6 +232,16 @@ Used to enable/disable `outline-minor-mode`.")
            (value "TRUE")
            (t "FALSE")))))
 
+(defvar scoot-formatter-temporal
+  (list :align 'left
+        :format-value #'scoot--format-temporal
+        :output-cell
+        (lambda (_ formatted-value)
+          (scoot--insert-faced formatted-value 'scoot-cell-temporal-face))
+        :sql-literal
+        (lambda (value)
+          (concat "'" value "'"))))
+
 (defvar scoot-formatter-raw-string
   (list :align 'left
         :format-value #'scoot--value-to-string
@@ -243,9 +266,21 @@ Used to enable/disable `outline-minor-mode`.")
   (let ((column-type (alist-get 'type column)))
     (cond
      ((string-prefix-p "NVARCHAR" column-type) scoot-formatter-string)
+     ((string-prefix-p "VARCHAR" column-type) scoot-formatter-string)
+     ((string-equal "TEXT" column-type) scoot-formatter-string)
+     ((string-equal "CLOB" column-type) scoot-formatter-string)
      ((string-equal "OBJECT-NAME" column-type) scoot-formatter-string)
      ((string-equal "INTEGER" column-type) scoot-formatter-number)
+     ((string-equal "NUMBER" column-type) scoot-formatter-number)
+     ((string-prefix-p "NUMERIC" column-type) scoot-formatter-number)
+     ((string-equal "TINYINT" column-type) scoot-formatter-number)
+     ((string-prefix-p "DECIMAL" column-type) scoot-formatter-number)
+     ((string-equal "BIT" column-type) scoot-formatter-boolean)
      ((string-equal "BOOLEAN" column-type) scoot-formatter-boolean)
+     ((string-equal "DATE" column-type) scoot-formatter-temporal)
+     ((string-equal "DATETIME" column-type) scoot-formatter-temporal)
+     ((string-equal "DATETIMEOFFSET" column-type) scoot-formatter-temporal)
+     ((string-equal "TIMESTAMP" column-type) scoot-formatter-temporal)
      (t scoot-formatter-raw-string))))
 
 (defun scoot--column-width (val)
@@ -288,17 +323,23 @@ default width of the, presumably, otherwise fixed-width font."
          (raw-table-data (alist-get 'rows scoot-result--result-data))
          (records (cl-mapcar
                    (lambda (row)
-                     (cl-mapcar (lambda (cell-value fmt)
+                     (cl-mapcar (lambda (cell-value fmt col)
                                   (let ((formatter (if (null cell-value)
                                                        scoot-formatter-null
                                                      fmt)))
-                                    (list :value cell-value
+                                    (list :value (cond
+                                                  ;; Temporary ugly, no good, verybad hack to standardize date output between backends
+                                                  ((and cell-value
+                                                        (member (alist-get 'type col) '("DATETIMEOFFSET" "TIMESTAMP")))
+                                                   (scoot--format-temporal cell-value))
+                                                  (t cell-value))
                                           :formatted-value
                                           (funcall
                                            (plist-get formatter :format-value)
                                            cell-value))))
                                 row
-                                formatters))
+                                formatters
+                                columns-metadata))
                    raw-table-data))
          (widths (cl-mapcar
                   (lambda (width header)

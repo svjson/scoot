@@ -1,24 +1,35 @@
-import orjson
 import traceback
+from decimal import Decimal
 from functools import wraps
-from flask import Flask, request, Response
 
+import orjson
+from flask import Flask, Response, request
+from scoot_core import config, metadata, query
 from scoot_core.exceptions import (
-    ScootError,
     ScootApplicationError,
     ScootConnectionException,
-    ScootSchemaException,
     ScootDriverException,
+    ScootError,
 )
+
 from scoot_server import connmgr
-from scoot_core import metadata, query, config
 
 app = Flask(__name__)
 
 
+def default_serializer(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+
+    print(f"Type {type(obj)} is not serializable, defaulting to str: \"{obj}\"")
+    return str(obj)
+
+
 def json_response(data, status=200):
     return Response(
-        response=orjson.dumps(data), status=status, content_type="application/json"
+        response=orjson.dumps(data, default=default_serializer),
+        status=status,
+        content_type="application/json",
     )
 
 
@@ -59,11 +70,7 @@ def with_error_handler(func):
 def with_connection(func):
     @wraps(func)
     def wrapper(conn, *args, **kwargs):
-        print(f"Ensure connection {conn}")
         connection = connmgr.get_connection(conn)
-        if connection:
-            print(f"Connection Manager has: {connection.to_dict()}")
-
         if connection is None:
             print(f"Connection Manager has nothing.")
             configured_conn = config.app_config.connections.get(conn, None)

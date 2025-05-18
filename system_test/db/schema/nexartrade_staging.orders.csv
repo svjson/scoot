@@ -1,0 +1,11 @@
+id,user_id,order_number,status,shipping_address,total_amount,created_at
+1,9,ORD00001,delivered,"45929 Cynthia Squares Suite 759 Bondport, MI 85356",189.81,2023-02-18 16:57:53
+2,6,ORD00002,cancelled,"PSC 6319, Box 1687 APO AP 78822",990.03,2023-04-22 05:50:55
+3,3,ORD00003,pending,"61073 Michael Mountain Mooreland, TN 63484",141.15,2023-05-31 21:18:00
+4,3,ORD00004,delivered,"0725 May Road Richardfurt, KS 35890",163.39,2023-12-28 13:01:57
+5,8,ORD00005,cancelled,"0144 Nixon Neck New Rickmouth, AK 36316",240.2,2023-09-01 20:17:07
+6,2,ORD00006,pending,"770 Montoya Views Suite 071 Robertshaven, NV 40763",81.82,2023-07-03 16:56:12
+7,8,ORD00007,delivered,"016 Wilson Canyon Johnton, UT 83363",860.53,2023-09-25 17:12:17
+8,3,ORD00008,pending,"2151 Mejia Island Zacharyton, WV 85588",840.52,2023-09-30 04:06:06
+9,7,ORD00009,cancelled,"438 Rachel Ridges South Jeff, UT 61788",345.63,2023-10-11 15:41:22
+10,10,ORD00010,cancelled,"21081 White Way New Kathleen, ID 06128",509.55,2023-01-05 20:48:33

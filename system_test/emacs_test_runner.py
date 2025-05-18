@@ -141,5 +141,4 @@ def run_test(emacs_daemon: EmacsDaemon, test_file, test_name, context_name=None)
         )
         log.error(f"----------------------------------------------------------")
 
-        log.info(test_result)
     assert success

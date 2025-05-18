@@ -1,7 +1,4 @@
-from typing import Union, Optional
-from .log import log
-from docker.models.containers import Container
-from scoot_core.connection import Connection
+from typing import Union
 
 KvProp = dict[str, str]
 Prop = Union[str, int, KvProp]
@@ -45,6 +42,7 @@ BACKENDS: dict[str, BackendConfig] = {
         "port": 11521,
         "target_port": 1521,
         "connection_url": "oracle+cx_oracle://system:oracle@localhost:11521/?service_name=XE",
+        "active_connection_url": "oracle+cx_oracle://nexartrade_staging:password@localhost:11521/?service_name=XE",
         "env": {"ORACLE_ENABLE_XDB": "true", "ORACLE_ALLOW_REMOTE": "true"},
         "ping_query": "SELECT 1 FROM DUAL",
     },

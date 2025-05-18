@@ -11,3 +11,14 @@ def test__scoot_result__verify_column_headers_with_primary_and_foreign_keys(
         "result--verify-column-headers-with-primary-and-foreign-keys",
         context_name=db_backend.name,
     )
+
+
+def test__scoot_result__verify_cell_rendering__nexartrade_products(
+    db_backend: BackendService, emacs_daemon: EmacsDaemon
+):
+    run_test(
+        emacs_daemon,
+        "scoot-result/column-tests.el",
+        "result--verify-cell-rendering--nexartrade-products",
+        context_name=db_backend.name,
+    )

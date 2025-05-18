@@ -3,9 +3,10 @@
 import sys
 import signal
 import traceback
-from typing import Optional, cast
+from typing import Optional
 from time import sleep
 
+from system_test.db.log import log
 from system_test.db.service import BackendService, start_service
 from system_test.db.bootstrap import bootstrap_database
 
@@ -15,13 +16,15 @@ def main():
         print("Usage: python -m bootstrapdb <backend_name>")
         return
 
-    service = Optional[BackendService]
+    service: Optional[BackendService] = None
 
-    def teardown(sig, frame):
+    def teardown(sig, _frame):
+        del _frame
         print("Stopping...")
         if service is not None:
             service.teardown()
-        sys.exit(0)
+        print("Exiting...")
+        sys.exit(sig)
 
     try:
         backend_name = sys.argv[1]
@@ -33,7 +36,7 @@ def main():
 
         bootstrap_database(service)
 
-        print(f"Service {service.name} startup completed...")
+        log.info(f"Service {service.name} startup completed...")
 
         try:
             while True:
