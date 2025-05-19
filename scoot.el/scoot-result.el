@@ -499,20 +499,30 @@ INFO contains the grid information as a plist with the following properties:
     (let ((index 1))
       (mapcar
        (lambda (entry)
-         (let ((meta (plist-get entry :meta)))
-           (scoot--insert-faced (propertize (plist-get entry :label)
-                                            'role 'data-label
-                                            'meta meta)
-                                'scoot-label-face)
-           (insert (propertize ": "
-                               'role 'data-label
-                               'meta meta))
-           (insert (propertize (plist-get entry :value)
-                               'role 'data-value
-                               'meta meta))
-           (if (zerop (% index columns))
-               (insert "\n")
-             (insert (make-string (- column-width (plist-get entry :min-width)) ?\s)))
+         (let* ((meta (plist-get entry :meta))
+                (full-cell (concat
+                          (propertize (plist-get entry :label)
+                                      'role 'data-label
+                                      'meta meta
+                                      'face 'scoot-label-face)
+                          (propertize ": "
+                                      'role 'data-label
+                                      'meta meta)
+                          (propertize (plist-get entry :value)
+                                      'role 'data-value
+                                      'meta meta)))
+                (margin (- column-width (length full-cell)))
+                (adjusted (if (<= margin 0)
+                              (concat (substring full-cell 0 (+ (length full-cell) margin -4))
+                                      (propertize "..." 'face 'font-lock-comment-face))
+                            full-cell)))
+           (insert adjusted)
+           (cond
+            ((zerop (% index columns))
+             (insert "\n"))
+            ((<= margin 0)
+             (insert " "))
+            ((insert (make-string (- column-width (plist-get entry :min-width)) ?\s))))
            (setq index (1+ index))))
        entries))))
 
