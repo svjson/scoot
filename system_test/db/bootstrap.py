@@ -93,12 +93,13 @@ class MSSQLBootstrapper(DbBootstrapper):
 
 class PostgresBootstrapper(DbBootstrapper):
     @override
-    def create_schema(self, schema):
-        self._execute(f"CREATE SCHEMA {schema.name};")
-
-    @override
     def create_container(self):
         self._execute(f"CREATE DATABASE {self.db_schema.name};")
+        self._reconfigure()
+
+    @override
+    def create_schema(self, schema):
+        self._execute(f"CREATE SCHEMA {schema.name};")
 
 
 class MySQLBootstrapper(DbBootstrapper):

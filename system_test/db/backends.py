@@ -65,6 +65,7 @@ BACKENDS: dict[str, BackendConfig] = {
         "port": 15432,
         "target_port": 5432,
         "connection_url": "postgresql+psycopg2://postgres:password@localhost:15432/postgres",
+        "active_connection_url": "postgresql+psycopg2://postgres:password@localhost:15432/nexartrade_v1?options=-c%20search_path=nexartrade_staging",
         "env": {"POSTGRES_PASSWORD": "password"},
         "ping_query": "SELECT 1;",
     },
