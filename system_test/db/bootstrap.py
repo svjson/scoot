@@ -69,14 +69,25 @@ class MariaDBBootstrapper(DbBootstrapper):
 class MSSQLBootstrapper(DbBootstrapper):
     @override
     def create_container(self):
+        self._execute(f"CREATE LOGIN nexar WITH PASSWORD = 'StrongPassword123';")
+        self._execute(f"ALTER LOGIN nexar ENABLE;")
+        self._execute(f"CREATE USER nexar FOR LOGIN nexar;")
         self._execute(f"CREATE DATABASE {self.db_schema.name};")
         self._execute(f"USE {self.db_schema.name};")
+        self._execute(f"CREATE USER nexar FOR LOGIN nexar;")
+        self._execute(f"ALTER USER nexar WITH LOGIN = nexar;")
         pass
 
     @override
     def create_schema(self, schema):
-
         self._execute(f"CREATE SCHEMA {schema.name};")
+        self._execute(f"ALTER USER nexar WITH DEFAULT_SCHEMA = {schema.name};")
+        self._execute(
+            f"GRANT ALTER, CONTROL, DELETE, EXECUTE, INSERT, SELECT, UPDATE ON SCHEMA::{schema.name} TO nexar;"
+        )
+        self._execute(
+            f"GRANT ALTER, CREATE TABLE, CREATE VIEW, CREATE PROCEDURE, CREATE FUNCTION, CREATE SCHEMA, DELETE, EXECUTE, INSERT, SELECT, UPDATE TO nexar;"
+        )
         self._reconfigure()
 
 

@@ -22,7 +22,7 @@ BACKENDS: dict[str, BackendConfig] = {
         "port": 11433,
         "target_port": 1433,
         "connection_url": "mssql+pyodbc://sa:Password123@localhost:11433/tempdb?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
-        "active_connection_url": "mssql+pyodbc://sa:Password123@localhost:11433/NexarTrade_v1?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+        "active_connection_url": "mssql+pyodbc://nexar:StrongPassword123@localhost:11433/NexarTrade_v1?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
         "env": {"ACCEPT_EULA": "Y", "MSSQL_SA_PASSWORD": "Password123"},
         "ping_query": "SELECT 1;",
     },
