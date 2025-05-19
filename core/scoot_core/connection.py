@@ -1,6 +1,8 @@
 import sqlalchemy
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy import create_engine, text, Engine
+
+from scoot_core.model import ResultSet
+from .error import dialect_error_handler
 
 
 class Connection:
@@ -28,6 +30,32 @@ class Connection:
 
         self.close()
         self.engine = create_engine(url)
+
+    def execute(self, sql: str) -> ResultSet:
+        """Execute a raw SQL query.
+
+        Wraps execution in a driver-specific exception handler, attempting
+        to produce meaningful error messages.
+
+        Returns:
+          columns: list of column names
+          rows: list of rows (each row is a list of values)
+        """
+        error_handler = dialect_error_handler(self.engine.driver)
+
+        @error_handler
+        def do_execute(connection: Connection, sql: str):
+
+            with connection.engine.connect().execution_options(
+                isolation_level="AUTOCOMMIT"
+            ) as conn:
+                result = conn.execute(text(sql))
+                columns = list(result.keys())
+                rows = [list(row) for row in result]
+
+                return ResultSet(columns, rows)
+
+        return do_execute(self, sql)
 
     def close(self):
         """Close the physical connection. sqlalchemy.Engine and its pool

@@ -1,17 +1,55 @@
-from functools import wraps
-import re
-
-from sqlalchemy import text, exc
-from scoot_core.exceptions import ScootQueryException
-from scoot_core.connection import Connection
-from scoot_core.model import ResultSet
+from .connection import Connection
+from .metadata import describe_table
+from .model import ResultSet, TableModel
 
 from sqlglot import parse_one, exp
 
 
 class SQLQueryModifier:
-    def __init__(self, sql):
+    def __init__(self, sql, connection):
         self.ast = parse_one(sql)
+        self.connection = connection
+        self._tbl_expr_meta: dict[str, TableModel] = {}
+        self._identify_items()
+
+    def remove_from_select(self, items):
+        select_clause = self.ast.find(exp.Select)
+
+        if select_clause is None:
+            return
+
+        keep = []
+        expr_items = self._find_items_in_expression(items)
+
+        for item in select_clause.expressions:
+            if isinstance(item, exp.Star):
+                table_meta = self._get_table_expr_metadata()
+                for tbl_name, tbl in table_meta.items():
+                    tbl_expr = self._find_table_expression({"table": tbl_name})
+                    for col in tbl.columns:
+                        if col.name not in [i.get("name") for i in items]:
+                            if tbl_expr and tbl_expr.get("alias"):
+                                keep.append(
+                                    exp.Column(
+                                        this=exp.Identifier(this=col.name),
+                                        table=exp.Identifier(
+                                            this=tbl_expr.get("alias")
+                                        ),
+                                    )
+                                )
+                            else:
+                                keep.append(
+                                    exp.Column(this=exp.Identifier(this=col.name))
+                                )
+
+            elif isinstance(item, exp.Column):
+                if item.sql() not in [expr.get("sql") for expr in expr_items]:
+                    keep.append(item)
+
+        if not keep:
+            keep = [exp.Star()]
+
+        select_clause.set("expressions", keep)
 
     def add_where_condition(self, condition):
         where_clause = self.ast.find(exp.Where)
@@ -82,76 +120,109 @@ class SQLQueryModifier:
         else:
             self.ast.set("where", None)
 
+    def _identify_owner(self, item):
+        for tbl_expr in self._tbl_expr:
+            if item.get("owner") == tbl_expr.get("alias"):
+                return tbl_expr
+            elif item.get("owner") == tbl_expr.get("table"):
+                return tbl_expr
+
+    def _identify_items(self):
+        from_clause = self.ast.find(exp.From)
+
+        table_expressions = []
+        select_items = []
+
+        if from_clause:
+            from_value = from_clause.args.get("this")
+            # if isinstance(from_value, tuple):
+            #     for expr in from_value:
+            #         if isinstance(expr, exp.Table):
+            #             print(f"{expr}")
+            if isinstance(from_value, exp.Table):
+                table_expr = {}
+                if from_value.name:
+                    table_expr["table"] = from_value.name
+                if from_value.alias:
+                    table_expr["alias"] = from_value.alias
+                if from_value.db:
+                    table_expr["space"] = from_value.db
+
+                table_expressions.append(table_expr)
+
+        self._tbl_expr = table_expressions
+
+        select_clause = self.ast.find(exp.Select)
+        if select_clause:
+            for item in select_clause.expressions:
+                col = None
+                alias = None
+                if isinstance(item, exp.Column):
+                    col = item
+                elif isinstance(item, exp.Alias):
+                    aliased_expr = item.args.get("this")
+                    if isinstance(aliased_expr, exp.Column):
+                        col = aliased_expr
+                        alias = getattr(item.args.get("alias", {}), "this", None)
+
+                if col:
+                    item_expr = {}
+                    if col.name:
+                        item_expr["column"] = col.name
+                    item_expr["sql"] = item.sql()
+                    if alias:
+                        item_expr["alias"] = alias
+                    if col.table:
+                        item_expr["owner"] = col.table
+                    table = self._identify_owner(item_expr)
+                    if table:
+                        item_expr["table"] = table
+                    select_items.append(item_expr)
+
+        self._select_items = select_items
+
+    def _find_items_in_expression(self, items: list[dict[str, str]]):
+        found = []
+
+        for item in items:
+            for expr in self._select_items:
+                if expr.get("column") == item.get("name"):
+                    found.append(expr)
+
+        return found
+
+    def _find_table_expression(self, table_desc):
+        for tbl_expr in self._tbl_expr:
+            if tbl_expr.get("table") == table_desc.get("table"):
+                return tbl_expr
+        return None
+
+    def _get_table_expr_metadata(self) -> dict[str, TableModel]:
+        from_clause = self.ast.find(exp.From)
+        if from_clause is None:
+            return {}
+
+        tables: list[exp.Table] = []
+
+        from_value = from_clause.args.get("this")
+        if isinstance(from_value, tuple):
+            for item in from_value:
+                if isinstance(item, exp.Table):
+                    tables.append(item)
+        elif isinstance(from_value, exp.Table):
+            tables.append(from_value)
+
+        for tbl_expr in tables:
+            tbl_meta = describe_table(
+                self.connection, tbl_expr.sql(), ignore_failure=True
+            )
+            if tbl_meta:
+                self._tbl_expr_meta[tbl_meta.name] = tbl_meta
+
+        return self._tbl_expr_meta
+
     def get_sql(self):
         return self.ast.sql()
-
-
-def handler_generic(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-
-    return wrapper
-
-
-def handler_pyodbc(func):
-
-    def extract_sql_message(exc):
-        if len(exc.args) > 1:
-            message = exc.args[1]
-            # Extract only the main error message
-            match = re.search(r"(\[SQL Server\]\s*.*?)(?:\s*\(\d+\).*)?$", message)
-            if match:
-                return match.group(1).strip()
-            return str(exc)
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        import pyodbc
-
-        try:
-            return func(*args, **kwargs)
-        except exc.ProgrammingError as pe:
-            if isinstance(pe.__cause__, pyodbc.ProgrammingError):
-                root_exc: pyodbc.ProgrammingError = pe.__cause__
-                raise ScootQueryException(extract_sql_message(root_exc))
-            else:
-                raise pe
-
-    return wrapper
-
-
-def get_dialect_error_handler(driver_name):
-    handlers = {"pyodbc": handler_pyodbc}
-
-    return handlers.get(driver_name, handler_generic)
-
-
-def execute(connection: Connection, sql: str) -> ResultSet:
-    """Execute a raw SQL query.
-
-    Wraps execution in a driver-specific exception handler, attempting
-    to produce meaningful error messages.
-
-    Returns:
-      columns: list of column names
-      rows: list of rows (each row is a list of values)
-    """
-    error_handler = get_dialect_error_handler(connection.engine.driver)
-
-    @error_handler
-    def do_execute(connection: Connection, sql: str):
-
-        with connection.engine.connect().execution_options(
-            isolation_level="AUTOCOMMIT"
-        ) as conn:
-            result = conn.execute(text(sql))
-            columns = list(result.keys())
-            rows = [list(row) for row in result]
-
-            return ResultSet(columns, rows)
-
-    return do_execute(connection, sql)
 
 
 def modify(connection: Connection, sql: str, action_instr: dict) -> ResultSet:
@@ -159,7 +230,7 @@ def modify(connection: Connection, sql: str, action_instr: dict) -> ResultSet:
     operation = action_instr.get("operation")
     conditions = action_instr.get("conditions", [])
 
-    result = SQLQueryModifier(sql)
+    query_mod = SQLQueryModifier(sql, connection)
 
     if target == "WHERE":
         for cond in conditions:
@@ -170,15 +241,24 @@ def modify(connection: Connection, sql: str, action_instr: dict) -> ResultSet:
             expr = f"{lhs} {cmp} {rhs}"
 
             if operation == "add":
-                result.add_where_condition(expr)
+                query_mod.add_where_condition(expr)
             elif operation == "remove":
-                result.remove_where_condition(expr)
+                query_mod.remove_where_condition(expr)
             else:
                 raise ValueError(f"Unknown operation: {operation}")
+    elif target == "SELECT":
+        if operation == "add":
+            query_mod.add_to_select(conditions)
+        elif operation == "remove":
+            query_mod.remove_from_select(conditions)
+        else:
+            raise ValueError(f"Unknown operation: {operation}")
+    else:
+        raise ValueError(f"Unknown query modification target: {target}")
 
-    modified_sql = result.get_sql()
+    modified_sql = query_mod.get_sql()
 
-    result_set = execute(connection, result.get_sql())
+    result_set = connection.execute(modified_sql)
     result_set.metadata = (result_set.metadata or {}) | {"stmt": modified_sql}
     return result_set
 
@@ -194,7 +274,7 @@ def perform_action(connection: Connection, sql: str, action_instr: dict):
     action = action_instr.get("action")
 
     if action == "execute":
-        return execute(connection, sql)
+        return connection.execute(sql)
     elif action == "modify":
         return modify(connection, sql, action_instr)
     else:

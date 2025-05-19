@@ -198,7 +198,7 @@ them.
 | `TAB`              | Folded outline | Hide/show folded outline seection.                                                                        |
 | `C-c C-c`          | -              | Execute query                                                                                             |
 | `h` or `?`         | -              | Describe mode                                                                                             |
-| `q`                | -              | Quit window                                                                                                          |
+| `q`                | -              | Quit window                                                                                               |
 | `a w e` or `a w =` | Table cell     | Add this column/value to the WHERE-clause with an equals(=) expression.                                   |
 | `a w n` or `a w !` | Table cell     | Add this column/value to the WHERE-clause with a not equals(!=) expression.                               |
 | `a w >`            | Table cell     | Add this column/value to the WHERE-clause with a greater than(>) expression.                              |
@@ -211,6 +211,7 @@ them.
 | `r w g`            | Table cell     | Remove an existing greater than or equals(>=) expression against this column/value from the WHERE-clause. |
 | `r w <`            | Table cell     | Remove an existing less than(<) expression against this column/value from the WHERE-clause.               |
 | `r w l`            | Table cell     | Remove an existing less than or equals(<=) expression against this column/value from the WHERE-clause.    |
+| `r s`              | Table column   | Remove column from the SELECT-clause of the current statement.                                            |
 
 ### Customizable variables (in `scoot-result-mode`)
 

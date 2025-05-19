@@ -15,7 +15,6 @@ def pytest_addoption(parser):
 
 def pytest_generate_tests(metafunc):
     """Determines which backends to run based on the `--backend` parameter."""
-    print(f"{metafunc.fixturenames}")
     if "db_backend" in metafunc.fixturenames:
         backends = metafunc.config.getoption("backend")
         if not backends:

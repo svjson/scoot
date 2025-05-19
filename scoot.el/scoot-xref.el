@@ -32,20 +32,6 @@
 (require 'scoot-common)
 
 
-;; Variables
-
-(defvar-local scoot-xref-action-fn nil
-  "Function to handle xref actions, specified locally by each buffer.")
-
-(defvar-local scoot-xref-identifier-at-point-fn nil
-  "Function to determine identifier-at-point, specified locally by each buffer.")
-
-(defvar-local scoot-xref-completion-provider-fn nil
-  "Function to provide buffer-local completion alternatives.")
-
-(defvar scoot-xref-async-cache (make-hash-table :test 'equal))
-
-
 ;; Customization Options
 
 (defcustom scoot-xref-database-icon " "
@@ -75,6 +61,20 @@ Should be unique among scoot-xref icons"
 Should be unique among scoot-xref icons"
   :type 'string
   :group 'scoot)
+
+
+;; Variables
+
+(defvar-local scoot-xref-action-fn nil
+  "Function to handle xref actions, specified locally by each buffer.")
+
+(defvar-local scoot-xref-identifier-at-point-fn nil
+  "Function to determine identifier-at-point, specified locally by each buffer.")
+
+(defvar-local scoot-xref-completion-provider-fn nil
+  "Function to provide buffer-local completion alternatives.")
+
+(defvar scoot-xref-async-cache (make-hash-table :test 'equal))
 
 
 ;; xref identifier construction

@@ -171,6 +171,9 @@ def query_operation(connection):
 
     result = query.perform_action(connection, sql, action)
 
+    if result.metadata and (new_stmt := result.metadata.get("stmt")):
+        sql = new_stmt
+
     query_metadata = (
         metadata.resolve_query_metadata(connection, sql)
         if include_metadata

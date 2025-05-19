@@ -6,7 +6,6 @@ from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
 
-from scoot_core import query
 from scoot_core.connection import Connection
 from scoot_core.model import TableModel
 from scoot_core.exceptions import ScootSchemaException
@@ -31,12 +30,12 @@ def list_databases(conn: Connection) -> list[str]:
     dialect = conn.engine.dialect.name
 
     if dialect == "mssql":
-        resultset = query.execute(
-            conn, "SELECT name FROM sys.databases WHERE HAS_DBACCESS(name) = 1"
+        resultset = conn.execute(
+            "SELECT name FROM sys.databases WHERE HAS_DBACCESS(name) = 1"
         )
         return [str(row[0]) for row in resultset.rows]
     elif dialect == "mysql":
-        resultset = query.execute(conn, "SHOW DATABASES;")
+        resultset = conn.execute("SHOW DATABASES;")
         return [str(row[0]) for row in resultset.rows]
 
     raise NotImplementedError(

@@ -35,10 +35,10 @@ class ColumnModel:
 
 
 class TableModel:
-    def __init__(self, name, schema):
+    def __init__(self, name, schema, **kwargs):
         self.name = name
         self.schema = schema
-        self.columns = []
+        self.columns = kwargs.get("columns", [])
         self._column_indices = {}
         self.create_stmt = None
         self.constraints = []

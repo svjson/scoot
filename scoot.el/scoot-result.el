@@ -43,6 +43,9 @@
 (require 'scoot-connection)
 (require 'scoot-xref)
 
+
+;; Customization Options
+
 (defcustom scoot-primary-key-icon "🔑"
   "Icon used to indicate that a column has a primary key constraint."
   :type 'string
@@ -55,6 +58,9 @@
 
 (defconst scoot-result--buffer-default-name "*scoot result*"
   "The default result buffer name to use if all other naming methods fail.")
+
+
+;; Variables
 
 (defvar scoot-result-buffer-default-name scoot-result--buffer-default-name)
 
@@ -99,6 +105,9 @@ table")
 (defvar-local scoot-result--outline-sections nil
   "The number of foldable headings currently in the buffer.
 Used to enable/disable `outline-minor-mode`.")
+
+
+;; Custom faces
 
 (defface scoot-label-face
   '((t :inherit font-lock-function-name-face))
@@ -156,6 +165,9 @@ Used to enable/disable `outline-minor-mode`.")
 values in result set cells."
   :group 'scoot)
 
+
+;; Forward declarations
+
 (declare-function which-key-add-keymap-based-replacements nil)
 (declare-function which-key-add-key-based-replacements nil)
 
@@ -163,6 +175,9 @@ values in result set cells."
 (declare-function scoot-list-databases "scoot")
 (declare-function scoot-list-schemas "scoot")
 (declare-function scoot-list-tables "scoot")
+
+
+;; Formatting
 
 (defun scoot--insert-faced (text face)
   "Insert TEXT with FACE applied as a text property."
@@ -286,6 +301,9 @@ values in result set cells."
      ((string-equal "TIMESTAMP" column-type) scoot-formatter-temporal)
      (t scoot-formatter-raw-string))))
 
+
+;; Rendering logic
+
 (defun scoot--column-width (val)
   "Calculates the width of string value of VAL.
 
@@ -399,6 +417,7 @@ default width of the, presumably, otherwise fixed-width font."
                (insert " ")
                (add-text-properties header-begin (point) (list 'thing 'table-header
                                                                'header name
+                                                               'column-meta (plist-get header :metadata)
                                                                'column (alist-get 'column (plist-get header :metadata))
                                                                'table (alist-get 'table (plist-get header :metadata))))))
            (plist-get scoot-result--result-model :headers)
@@ -745,6 +764,24 @@ Additional keys for type object:
    scoot-result--current-sql-statement
    #'scoot-result--open-result-buffer))
 
+(defun scoot-result--modify-select (op)
+  "Perform a modification of the SELECT-clause using the table cell at point.
+
+OP is either `add or `remove."
+  (interactive)
+  (let ((cell (scoot-result--cell-at-point)))
+    (when-let ((col (plist-get cell :column))
+               (column (alist-get 'column col))
+               (name (alist-get 'name col)))
+      (scoot-connection--modify-statement
+       (scoot-result--buffer-connection)
+       scoot-result--current-sql-statement
+       `("SELECT" ,op)
+       (list (list (cons 'name name)
+                   (cons 'column column)))
+       #'scoot-result--open-result-buffer)))
+  nil)
+
 (defun scoot-result--modify-where (op cmp &optional allow-null)
   "Perform a modification of the WHERE-clause using the table cell at point.
 
@@ -922,8 +959,14 @@ OP is either `add or `remove."
     (define-key where-prefix (kbd "g")
                 (lambda () (interactive) (scoot-result--modify-where op ">=")))
     (define-key map (kbd "w") where-prefix)
+    (when (eq op 'remove)
+      (define-key map (kbd "s") (lambda () (interactive) (scoot-result--modify-select op))))
 
     (when (featurep 'which-key)
+      (when (eq op 'remove)
+        (which-key-add-keymap-based-replacements map
+          "s" (concat op-name " " op-dir " SELECT clause")))
+
       (which-key-add-keymap-based-replacements map
         "w" (concat op-name " " op-dir " WHERE clause"))
 
