@@ -28,6 +28,7 @@
 (require 'cl-lib)
 (require 'ert)
 (require 'scoot-common)
+(require 'scoot-table)
 
 (defvar scoot-test--connection nil
   "Connection object to use for integration tests.  Set by runner.")
@@ -144,20 +145,6 @@ BODY is the elisp code to execute once the query buffer has been opened."
 
 (put 'with-result-buffer 'lisp-indent-function 'defun)
 
-(defun scoot-resultset-next-cell (&optional point)
-  "Find the location of the the next table-cell of the buffer.
-
-If POINT is not provided, the search will start from the beginning
-of the buffer."
-  (save-excursion
-    (goto-char (or point (point-min)))
-    (let ((point (next-single-property-change (point) 'thing)))
-      (while (and (not (null point))
-                  (not (equal 'table-cell (cdr (assoc 'thing (scoot--props-at point))))))
-        (setq point (next-single-property-change point 'thing)))
-      (if (null point)
-          nil
-        (cons point (line-number-at-pos))))))
 
 (defun scoot-resultset-cell-summary-at (point)
   "Get a description representation of the resultset table cell at POINT."
@@ -180,7 +167,7 @@ of the buffer."
   (save-excursion
     (goto-char point)
     (beginning-of-line)
-    (let ((next-cell-pos (car (scoot-resultset-next-cell (point)))))
+    (let ((next-cell-pos (car (scoot-table--next-cell (point)))))
       (if (null next-cell-pos)
           nil
         (progn
@@ -189,7 +176,7 @@ of the buffer."
                 (row nil))
             (while (eq line (line-number-at-pos))
               (setq row (push (scoot-resultset-cell-summary-at (point)) row))
-              (setq next-cell-pos (car (scoot-resultset-next-cell (point))))
+              (setq next-cell-pos (car (scoot-table--next-cell (point))))
               (goto-char (or next-cell-pos (point-max))))
             (nreverse row)))))))
 
@@ -198,7 +185,9 @@ of the buffer."
 
 Returns (<point> . <line-number>)."
   (save-excursion
-    (goto-char (car (scoot-resultset-next-cell (point-min))))
+    (goto-char (car (scoot-table--next-cell (point-min))))
+    (when (scoot--thing-at-p (point) 'table-header)
+      (forward-line 2))
     (beginning-of-line)
     (cons (point) (line-number-at-pos))))
 

@@ -166,7 +166,9 @@ default width of the, presumably, otherwise fixed-width font."
   (scoot-table--insert-divider-row)
 
   (cl-mapc (lambda (header width)
-             (insert (propertize "| " 'face 'scoot-table-face))
+             (insert (propertize "| "
+                                 'thing 'table-border
+                                 'face 'scoot-table-face))
              (let* ((header-begin (1- (point)))
                     (align (plist-get scoot-formatter-header :align))
                     (name (plist-get header :name))
@@ -188,7 +190,9 @@ default width of the, presumably, otherwise fixed-width font."
                                                                'table (alist-get 'table (plist-get header :metadata))))))
            (plist-get scoot-table--table-model :headers)
            (plist-get scoot-table--table-model :widths))
-  (insert (propertize "|" 'face 'scoot-table-face))
+  (insert (propertize "|"
+                      'thing 'table-border
+                      'face 'scoot-table-face))
   (insert "\n")
 
   (scoot-table--insert-divider-row))
@@ -197,7 +201,10 @@ default width of the, presumably, otherwise fixed-width font."
   "Insert the table row ROW."
 
   (cl-mapc (lambda (header cell width fmt)
-             (insert (propertize  "| " 'face 'scoot-table-face))
+             (insert (propertize
+                      "| "
+                      'thing 'table-border
+                      'face 'scoot-table-face))
              (let* ((cell-start (1- (point)))
                     (value (plist-get cell :value))
                     (formatted-value (plist-get cell :formatted-value))
@@ -225,7 +232,9 @@ default width of the, presumably, otherwise fixed-width font."
            row
            (plist-get scoot-table--table-model :widths)
            (plist-get scoot-table--table-model :formatters))
-  (insert  (propertize "|" 'face 'scoot-table-face))
+  (insert (propertize "|"
+                      'thing 'table-border
+                      'face 'scoot-table-face))
   (insert "\n"))
 
 
@@ -237,6 +246,7 @@ default width of the, presumably, otherwise fixed-width font."
                               (plist-get scoot-table--table-model :widths)
                               "-+-")
                    "-+\n")
+           'thing 'table-border
            'face 'scoot-table-face)))
 
 (defun scoot-table--insert-table (result-data)
@@ -251,6 +261,12 @@ default width of the, presumably, otherwise fixed-width font."
 
 ;; Table inspection
 
+(defun scoot-table--table-at-point-p ()
+  "Return non-nil if the cursor is inside the table bounds."
+  (scoot--thing-at-p (point) '(table-cell
+                               table-header
+                               table-border)))
+
 (defun scoot-table--cell-at-point ()
   "Return the result set table cell at point."
   (let* ((props (scoot--props-at-point)))
@@ -258,6 +274,110 @@ default width of the, presumably, otherwise fixed-width font."
           :column (alist-get 'column-meta props)
           :value (alist-get 'value props)
           :formatter (alist-get 'formatter props))))
+
+(defun scoot-table--cell-begin (&optional point)
+  "Find the location of the first char of the cell at POINT."
+  (let ((p (or point (point))))
+    (when (scoot--thing-at-p p '(table-cell table-header))
+      (while (scoot--thing-at-p (1- p) '(table-cell table-header))
+        (setq p (1- p)))
+      (setq p (1+ p))
+      (cons p (line-number-at-pos p)))))
+
+(defun scoot-table--cell-end (&optional point)
+  "Find the location of the first char of the cell at POINT."
+  (let ((p (or point (point))))
+    (when (scoot--thing-at-p p '(table-cell table-header))
+      (setq p (next-single-property-change point 'thing))
+      (when p
+        (setq p (- p (if (not (scoot--thing-at-p p '(table-cell table-header))) 2 1)))
+        (cons p (line-number-at-pos p))))))
+
+
+(defun scoot-table--next-cell (&optional point)
+  "Find the location of the the next table-cell of the buffer.
+
+If POINT is not provided, the search will start from the beginning
+of the buffer."
+  (save-excursion
+    (when point (goto-char point))
+    (when-let (point (scoot--next-property-with-value-in
+                      'thing
+                      '(table-cell table-header)))
+      (goto-char point)
+      (cons point (line-number-at-pos)))))
+
+(defun scoot-table--previous-cell (&optional point)
+  "Find the location of the the previous table-cell of the buffer.
+
+If POINT is not provided, the search will start from the end of the
+buffer."
+  (save-excursion
+    (when point (goto-char point))
+    (when-let (point (scoot--previous-property-with-value-in
+                      'thing
+                      '(table-cell table-header)))
+      (goto-char point)
+      (cons point (line-number-at-pos)))))
+
+
+
+;; Table Navigation
+
+(defun scoot-table--move-to-cell-value ()
+  "Move the cursor to the align anchor of the cell value."
+  (if (or (equal (plist-get (alist-get 'formatter (scoot--props-at-point)) :align) 'left)
+          (not (car (assoc 'value (scoot--props-at-point)))))
+      (goto-char (car (scoot-table--cell-begin (point))))
+    (goto-char (car (scoot-table--cell-end (point))))))
+
+(defun scoot-table--cell-right ()
+  "Move right to the next cell."
+  (interactive)
+  (when-let (cell (scoot-table--next-cell (point)))
+    (goto-char (car cell))
+    (scoot-table--move-to-cell-value)))
+
+(defun scoot-table--cell-left ()
+  "Move right to the previous cell."
+  (interactive)
+  (when-let (cell (scoot-table--previous-cell (point)))
+    (goto-char (car cell))
+    (scoot-table--move-to-cell-value)))
+
+(defun scoot-table--cell-up ()
+  "Move up to the corresponding cell in the previous row."
+  (interactive)
+  (let ((line-move-visual nil))
+    (call-interactively 'previous-line)
+    (when (scoot--thing-at-p (point) '(table-cell table-header))
+      (scoot-table--move-to-cell-value))))
+
+(defun scoot-table--cell-down ()
+  "Move up to the corresponding cell in the previous row."
+  (interactive)
+  (let ((line-move-visual nil))
+    (call-interactively 'next-line)
+    (when (scoot--thing-at-p (point) '(table-cell table-header))
+      (scoot-table--move-to-cell-value))))
+
+
+;; Scoot Table Mode - scoot-table--mode
+
+(defvar scoot-table-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-n") 'scoot-table--cell-down)
+    (define-key map (kbd "C-p") 'scoot-table--cell-up)
+    (define-key map (kbd "C-f") 'scoot-table--cell-right)
+    (define-key map (kbd "TAB") 'scoot-table--cell-right)
+    (define-key map (kbd "C-b") 'scoot-table--cell-left)
+    (define-key map (kbd "<backtab>") 'scoot-table--cell-left)
+    map))
+
+(define-minor-mode scoot-table-mode
+  "Minor mode for navigating and interacting with tables."
+  :lighter " Table"
+  :keymap scoot-table-mode-map)
 
 
 (provide 'scoot-table)

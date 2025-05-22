@@ -121,6 +121,76 @@ See `scoot-local--connection-name-resolvers`")
                             ((thing-at-point 'symbol t)
                              (thing-at-point 'symbol t)))))
 
+(defun scoot--thing-at-p (point thing)
+  "Test the scoot `thing` prop at POINT for equality withn THING."
+  (if (sequencep thing)
+      (member (alist-get 'thing (scoot--props-at point)) thing)
+    (equal thing (alist-get 'thing (scoot--props-at point)))))
+
+(defun scoot--scan-property-with-value (forward-p opt prop value limit)
+  "Scan for the next position where PROP has VALUE.
+
+Returns nil if not found.
+
+Base implementation for scoot--next/previous-property-with-value variations.
+
+FORWARD-P determines forward or backward scan direction.
+OPT determines if value should be
+treat as a list of options or an exact value.
+
+Scans until the beginning/end of the buffer or LIMIT, if required."
+  (let* ((scan-fn (if forward-p
+                      #'next-single-property-change
+                    #'previous-single-property-change))
+         (cmp-fn (lambda (pos)
+                   (let ((val (get-text-property pos prop)))
+                     (if opt
+                         (member val value)
+                       (equal val value)))))
+         (limit-fn (if forward-p #'< #'>))
+         (pos (point))
+         (limit (or limit (if forward-p (point-max) (point-min))))
+         (first-match-is-false (and (not forward-p)
+                                    (funcall cmp-fn (1- pos))))
+         result)
+    (while (and (funcall limit-fn pos limit) (not result))
+      (setq pos (funcall scan-fn pos prop nil limit))
+      (when (and pos (funcall cmp-fn pos))
+        (if first-match-is-false
+            (setq first-match-is-false nil)
+          (setq result pos))))
+    result))
+
+(defun scoot--next-property-with-value (prop value &optional limit)
+  "Find the next position where PROP has VALUE.  Returns nil if not found.
+
+Scans until the end of the buffer or LIMIT, if required."
+  (scoot--scan-property-with-value t nil prop value limit))
+
+(defun scoot--next-property-with-value-in (prop seq &optional limit)
+  "Find the next position where PROP has value that is a member of SEQ.
+
+Returns nil if not found.
+
+Scans until the end of the buffer or LIMIT, if required."
+  (scoot--scan-property-with-value t t prop seq limit))
+
+(defun scoot--previous-property-with-value (prop value &optional limit)
+  "Find the previous position where PROP has VALUE.  Returns nil if not found.
+
+Scans until the end of the buffer or LIMIT, if required."
+  (scoot--scan-property-with-value nil nil prop value limit))
+
+(defun scoot--previous-property-with-value-in (prop seq &optional limit)
+  "Find the previous position where PROP has value that is a member of SEQ.
+
+Returns nil if not found.
+
+Scans until the end of the buffer or LIMIT, if required."
+  (scoot--scan-property-with-value nil t prop seq limit))
+
+
+
 (defun scoot--object-type-name (object-type &optional plural)
   "Get human readable name of OBJECT-TYPE.
 

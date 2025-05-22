@@ -192,26 +192,30 @@ them.
 
 ### Keybindings (in `scoot-result-mode`)
 
-| Binding            | Context        | Action                                                                                                    |
-|--------------------|----------------|-----------------------------------------------------------------------------------------------------------|
-| `g`                | -              | Refresh the buffer                                                                                        |
-| `TAB`              | Folded outline | Hide/show folded outline seection.                                                                        |
-| `C-c C-c`          | -              | Execute query                                                                                             |
-| `h` or `?`         | -              | Describe mode                                                                                             |
-| `q`                | -              | Quit window                                                                                               |
-| `a w e` or `a w =` | Table cell     | Add this column/value to the WHERE-clause with an equals(=) expression.                                   |
-| `a w n` or `a w !` | Table cell     | Add this column/value to the WHERE-clause with a not equals(!=) expression.                               |
-| `a w >`            | Table cell     | Add this column/value to the WHERE-clause with a greater than(>) expression.                              |
-| `a w g`            | Table cell     | Add this column/value to the WHERE-clause with a greater than or equals(>=) expression.                   |
-| `a w <`            | Table cell     | Add this column/value to the WHERE-clause with a less than(<) expression.                                 |
-| `a w l`            | Table cell     | Add this column/value to the WHERE-clause with a less than or equals(<=) expression.                      |
-| `r w e` or `r w =` | Table cell     | Remove an existing equals(=) expression against this column/value from the WHERE-clause.                  |
-| `r w n` or `r w !` | Table cell     | Remove an existing not equals(!=) expression against this column/value from the WHERE-clause.             |
-| `r w >`            | Table cell     | Remove an existing greater than(>) expression against this column/value from the WHERE-clause..           |
-| `r w g`            | Table cell     | Remove an existing greater than or equals(>=) expression against this column/value from the WHERE-clause. |
-| `r w <`            | Table cell     | Remove an existing less than(<) expression against this column/value from the WHERE-clause.               |
-| `r w l`            | Table cell     | Remove an existing less than or equals(<=) expression against this column/value from the WHERE-clause.    |
-| `r s`              | Table column   | Remove column from the SELECT-clause of the current statement.                                            |
+| Binding              | Context        | Action                                                                                                    |
+|----------------------|----------------|-----------------------------------------------------------------------------------------------------------|
+| `g`                  | -              | Refresh the buffer                                                                                        |
+| `TAB`                | Folded outline | Hide/show folded outline seection.                                                                        |
+| `C-c C-c`            | -              | Execute query                                                                                             |
+| `h` or `?`           | -              | Describe mode                                                                                             |
+| `q`                  | -              | Quit window                                                                                               |
+| `C-f` or `TAB`       | Table cell     | Move forward to the next cell                                                                             |
+| `C-b` or `<backtab>` | Table cell     | Move backward to the previous cell                                                                        |
+| `C-n`                | Table cell     | Move down to the next row                                                                                 |
+| `C-p` or `TAB`       | Table cell     | Move up to the previous row                                                                               |
+| `a w e` or `a w =`   | Table cell     | Add this column/value to the WHERE-clause with an equals(=) expression.                                   |
+| `a w n` or `a w !`   | Table cell     | Add this column/value to the WHERE-clause with a not equals(!=) expression.                               |
+| `a w >`              | Table cell     | Add this column/value to the WHERE-clause with a greater than(>) expression.                              |
+| `a w g`              | Table cell     | Add this column/value to the WHERE-clause with a greater than or equals(>=) expression.                   |
+| `a w <`              | Table cell     | Add this column/value to the WHERE-clause with a less than(<) expression.                                 |
+| `a w l`              | Table cell     | Add this column/value to the WHERE-clause with a less than or equals(<=) expression.                      |
+| `r w e` or `r w =`   | Table cell     | Remove an existing equals(=) expression against this column/value from the WHERE-clause.                  |
+| `r w n` or `r w !`   | Table cell     | Remove an existing not equals(!=) expression against this column/value from the WHERE-clause.             |
+| `r w >`              | Table cell     | Remove an existing greater than(>) expression against this column/value from the WHERE-clause..           |
+| `r w g`              | Table cell     | Remove an existing greater than or equals(>=) expression against this column/value from the WHERE-clause. |
+| `r w <`              | Table cell     | Remove an existing less than(<) expression against this column/value from the WHERE-clause.               |
+| `r w l`              | Table cell     | Remove an existing less than or equals(<=) expression against this column/value from the WHERE-clause.    |
+| `r s`                | Table column   | Remove column from the SELECT-clause of the current statement.                                            |
 
 ### Customizable variables (in `scoot-result-mode`)
 
