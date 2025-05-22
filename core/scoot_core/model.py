@@ -1,33 +1,35 @@
-from typing import Any, override
-from sqlalchemy import Table, ForeignKeyConstraint
+from typing import Any, override, Optional
+
+from scoot_core import types
 
 
 class ColumnModel:
-    def __init__(self, name, type_, nullable, primary_key, default=None):
+    def __init__(
+        self,
+        name,
+        type_: types.Type | None,
+        nullable,
+        primary_key,
+        default=None,
+        *,
+        native_type: str | None = None,
+        sqltype: str | None = None,
+    ):
         self.name = name
         self.type = type_
+        self.native_type = native_type
+        self.sqltype = sqltype
         self.nullable = nullable
         self.primary_key = primary_key
         self.default = default
 
-    @classmethod
-    def from_sqlalchemy(cls, sa_column):
-        return ColumnModel(
-            name=sa_column.name,
-            type_=str(sa_column.type),
-            nullable=sa_column.nullable,
-            primary_key=sa_column.primary_key,
-            default=(
-                str(sa_column.default.arg)
-                if sa_column.default is not None
-                else None
-            ),
-        )
-
     def to_dict(self):
+        typespec = self.type.to_dict() if self.type else None
         return {
             "name": self.name,
-            "type": self.type,
+            "type": typespec.get("type") if typespec else None,
+            "typespec": typespec,
+            "native_type": self.native_type,
             "nullable": self.nullable,
             "primary_key": self.primary_key,
             "default": self.default,
@@ -40,7 +42,7 @@ class TableModel:
         self.schema = schema
         self.columns = kwargs.get("columns", [])
         self._column_indices = {}
-        self.create_stmt = None
+        self.create_stmt: Optional[str] = None
         self.constraints = []
 
     def add_column(self, column):
@@ -58,26 +60,6 @@ class TableModel:
             return {}
 
         return self.columns[col_index]
-
-    @classmethod
-    def from_sqlalchemy(cls, sa_table: Table, **kwargs):
-        table = TableModel(name=sa_table.name, schema=sa_table.schema)
-        for sa_column in sa_table.columns:
-            table.add_column(ColumnModel.from_sqlalchemy(sa_column))
-        for sa_con in sa_table.constraints:
-            if isinstance(sa_con, ForeignKeyConstraint):
-                table.constraints.append(
-                    {
-                        "type": "fk",
-                        "columns": [ck for ck in sa_con.column_keys],
-                        "reference": {
-                            "table": sa_con.referred_table.name,
-                            "columns": [fk.column.name for fk in sa_con.elements],
-                        },
-                    }
-                )
-        table.create_stmt = kwargs.get("create_stmt", None)
-        return table
 
     def column_max_len(self, column_field):
         ml = len(column_field)

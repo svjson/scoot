@@ -6,9 +6,10 @@ from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
 
-from scoot_core.connection import Connection
-from scoot_core.model import TableModel
-from scoot_core.exceptions import ScootSchemaException
+from .connection import Connection
+from .model import TableModel
+from .exceptions import ScootSchemaException
+from .dialect import make_table_model
 
 
 def list_schemas(conn: Connection) -> list[str]:
@@ -99,11 +100,7 @@ def describe_table(
 
         inspector.reflect_table(table, include_columns=None)
 
-        table_model = TableModel.from_sqlalchemy(
-            table, create_stmt=str(CreateTable(table).compile(conn.engine))
-        )
-
-        return table_model
+        return make_table_model(conn, table)
     except NoSuchTableError as e:
         if ignore_failure:
             print(

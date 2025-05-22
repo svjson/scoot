@@ -16,6 +16,9 @@ class Connection:
         self.engine: Engine = create_engine(url)
         self.active_connections = set[sqlalchemy.Connection]()
 
+    def get_dialect(self):
+        return self.engine.dialect.name
+
     def connect(self) -> sqlalchemy.Connection:
         conn = self.engine.connect()
         self.active_connections.add(conn)

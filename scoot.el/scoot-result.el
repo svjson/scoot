@@ -283,22 +283,12 @@ values in result set cells."
   "Resolve cell formatter based on COLUMN type."
   (let ((column-type (alist-get 'type column)))
     (cond
-     ((string-prefix-p "NVARCHAR" column-type) scoot-formatter-string)
-     ((string-prefix-p "VARCHAR" column-type) scoot-formatter-string)
-     ((string-equal "TEXT" column-type) scoot-formatter-string)
-     ((string-equal "CLOB" column-type) scoot-formatter-string)
-     ((string-equal "OBJECT-NAME" column-type) scoot-formatter-string)
-     ((string-equal "INTEGER" column-type) scoot-formatter-number)
-     ((string-equal "NUMBER" column-type) scoot-formatter-number)
-     ((string-prefix-p "NUMERIC" column-type) scoot-formatter-number)
-     ((string-equal "TINYINT" column-type) scoot-formatter-number)
-     ((string-prefix-p "DECIMAL" column-type) scoot-formatter-number)
-     ((string-equal "BIT" column-type) scoot-formatter-boolean)
-     ((string-equal "BOOLEAN" column-type) scoot-formatter-boolean)
-     ((string-equal "DATE" column-type) scoot-formatter-temporal)
-     ((string-equal "DATETIME" column-type) scoot-formatter-temporal)
-     ((string-equal "DATETIMEOFFSET" column-type) scoot-formatter-temporal)
-     ((string-equal "TIMESTAMP" column-type) scoot-formatter-temporal)
+     ((equal "STRING" column-type) scoot-formatter-string)
+     ((equal "OBJECT-NAME" column-type) scoot-formatter-string)
+     ((equal "INTEGER" column-type) scoot-formatter-number)
+     ((equal "DECIMAL" column-type) scoot-formatter-number)
+     ((equal "BOOLEAN" column-type) scoot-formatter-boolean)
+     ((equal "TEMPORAL" column-type) scoot-formatter-temporal)
      (t scoot-formatter-raw-string))))
 
 
@@ -351,7 +341,7 @@ default width of the, presumably, otherwise fixed-width font."
                                     (list :value (cond
                                                   ;; Temporary ugly, no good, verybad hack to standardize date output between backends
                                                   ((and cell-value
-                                                        (member (alist-get 'type col) '("DATETIMEOFFSET" "TIMESTAMP")))
+                                                        (member (alist-get 'native_type col) '("datetimeoffset" "DATETIMEOFFSET" "TIMESTAMP" "TIMESTAMP WITH TIME ZONE")))
                                                    (scoot--format-temporal cell-value))
                                                   (t cell-value))
                                           :formatted-value
