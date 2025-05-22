@@ -41,20 +41,12 @@
 (require 'scoot-query-block)
 (require 'scoot-server)
 (require 'scoot-connection)
+(require 'scoot-table)
+(require 'scoot-type)
 (require 'scoot-xref)
 
 
 ;; Customization Options
-
-(defcustom scoot-primary-key-icon "🔑"
-  "Icon used to indicate that a column has a primary key constraint."
-  :type 'string
-  :group 'scoot)
-
-(defcustom scoot-foreign-key-icon "🗝️"
-  "Icon used to indicate that a column has a foreign key constraint."
-  :type 'string
-  :group 'scoot)
 
 (defconst scoot-result--buffer-default-name "*scoot result*"
   "The default result buffer name to use if all other naming methods fail.")
@@ -98,9 +90,6 @@ table")
 
 (defvar-local scoot-result--result-data nil
   "The result data model for the current Scoot Result buffer.")
-
-(defvar-local scoot-result--result-model nil
-  "The model backing the visual representation of the data set.")
 
 (defvar-local scoot-result--outline-sections nil
   "The number of foldable headings currently in the buffer.
@@ -185,280 +174,9 @@ values in result set cells."
     (insert text)
     (put-text-property beg (point) 'face face)))
 
-(defun scoot--value-to-string (val &rest _)
-  "Stringify a value, VAL, for display in a result set table."
-  (if (null val)
-      "NULL"
-    (format "%s" val)))
-
-(defun scoot--format-temporal (val &rest _)
-  "Format a temporal value, VAL, for display in a result set table."
-  (let ((str-val (scoot--value-to-string val)))
-    (if (null val)
-        str-val
-      (replace-regexp-in-string "[+-][0-1][0-9]:[0-6][0-9]" "" str-val))))
-
-(defvar scoot-formatter-header
-  (list :align 'left
-        :format-value (lambda (name metadata)
-                        (format "%s%s"
-                                (cond ((eq t (alist-get 'primary_key metadata))
-                                       scoot-primary-key-icon)
-
-                                      ((cl-some
-                                        (lambda (con)
-                                          (equal (alist-get 'type con) "fk"))
-                                        (alist-get 'constraints metadata))
-                                       scoot-foreign-key-icon)
-
-                                      (t ""))
-                                name))
-        :output-cell (lambda (_ formatted-value)
-                       (scoot--insert-faced formatted-value 'scoot-header-face))))
-
-(defvar scoot-formatter-string
-  (list :align 'left
-        :format-value #'scoot--value-to-string
-        :output-cell
-        (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-string-face))
-        :sql-literal
-        (lambda (value)
-          (concat "'" value "'"))))
-
-(defvar scoot-formatter-number
-  (list :align 'right
-        :format-value #'scoot--value-to-string
-        :output-cell
-        (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-number-face))
-        :sql-literal
-        #'identity))
-
-(defvar scoot-formatter-boolean
-  (list :align 'right
-        :format-value (lambda (val &rest _)
-                        (if (eq val t) "true" "false"))
-        :output-cell
-        (lambda (val formatted-value)
-          (scoot--insert-faced formatted-value
-                               (if (eq val t)
-                                   'scoot-cell-boolean-true-face
-                                 'scoot-cell-boolean-false-face)))
-        (lambda (value)
-          (cond
-           (value "TRUE")
-           (t "FALSE")))))
-
-(defvar scoot-formatter-temporal
-  (list :align 'left
-        :format-value #'scoot--format-temporal
-        :output-cell
-        (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-temporal-face))
-        :sql-literal
-        (lambda (value)
-          (concat "'" value "'"))))
-
-(defvar scoot-formatter-raw-string
-  (list :align 'left
-        :format-value #'scoot--value-to-string
-        :output-cell
-        (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-generic-face))
-        :sql-literal
-        (lambda (value)
-          (concat "'" value "'"))))
-
-(defvar scoot-formatter-null
-  (list :align 'right
-        :format-value (lambda (_) "NULL")
-        :output-cell
-        (lambda (_ formatted-value)
-          (scoot--insert-faced formatted-value 'scoot-cell-null-face))
-        :sql-literal
-        (lambda (_) "NULL")))
-
-(defun scoot--resolve-formatter-from-column-metadata (column)
-  "Resolve cell formatter based on COLUMN type."
-  (let ((column-type (alist-get 'type column)))
-    (cond
-     ((equal "STRING" column-type) scoot-formatter-string)
-     ((equal "OBJECT-NAME" column-type) scoot-formatter-string)
-     ((equal "INTEGER" column-type) scoot-formatter-number)
-     ((equal "DECIMAL" column-type) scoot-formatter-number)
-     ((equal "BOOLEAN" column-type) scoot-formatter-boolean)
-     ((equal "TEMPORAL" column-type) scoot-formatter-temporal)
-     (t scoot-formatter-raw-string))))
 
 
 ;; Rendering logic
-
-(defun scoot--column-width (val)
-  "Calculates the width of string value of VAL.
-
-Uses `string-pixel-width' of the string representation of VAL to account
-for special characters and icons/emojis that do not align with the the
-default width of the, presumably, otherwise fixed-width font."
-  (if (display-graphic-p)
-      (let* ((pixel-width (string-pixel-width (format "%s" val)))
-             (char-width (default-font-width)))
-        (/ pixel-width char-width))
-    (string-width (format "%s" val))))
-
-(defun scoot-result--refresh-visual-model ()
-  "Build the model backing the visual representation of the result set."
-  (let* ((columns-metadata (alist-get 'columns
-                                      (alist-get 'metadata
-                                                 scoot-result--result-data)))
-         (formatters (mapcar
-                      #'scoot--resolve-formatter-from-column-metadata
-                      columns-metadata))
-         (headers (mapcar
-                   (lambda (column-metadata)
-                     (let ((name (alist-get 'name column-metadata)))
-                       (list :name (alist-get 'name column-metadata)
-                             :header-label
-                             (funcall
-                              (plist-get scoot-formatter-header
-                                         :format-value)
-                              name
-                              column-metadata)
-                             :metadata column-metadata)))
-                   columns-metadata))
-         (tables (cl-remove-duplicates (mapcar
-                                        (lambda (h)
-                                          (alist-get 'table (plist-get h :metadata)))
-                                        headers)
-                                       :test 'string-equal))
-         (raw-table-data (alist-get 'rows scoot-result--result-data))
-         (records (cl-mapcar
-                   (lambda (row)
-                     (cl-mapcar (lambda (cell-value fmt col)
-                                  (let ((formatter (if (null cell-value)
-                                                       scoot-formatter-null
-                                                     fmt)))
-                                    (list :value (cond
-                                                  ;; Temporary ugly, no good, verybad hack to standardize date output between backends
-                                                  ((and cell-value
-                                                        (member (alist-get 'native_type col) '("datetimeoffset" "DATETIMEOFFSET" "TIMESTAMP" "TIMESTAMP WITH TIME ZONE")))
-                                                   (scoot--format-temporal cell-value))
-                                                  (t cell-value))
-                                          :formatted-value
-                                          (funcall
-                                           (plist-get formatter :format-value)
-                                           cell-value))))
-                                row
-                                formatters
-                                columns-metadata))
-                   raw-table-data))
-         (widths (cl-mapcar
-                  (lambda (width header)
-                    (max width (scoot--column-width (plist-get header
-                                                               :header-label))))
-                  (if records
-                      (apply #'cl-mapcar
-                             (lambda (&rest col)
-                               (apply #'max
-                                      (mapcar (lambda (cell)
-                                                (scoot--column-width
-                                                 (plist-get cell
-                                                            :formatted-value)))
-                                              col)))
-                             records)
-                    (make-list (length headers) 0))
-                  headers)))
-    (setq scoot-result--result-model
-          (list :headers headers
-                :tables tables
-                :widths widths
-                :formatters formatters
-                :records records))))
-
-(defun scoot-result--insert-table-divider ()
-  "Insert a horizontal table divider."
-  (scoot--insert-faced
-   (concat "+-"
-           (mapconcat (lambda (w) (make-string w ?-))
-                      (plist-get scoot-result--result-model :widths)
-                      "-+-")
-           "-+\n")
-   'scoot-table-face))
-
-(defun scoot-result--insert-result-table-header ()
-  "Insert the result set table header."
-  (scoot-result--insert-table-divider)
-
-  (cl-mapc (lambda (header width)
-             (scoot--insert-faced "| " 'scoot-table-face)
-             (let* ((header-begin (1- (point)))
-                    (align (plist-get scoot-formatter-header :align))
-                    (name (plist-get header :name))
-                    (header-label (plist-get header :header-label))
-                    (padding (- width (scoot--column-width header-label))))
-               (when (eq align 'right)
-                 (insert (make-string padding ?\s)))
-               (funcall
-                (plist-get scoot-formatter-header :output-cell)
-                name
-                header-label)
-               (when (eq align 'left)
-                 (insert (make-string padding ?\s)))
-               (insert " ")
-               (add-text-properties header-begin (point) (list 'thing 'table-header
-                                                               'header name
-                                                               'column-meta (plist-get header :metadata)
-                                                               'column (alist-get 'column (plist-get header :metadata))
-                                                               'table (alist-get 'table (plist-get header :metadata))))))
-           (plist-get scoot-result--result-model :headers)
-           (plist-get scoot-result--result-model :widths))
-  (scoot--insert-faced "|" 'scoot-table-face)
-  (insert "\n")
-
-  (scoot-result--insert-table-divider))
-
-(defun scoot-result--insert-table-row (row)
-  "Insert the table row ROW."
-
-  (cl-mapc (lambda (header cell width fmt)
-             (scoot--insert-faced "| " 'scoot-table-face)
-             (let* ((cell-start (1- (point)))
-                    (value (plist-get cell :value))
-                    (formatted-value (plist-get cell :formatted-value))
-                    (formatter (if (null value)
-                                   scoot-formatter-null
-                                 fmt))
-                    (align (plist-get formatter :align))
-                    (padding (- width (string-width formatted-value)))
-                    (header-meta (plist-get header :metadata))
-                    (cell-props (list 'thing 'table-cell
-                                      'column-meta header-meta
-                                      'formatter formatter
-                                      'value value)))
-               (when (eq align 'right)
-                 (insert (make-string padding ?\s)))
-               (funcall
-                (plist-get formatter :output-cell)
-                value
-                formatted-value)
-               (when (eq align 'left)
-                 (insert (make-string padding ?\s)))
-               (insert " ")
-               (add-text-properties cell-start (point) cell-props)))
-           (plist-get scoot-result--result-model :headers)
-           row
-           (plist-get scoot-result--result-model :widths)
-           (plist-get scoot-result--result-model :formatters))
-  (scoot--insert-faced "|" 'scoot-table-face)
-  (insert "\n"))
-
-(defun scoot-result--insert-result-set ()
-  "Insert the result set table into the buffer."
-  (scoot-result--refresh-visual-model)
-  (scoot-result--insert-result-table-header)
-  (mapc #'scoot-result--insert-table-row
-        (plist-get scoot-result--result-model :records))
-  (scoot-result--insert-table-divider))
 
 (defun scoot-result--activate-outline-minor-mode ()
   "Configure and activate `outline-minor-mode`."
@@ -585,7 +303,7 @@ font-lock properties."
         (setq i (1+ i))))))
 
 (defun scoot-result-refresh-buffer ()
-  "Redraw the entire buffer from scoot-result--result-model."
+  "Redraw the entire buffer from scoot-table--table-model."
   (interactive)
   (scoot--save-cursor)
   (scoot-result--deactivate-minor-mode)
@@ -610,12 +328,12 @@ font-lock properties."
     (insert "\n\n"))
 
   (when (eq scoot-result--result-type 'query)
-    (scoot--insert-faced "Query: " 'scoot-label-face)
+    (insert (propertize "Query: " 'face 'scoot-label-face))
     (insert "\n")
     (scoot-qb--insert-query-block (format "%s" scoot-result--current-sql-statement))
     (insert "\n"))
 
-  (scoot-result--insert-result-set)
+  (scoot-table--insert-table scoot-result--result-data)
 
   (insert "\n\n")
 
@@ -640,7 +358,7 @@ font-lock properties."
 (cl-defun scoot-result--tables-in-result (&allow-other-keys)
   "Describe a table, either TABLE-NAME or tables involved in the query/result."
   (interactive)
-  (let* ((result-tables (plist-get scoot-result--result-model :tables))
+  (let* ((result-tables (plist-get scoot-table--table-model :tables))
          (table-count (length result-tables)))
     (cond
      ((eq table-count 1)
@@ -733,14 +451,6 @@ Additional keys for type object:
       (unless scoot-query-block-mode (scoot-query-block-mode 1))
     (when scoot-query-block-mode (scoot-query-block-mode -1))))
 
-(defun scoot-result--cell-at-point ()
-  "Return the result set table cell at point."
-  (let* ((props (scoot--props-at-point)))
-    (list :type (alist-get 'thing props)
-          :column (alist-get 'column-meta props)
-          :value (alist-get 'value props)
-          :formatter (alist-get 'formatter props))))
-
 (defun scoot-result--buffer-connection ()
   "Get the connection used to retrieve the current result."
   (gethash scoot-result--result-connection-name scoot-connections))
@@ -759,7 +469,7 @@ Additional keys for type object:
 
 OP is either `add or `remove."
   (interactive)
-  (let ((cell (scoot-result--cell-at-point)))
+  (let ((cell (scoot-table--cell-at-point)))
     (when-let ((col (plist-get cell :column))
                (column (alist-get 'column col))
                (name (alist-get 'name col)))
@@ -779,7 +489,7 @@ OP is either `add or `remove.
 CMP is the comparison to do in the WHERE-clause, ie \"=\" or \">\".
 ALLOW-NULL signals whether this operation is legal for NULL values."
   (interactive)
-  (let ((cell (scoot-result--cell-at-point)))
+  (let ((cell (scoot-table--cell-at-point)))
     (when-let ((type (plist-get cell :type))
                (column (plist-get cell :column))
                (formatter (plist-get cell :formatter)))
@@ -798,6 +508,7 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
                   (plist-get formatter :sql-literal)
                   value))
            #'scoot-result--open-result-buffer))))))
+
 
 
 ;; xref implementation for result buffers
@@ -910,19 +621,21 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
   (cond
    ((eq 'query scoot-result--result-type)
     (append (mapcar (lambda (tbl) (scoot-xref--table-identifier (list :name tbl)))
-                    (plist-get scoot-result--result-model :tables))
+                    (plist-get scoot-table--table-model :tables))
             (mapcar
              (lambda (h)
                (let ((md (plist-get h :metadata)))
                  (scoot-xref--column-identifier (list :column (alist-get 'column md)
                                                       :name (alist-get 'name md)
                                                       :table (alist-get 'table md)))))
-             (plist-get scoot-result--result-model :headers))))
+             (plist-get scoot-table--table-model :headers))))
    ((eq 'tables scoot-result--result-object-type)
     (append (mapcar (lambda (row) (scoot-xref--table-identifier (list :name (plist-get (car row) :value))))
-                    (plist-get scoot-result--result-model :records))))))
+                    (plist-get scoot-table--table-model :records))))))
+
 
 
+;; Scoot Result Mode - scoot-result-mode
 
 (defun scoot-result--add-or-remove-prefix-map (op)
   "Generate a prefixed keymap for adding or removing to/from the query.

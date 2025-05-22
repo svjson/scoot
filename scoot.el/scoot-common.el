@@ -28,6 +28,9 @@
 (require 'dash)
 (require 'cl-lib)
 
+
+;; Variables
+
 (defvar-local scoot-local--table-name-resolvers nil
   "Buffer local list of resolver functions for table-name.
 
@@ -68,6 +71,9 @@ See `scoot-local--connection-name-resolvers`")
 (declare-function helm-build-sync-source nil)
 (declare-function helm nil)
 
+
+;; Variable and elisp type utilities
+
 (defun scoot--wrap-string (str width)
   "Wrap STR to WIDTH, preserving whitespace and \n boundaries."
   (let ((lines (split-string str "\n"))
@@ -96,6 +102,9 @@ See `scoot-local--connection-name-resolvers`")
              (string-match "\\`\\([a-zA-Z_][a-zA-Z0-9_]*\\)\\([.;,]\\)?\\'" str))
     (let ((name (match-string 1 str)))
       name)))
+
+
+;; Buffer inspection and navigation utilities
 
 (defun scoot--props-at (pt)
   "Return `text-properties` at PT as an alist."
@@ -158,6 +167,9 @@ unless optionally overriden by VAR-NAME."
      (-> (buffer-substring-no-properties (region-beginning) (region-end))
          (string-trim)))))
 
+
+;; Elisp function utilities
+
 (cl-defun scoot--resolve-fn (&key fn-obj fallback-fn)
   "Helper-function that resolves a function reference.
 
@@ -215,6 +227,9 @@ FALLBACK-VALUE is a value to simply return if all else fails."
 
      ((> (length arg-list) max)
       (cl-subseq arg-list 0 max)))))
+
+
+;; Scoot context/connection resolver utilities
 
 (defun scoot--try-resolvers (resolvers &optional default-resolvers arg-list)
   "Try each function or symbol in RESOLVERS until a non-nil result is returned.
