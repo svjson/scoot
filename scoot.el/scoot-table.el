@@ -48,6 +48,18 @@
 (defvar-local scoot-table--table-model nil
   "The model backing the table representation of the data set in.")
 
+(defvar-local scoot-table--cell-overlay nil
+  "A reference to the currently active cell overlay.")
+
+
+
+;; Custom faces
+
+(defface scoot-table-active-cell-face
+  '((t :inherit region))
+  "Face used to highlight the currently active table cell."
+  :group 'scoot)
+
 
 
 ;; Formatting
@@ -377,8 +389,29 @@ buffer."
 (define-minor-mode scoot-table-mode
   "Minor mode for navigating and interacting with tables."
   :lighter " Table"
-  :keymap scoot-table-mode-map)
+  :keymap scoot-table-mode-map
 
+  (if scoot-table-mode-map
+      (add-hook 'post-command-hook 'scoot-table--update-overlay nil t)
+    (remove-hook 'post-command-hook 'scoot-table--update-overlay t)))
+
+(defun scoot-table--update-overlay ()
+  "Update the overlay over the current table-cell."
+  (when scoot-table-mode
+    (if (scoot--thing-at-p (point) 'table-cell)
+        (progn
+          (unless (and scoot-table--cell-overlay
+                       (overlay-start scoot-table--cell-overlay)
+                       (>= (point) (1- (overlay-start scoot-table--cell-overlay)))
+                       (<= (point) (1+ (overlay-end scoot-table--cell-overlay))))
+            (when scoot-table--cell-overlay
+              (delete-overlay scoot-table--cell-overlay))
+            (setq scoot-table--cell-overlay (make-overlay (car (scoot-table--cell-begin (point)))
+                                                          (1+ (car (scoot-table--cell-end (point))))))
+            (overlay-put scoot-table--cell-overlay
+                         'face 'scoot-table-active-cell-face)))
+      (when scoot-table--cell-overlay
+        (delete-overlay scoot-table--cell-overlay)))))
 
 (provide 'scoot-table)
 
