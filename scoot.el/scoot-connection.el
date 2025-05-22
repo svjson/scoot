@@ -408,7 +408,10 @@ result."
                                                               (type . "BOOLEAN"))
                                                              ((name . "Default")
                                                               (type . "self(Type)"))])
-                                                 (sql . (("CREATE TABLE-statement" . ,(alist-get 'create_stmt data))))))))))))))
+                                                 (sql . (("CREATE TABLE-statement" . ,(alist-get 'create_stmt data)))))))))))
+     :connection connection
+     :retry-fn #'scoot-connection--describe-table
+     :retry-args (list connection table-name callback))))
 
 (provide 'scoot-connection)
 
