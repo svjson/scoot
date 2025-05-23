@@ -343,6 +343,40 @@ buffer."
       (goto-char (car (scoot-table--cell-begin (point))))
     (goto-char (car (scoot-table--cell-end (point))))))
 
+(defun scoot-table--move-to-first-column ()
+  "Move the cursor to the first column of the current row."
+  (interactive)
+  (beginning-of-line)
+  (scoot-table--cell-right))
+
+(defun scoot-table--move-to-last-column ()
+  "Move the cursor to the first column of the current row."
+  (interactive)
+  (end-of-line)
+  (when-let ((pt (scoot--previous-property-with-value-in 'thing '(table-cell table-header))))
+    (goto-char pt)
+    (scoot-table--move-to-cell-value)))
+
+(defun scoot-table--move-to-first-row ()
+  "Move the currsor to the first row."
+  (interactive)
+  (let ((ccoll (current-column))
+        (line (+ 2 (cdr (scoot-table--next-cell (point-min))))))
+    (when (not (equal line (line-number-at-pos)))
+      (forward-line (- line (line-number-at-pos)))
+      (forward-char (1- ccoll))
+      (scoot-table--move-to-cell-value))))
+
+(defun scoot-table--move-to-last-row ()
+  "Move the currsor to the first row."
+  (interactive)
+  (let ((ccoll (current-column))
+        (line (cdr (scoot-table--previous-cell (point-max)))))
+    (when (not (equal line (line-number-at-pos)))
+      (forward-line (- line (line-number-at-pos)))
+      (forward-char (1- ccoll))
+      (scoot-table--move-to-cell-value))))
+
 (defun scoot-table--cell-right ()
   "Move right to the next cell."
   (interactive)
@@ -378,6 +412,10 @@ buffer."
 
 (defvar scoot-table-mode-map
   (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-a") 'scoot-table--move-to-first-column)
+    (define-key map (kbd "C-e") 'scoot-table--move-to-last-column)
+    (define-key map (kbd "M-a") 'scoot-table--move-to-first-row)
+    (define-key map (kbd "M-e") 'scoot-table--move-to-last-row)
     (define-key map (kbd "C-n") 'scoot-table--cell-down)
     (define-key map (kbd "C-p") 'scoot-table--cell-up)
     (define-key map (kbd "C-f") 'scoot-table--cell-right)

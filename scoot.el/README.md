@@ -199,10 +199,14 @@ them.
 | `C-c C-c`            | -              | Execute query                                                                                             |
 | `h` or `?`           | -              | Describe mode                                                                                             |
 | `q`                  | -              | Quit window                                                                                               |
-| `C-f` or `TAB`       | Table cell     | Move forward to the next cell                                                                             |
-| `C-b` or `<backtab>` | Table cell     | Move backward to the previous cell                                                                        |
+| `C-f` or `TAB`       | Table cell     | Move forward to the next column                                                                           |
+| `C-b` or `<backtab>` | Table cell     | Move backward to the previous column                                                                      |
+| `C-a`                | Table cell     | Move to the first column of the current row                                                               |
+| `C-e`                | Table cell     | Move to the last column of the current row                                                                |
 | `C-n`                | Table cell     | Move down to the next row                                                                                 |
-| `C-p` or `TAB`       | Table cell     | Move up to the previous row                                                                               |
+| `C-p`                | Table cell     | Move up to the previous row                                                                               |
+| `M-a`                | Table cell     | Move to the first row                                                                                     |
+| `M-e`                | Table cell     | Move to the last row                                                                                      |
 | `a w e` or `a w =`   | Table cell     | Add this column/value to the WHERE-clause with an equals(=) expression.                                   |
 | `a w n` or `a w !`   | Table cell     | Add this column/value to the WHERE-clause with a not equals(!=) expression.                               |
 | `a w >`              | Table cell     | Add this column/value to the WHERE-clause with a greater than(>) expression.                              |
