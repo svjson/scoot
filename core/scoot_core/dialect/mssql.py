@@ -31,6 +31,7 @@ class MSSQLTypeMapper(TypeMapper):
             ),
             "DECIMAL": DECIMALConverter(18, 0),
             "INTEGER": types.Integer(64, SIGNED),
+            "NVARCHAR": VARCHARConverter(self.parse_collation),
             "VARCHAR": VARCHARConverter(self.parse_collation),
         }
 
@@ -40,6 +41,7 @@ class MSSQLTypeMapper(TypeMapper):
         "DECIMAL": str.lower,
         "INTEGER": lambda _: "int",
         "VARCHAR": subst_leading("varchar"),
+        "NVARCHAR": subst_leading("nvarchar"),
     }
 
     dialect = mssql_dialect()
