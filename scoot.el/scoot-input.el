@@ -76,7 +76,7 @@
     (propertize value
                 'face `(:inherit ,face :background "#000000"))))
 
-(defun scoot-input--install-input (begin end _type formatter record &optional resize-hook remove-hook)
+(defun scoot-input--install-input (begin end type formatter record &optional resize-hook remove-hook)
   "Install an input spanning from BEGIN to END.
 
 FORMATTER will be used to format the value of RECORD according to its
@@ -97,6 +97,7 @@ removed, respectively."
     (plist-put widget :formatter formatter)
     (plist-put widget :record record)
     (plist-put widget :contain-cursor t)
+    (plist-put widget :data-type type)
 
     (setq scoot-input--input-begin begin)
     (setq scoot-input--input-end end)
@@ -185,12 +186,39 @@ removed, respectively."
 
 
 
+;; Type validation & constraint enforcing
+
+(defun scoot-input--enforce-string-constraints (type-spec value beg end len)
+  "Enforce the String VALUE according to TYPE-SPEC.
+
+BEG, END and LEN describe the change that has occurred in the shadow
+buffer."
+  (when-let* ((max-length (alist-get 'max-len type-spec))
+              (overshoot (- (length value) max-length)))
+    (when (> overshoot 0)
+      (delete-region (- end overshoot) end)
+      (goto-char (- end overshoot)))))
+
+(defun scoot-input--validate-change (type-spec beg end len)
+  "Validate the change in the shadow buffer according to TYPE-SPEC.
+
+BEG, END and LEN describe the change that has occurred in the shadow
+buffer."
+  (let ((value (buffer-string))
+        (inhibit-read-only t))
+    (pcase (alist-get 'type type-spec)
+      ("STRING" (scoot-input--enforce-string-constraints type-spec value beg end len))
+      (_ nil))))
+
+
 ;; Hooks
 
-(defun scoot-input--shadow-after-change-hook (_ _ _)
+(defun scoot-input--shadow-after-change-hook (beg end len)
   "Run after modification happens in shadow buffer.
 
 BEG, END and LEN detail the beginning, end and length of the change."
+  (when-let* ((type-spec (with-current-buffer scoot-widget-display-buffer (plist-get (scoot-widget--get-widget-config 'input 'input) :data-type))))
+    (scoot-input--validate-change type-spec beg end len))
   (with-current-buffer scoot-widget-display-buffer
     (scoot-input--refresh-input)))
 

@@ -490,7 +490,7 @@ CELL is the cell summary of the cell under edit."
     (let ((cell (scoot-table--cell-at-point)))
       (scoot-input--install-input (car (scoot-table--cell-begin))
                                   (car (scoot-table--cell-end))
-                                  (plist-get cell :type)
+                                  (alist-get 'typespec (plist-get cell :column))
                                   (get-text-property (point) 'formatter)
                                   (plist-get cell :record)
                                   (lambda (new-width)

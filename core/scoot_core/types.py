@@ -49,8 +49,8 @@ class Boolean(Type):
         return {
             "type": "BOOLEAN",
             "notation": self.notation,
-            "true_literals": self.true_literals,
-            "false_literals": self.false_literals,
+            "true-literals": self.true_literals,
+            "false-literals": self.false_literals,
         }
 
 
@@ -122,8 +122,8 @@ class Collation:
     def to_dict(self):
         return {
             "locale": self.locale,
-            "case_sensitive": self.case_sensitive,
-            "accent_sensitive": self.accent_sensitive,
+            "case-sensitive": self.case_sensitive,
+            "accent-sensitive": self.accent_sensitive,
         }
 
 
@@ -154,7 +154,7 @@ class String(Type):
     def to_dict(self):
         return {
             "type": "STRING",
-            "max_len": self.max_len,
+            "max-len": self.max_len,
             "encoding": self.encoding,
             "collation": self.collation.to_dict() if self.collation else None,
             "lob": self.lob,
