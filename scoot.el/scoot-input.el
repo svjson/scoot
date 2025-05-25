@@ -188,7 +188,7 @@ removed, respectively."
 
 ;; Type validation & constraint enforcing
 
-(defun scoot-input--enforce-string-constraints (type-spec value beg end len)
+(defun scoot-input--enforce-string-constraints (type-spec value _beg end _len)
   "Enforce the String VALUE according to TYPE-SPEC.
 
 BEG, END and LEN describe the change that has occurred in the shadow
@@ -199,6 +199,17 @@ buffer."
       (delete-region (- end overshoot) end)
       (goto-char (- end overshoot)))))
 
+(defun scoot-input--enforce-integer-constraints (_type-spec value beg end _len)
+  "Enforce the Integer VALUE according to TYPE-SPEC.
+
+BEG, END and LEN describe the change that has occurred in the shadow
+buffer."
+  (when (not (string-match "^[0-9]*$" value))
+    (delete-region beg end)
+    (goto-char beg))
+  (when (length= value 0)
+    (insert "0")))
+
 (defun scoot-input--validate-change (type-spec beg end len)
   "Validate the change in the shadow buffer according to TYPE-SPEC.
 
@@ -208,6 +219,7 @@ buffer."
         (inhibit-read-only t))
     (pcase (alist-get 'type type-spec)
       ("STRING" (scoot-input--enforce-string-constraints type-spec value beg end len))
+      ("INTEGER" (scoot-input--enforce-integer-constraints type-spec value beg end len))
       (_ nil))))
 
 
