@@ -117,13 +117,15 @@ For subsequent updates/refreshes of the query block, call
          (widget (scoot-widget--get-widget-config 'query-block
                                                   'query-block)))
     (setq-local scoot-query-block-start (point))
-    (plist-put widget :editable-start (point))
+    (plist-put widget :editable-start (copy-marker (point)))
+    (plist-put widget :widget-start (copy-marker (point)))
     (scoot-widget--init-shadow-buffer 'query-block
                                       'query-block
                                       (string-join wrapped-lines "\n"))
     (insert (scoot-qb--build-query-block (scoot-qb--get-query)))
     (setq-local scoot-query-block-end (point))
-    (plist-put widget :editable-end (point))))
+    (plist-put widget :editable-end (copy-marker (point)))
+    (plist-put widget :widget-end (copy-marker (point)))))
 
 (defun scoot-qb--refresh-query-block ()
   "Redraw the query-block with the contents of the shadow buffer."
@@ -136,7 +138,12 @@ For subsequent updates/refreshes of the query block, call
       (insert (scoot-qb--build-query-block
                (with-current-buffer scoot-query-block-shadow-buffer
                  (buffer-string))))
-      (setq-local scoot-query-block-end (point))))
+      (setq-local scoot-query-block-end (point))
+      (let ((widget (scoot-widget--get-widget-config 'query-block 'query-block)))
+        (set-marker (plist-get widget :widget-start) scoot-query-block-start)
+        (set-marker (plist-get widget :editable-start) scoot-query-block-start)
+        (set-marker (plist-get widget :widget-end) scoot-query-block-end)
+        (set-marker (plist-get widget :editable-end) scoot-query-block-end))))
   (scoot--restore-cursor))
 
 
@@ -153,7 +160,9 @@ For subsequent updates/refreshes of the query block, call
 
 (defun scoot-qb--enter-query-block ()
   "Synchronize cursor positions when entering the visible query block."
-  (let ((qb-pos (scoot-widget--get-widget-pos (point)))
+  (let ((qb-pos (scoot-widget--get-widget-pos (scoot-widget--get-widget-config 'query-block
+                                                                               'query-block)
+                                              (point)))
         (updated-pos nil))
     (with-current-buffer scoot-query-block-shadow-buffer
       (scoot-qb--move-to-qb-pos qb-pos)

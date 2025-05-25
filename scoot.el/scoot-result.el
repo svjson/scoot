@@ -450,9 +450,11 @@ Additional keys for type object:
   (if (scoot-qb--query-block-at-point-p)
       (unless scoot-query-block-mode (scoot-query-block-mode 1))
     (when scoot-query-block-mode (scoot-query-block-mode -1)))
-  (if (scoot-table--table-at-point-p)
-      (unless scoot-table-mode (scoot-table-mode 1))
-    (when scoot-table-mode (scoot-table-mode -1))))
+
+  (when (not scoot-input-mode)
+    (if (scoot-table--table-at-point-p)
+        (unless scoot-table-mode (scoot-table-mode 1))
+      (when scoot-table-mode (scoot-table-mode -1)))))
 
 (defun scoot-result--buffer-connection ()
   "Get the connection used to retrieve the current result."

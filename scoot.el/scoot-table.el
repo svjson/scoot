@@ -26,6 +26,7 @@
 
 (require 'cl-lib)
 (require 'scoot-common)
+(require 'scoot-input)
 (require 'scoot-type)
 
 
@@ -209,41 +210,48 @@ default width of the, presumably, otherwise fixed-width font."
 
   (scoot-table--insert-divider-row))
 
+(defun scoot-table--insert-table-cell (cell header width fmt column-index)
+  "Insert the table cell CELL."
+  (let* ((cell-start (1- (point)))
+         (value (plist-get cell :value))
+         (formatted-value (plist-get cell :formatted-value))
+         (formatter (if (null value)
+                        scoot-formatter-null
+                      fmt))
+         (align (plist-get formatter :align))
+         (padding (- width (string-width formatted-value)))
+         (header-meta (plist-get header :metadata))
+         (cell-props (list 'thing 'table-cell
+                           'column-meta header-meta
+                           'formatter formatter
+                           'value value
+                           'record cell
+                           'cell-index column-index)))
+    (when (eq align 'right)
+      (insert (make-string padding ?\s)))
+    (funcall
+     (plist-get formatter :output-cell)
+     value
+     formatted-value)
+    (when (eq align 'left)
+      (insert (make-string padding ?\s)))
+    (insert " ")
+    (add-text-properties cell-start (point) cell-props)))
+
 (defun scoot-table--insert-table-row (row)
   "Insert the table row ROW."
 
-  (cl-mapc (lambda (header cell width fmt)
-             (insert (propertize
-                      "| "
-                      'thing 'table-border
-                      'face 'scoot-table-face))
-             (let* ((cell-start (1- (point)))
-                    (value (plist-get cell :value))
-                    (formatted-value (plist-get cell :formatted-value))
-                    (formatter (if (null value)
-                                   scoot-formatter-null
-                                 fmt))
-                    (align (plist-get formatter :align))
-                    (padding (- width (string-width formatted-value)))
-                    (header-meta (plist-get header :metadata))
-                    (cell-props (list 'thing 'table-cell
-                                      'column-meta header-meta
-                                      'formatter formatter
-                                      'value value)))
-               (when (eq align 'right)
-                 (insert (make-string padding ?\s)))
-               (funcall
-                (plist-get formatter :output-cell)
-                value
-                formatted-value)
-               (when (eq align 'left)
-                 (insert (make-string padding ?\s)))
-               (insert " ")
-               (add-text-properties cell-start (point) cell-props)))
-           (plist-get scoot-table--table-model :headers)
-           row
-           (plist-get scoot-table--table-model :widths)
-           (plist-get scoot-table--table-model :formatters))
+  (cl-loop for header in (plist-get scoot-table--table-model :headers)
+           for cell in row
+           for width in (plist-get scoot-table--table-model :widths)
+           for fmt in (plist-get scoot-table--table-model :formatters)
+           for index from 0
+           do
+           (insert (propertize
+                    "| "
+                    'thing 'table-border
+                    'face 'scoot-table-face))
+           (scoot-table--insert-table-cell cell header width fmt index))
   (insert (propertize "|"
                       'thing 'table-border
                       'face 'scoot-table-face))
@@ -285,10 +293,14 @@ default width of the, presumably, otherwise fixed-width font."
     (list :type (alist-get 'thing props)
           :column (alist-get 'column-meta props)
           :value (alist-get 'value props)
-          :formatter (alist-get 'formatter props))))
+          :record (alist-get 'record props)
+          :formatter (alist-get 'formatter props)
+          :cell-index (alist-get 'cell-index props))))
 
 (defun scoot-table--cell-begin (&optional point)
-  "Find the location of the first char of the cell at POINT."
+  "Find the location of the first char of the cell at POINT.
+
+Returns (<point> . <line-number>)."
   (let ((p (or point (point))))
     (when (scoot--thing-at-p p '(table-cell table-header))
       (while (scoot--thing-at-p (1- p) '(table-cell table-header))
@@ -297,10 +309,12 @@ default width of the, presumably, otherwise fixed-width font."
       (cons p (line-number-at-pos p)))))
 
 (defun scoot-table--cell-end (&optional point)
-  "Find the location of the first char of the cell at POINT."
+  "Find the location of the first char of the cell at POINT.
+
+Returns (<point> . <line-number>)."
   (let ((p (or point (point))))
     (when (scoot--thing-at-p p '(table-cell table-header))
-      (setq p (next-single-property-change point 'thing))
+      (setq p (next-single-property-change p 'thing))
       (when p
         (setq p (- p (if (not (scoot--thing-at-p p '(table-cell table-header))) 2 1)))
         (cons p (line-number-at-pos p))))))
@@ -358,7 +372,7 @@ buffer."
     (scoot-table--move-to-cell-value)))
 
 (defun scoot-table--move-to-first-row ()
-  "Move the currsor to the first row."
+  "Move the cursor to the first row."
   (interactive)
   (let ((ccoll (current-column))
         (line (+ 2 (cdr (scoot-table--next-cell (point-min))))))
@@ -368,7 +382,7 @@ buffer."
       (scoot-table--move-to-cell-value))))
 
 (defun scoot-table--move-to-last-row ()
-  "Move the currsor to the first row."
+  "Move the cursor to the first row."
   (interactive)
   (let ((ccoll (current-column))
         (line (cdr (scoot-table--previous-cell (point-max)))))
@@ -408,6 +422,85 @@ buffer."
       (scoot-table--move-to-cell-value))))
 
 
+;; Cell Editing
+
+(defun scoot-table--edit-cell-resize-hook (column-index new-width)
+  "Hook that runs when cell editing forces the column width to change.
+
+COLUMN-INDEX is the visual index of the column that has changed.
+NEW-WIDTH is the new column width in characters."
+  (condition-case err
+      (save-excursion
+        (scoot-table--move-to-first-row)
+        (scoot-table--move-to-first-column)
+        (dotimes (_ column-index)
+          (scoot-table--cell-right))
+        (goto-char (1+ (car (scoot-table--cell-end))))
+        (let* ((inhibit-read-only t)
+               (rcol (current-column))
+               (current-width (- (car (scoot-table--cell-end))
+                                 (car (scoot-table--cell-begin))))
+               (diff (- new-width current-width))
+               (input-lines (mapcar (lambda (w)
+                                      (line-number-at-pos (or (plist-get (cdr w) :widget-start) 1)))
+                                    scoot--active-widgets)))
+          (forward-line -3)
+          (if (> diff 0)
+              (dotimes (_ (+ 4 (length (plist-get scoot-table--table-model :records))))
+                (unless (member (line-number-at-pos (point)) input-lines)
+                  (move-to-column rcol)
+                  (insert (string-join (make-list
+                                        diff
+                                        (buffer-substring (point) (1+ (point))))
+                                       "")))
+                (forward-line 1))
+            (dotimes (_ (+ 4 (length (plist-get scoot-table--table-model :records))))
+              (unless (member (line-number-at-pos (point)) input-lines)
+                (move-to-column rcol)
+                (delete-region (- (point) diff) (point)))
+              (forward-line 1)))))
+    (error
+     (message "Error while adjusting column size: %s" err))))
+
+(defun scoot-table--remove-cell-editor (widget cell)
+  "Uninstalls the editable cell and restores a regular table cell.
+
+WIDGET is the input widget being uninstalled.
+CELL is the cell summary of the cell under edit."
+  (let ((widget-start (marker-position (plist-get widget :widget-start)))
+        (widget-end (marker-position (plist-get widget :widget-end)))
+        (formatter (plist-get widget :formatter))
+        (cell-index (plist-get cell :cell-index))
+        (record (plist-get cell :record))
+        (inhibit-read-only t))
+    (delete-region widget-start (+ 2  widget-end))
+    (goto-char widget-start)
+    (scoot-table--insert-table-cell (plist-get cell :record)
+                                    (nth cell-index (plist-get scoot-table--table-model :headers))
+                                    (nth cell-index (plist-get scoot-table--table-model :widths))
+                                    formatter
+                                    cell-index)
+    (goto-char (+ widget-start (length (plist-get record :value)))))
+  (scoot-table-mode 1))
+
+(defun scoot-table--edit-cell ()
+  "Enter edit mode at the cell at point."
+  (interactive)
+  (when (scoot--thing-at-p (point) 'table-cell)
+    (let ((cell (scoot-table--cell-at-point)))
+      (scoot-input--install-input (car (scoot-table--cell-begin))
+                                  (car (scoot-table--cell-end))
+                                  (plist-get cell :type)
+                                  (get-text-property (point) 'formatter)
+                                  (plist-get cell :record)
+                                  (lambda (new-width)
+                                    (scoot-table--edit-cell-resize-hook
+                                     (plist-get cell :cell-index) new-width))
+                                  (lambda (widget)
+                                    (scoot-table--remove-cell-editor widget cell)))
+      (scoot-table-mode -1))))
+
+
 ;; Scoot Table Mode - scoot-table--mode
 
 (defvar scoot-table-mode-map
@@ -422,6 +515,7 @@ buffer."
     (define-key map (kbd "TAB") 'scoot-table--cell-right)
     (define-key map (kbd "C-b") 'scoot-table--cell-left)
     (define-key map (kbd "<backtab>") 'scoot-table--cell-left)
+    (define-key map (kbd "RET") 'scoot-table--edit-cell)
     map))
 
 (define-minor-mode scoot-table-mode
@@ -429,27 +523,27 @@ buffer."
   :lighter " Table"
   :keymap scoot-table-mode-map
 
-  (if scoot-table-mode-map
+  (if scoot-table-mode
       (add-hook 'post-command-hook 'scoot-table--update-overlay nil t)
-    (remove-hook 'post-command-hook 'scoot-table--update-overlay t)))
+    (remove-hook 'post-command-hook 'scoot-table--update-overlay t))
+  (scoot-table--update-overlay))
 
 (defun scoot-table--update-overlay ()
   "Update the overlay over the current table-cell."
-  (when scoot-table-mode
-    (if (scoot--thing-at-p (point) 'table-cell)
-        (progn
-          (unless (and scoot-table--cell-overlay
-                       (overlay-start scoot-table--cell-overlay)
-                       (>= (point) (1- (overlay-start scoot-table--cell-overlay)))
-                       (<= (point) (1+ (overlay-end scoot-table--cell-overlay))))
-            (when scoot-table--cell-overlay
-              (delete-overlay scoot-table--cell-overlay))
-            (setq scoot-table--cell-overlay (make-overlay (car (scoot-table--cell-begin (point)))
-                                                          (1+ (car (scoot-table--cell-end (point))))))
-            (overlay-put scoot-table--cell-overlay
-                         'face 'scoot-table-active-cell-face)))
-      (when scoot-table--cell-overlay
-        (delete-overlay scoot-table--cell-overlay)))))
+  (if (and scoot-table-mode (scoot--thing-at-p (point) 'table-cell))
+      (progn
+        (unless (and scoot-table--cell-overlay
+                     (overlay-start scoot-table--cell-overlay)
+                     (>= (point) (1- (overlay-start scoot-table--cell-overlay)))
+                     (<= (point) (1+ (overlay-end scoot-table--cell-overlay))))
+          (when scoot-table--cell-overlay
+            (delete-overlay scoot-table--cell-overlay))
+          (setq scoot-table--cell-overlay (make-overlay (car (scoot-table--cell-begin (point)))
+                                                        (1+ (car (scoot-table--cell-end (point))))))
+          (overlay-put scoot-table--cell-overlay
+                       'face 'scoot-table-active-cell-face)))
+    (when scoot-table--cell-overlay
+      (delete-overlay scoot-table--cell-overlay))))
 
 (provide 'scoot-table)
 

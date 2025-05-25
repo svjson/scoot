@@ -93,6 +93,7 @@ buffer."
       (scoot-widget--set-shadow-buffer widget-type
                                        widget-name
                                        shadow-buffer)
+
       (with-current-buffer shadow-buffer
         (setq-local scoot-widget-display-buffer parent-buf)
         (add-hook 'after-change-functions (lambda (beg end len)
@@ -141,7 +142,7 @@ the point is translated to its corresponding point in the visible buffer."
         (scoot--pos-to-point translated-pos)))))
 
 (defun scoot-widget--get-widget-pos (widget &optional point shadow-buf-p)
-  "Calculate the cursor position of POINT within the editable query.
+  "Calculate the cursor position of POINT within the editable WIDGET.
 
 The term \"position\" refers to the plist format of:
 \(:line <line number>
@@ -153,7 +154,7 @@ in the shadow-buffer."
   (let ((pt (or point (point))))
     (list :line (if shadow-buf-p
                     (line-number-at-pos pt)
-                  (- (line-number-at-pos pt) (1- (line-number-at-pos (plist-get widget :editable-start)))))
+                  (- (line-number-at-pos pt) (1- (line-number-at-pos (marker-position (plist-get widget :editable-start))))))
           :col (current-column))))
 
 (defun scoot-widget--translate-pos (widget pos)
@@ -167,7 +168,7 @@ corresponding position in the visible buffer."
   (let ((qb-line-offset (with-current-buffer
                             (or scoot-widget-display-buffer
                                 (current-buffer))
-                          (line-number-at-pos (plist-get widget :editable-start)))))
+                          (line-number-at-pos (marker-position (plist-get widget :editable-start))))))
     (if (buffer-live-p scoot-widget-display-buffer)
         (with-current-buffer scoot-widget-display-buffer
           (list :line (+ (plist-get pos :line) (1- qb-line-offset))
@@ -204,42 +205,46 @@ corresponding position in the visible buffer."
   (setq scoot-original-local-map (current-local-map))
   (use-local-map nil)
 
-  (let ((widget-config (scoot-widget--get-widget-config widget-type
-                                                        widget-name)))
-    (plist-put widget-config
+  (let ((widget (scoot-widget--get-widget-config widget-type
+                                                 widget-name)))
+    (plist-put widget
                :pre-command-hook
                (lambda ()
                  (scoot-widget--pre-command-hook widget-type
                                                  widget-name)))
 
-    (plist-put widget-config
+    (plist-put widget
                :post-command-hook
                (lambda ()
                  (scoot-widget--post-command-hook widget-type
                                                   widget-name)))
 
-    (plist-put widget-config
+    (plist-put widget
                :after-change-hook
                (lambda (beg end len)
                  (scoot-widget--after-change-hook beg end len
                                                   widget-type
                                                   widget-name)))
 
-    (add-hook 'pre-command-hook (plist-get widget-config :pre-command-hook) nil t)
-    (add-hook 'post-command-hook (plist-get widget-config :post-command-hook) nil t)
-    (add-hook 'after-change-function (plist-get widget-config :after-change-hook) nil t)))
+    (add-hook 'pre-command-hook (plist-get widget :pre-command-hook) nil t)
+    (add-hook 'post-command-hook (plist-get widget :post-command-hook) nil t)
+    (add-hook 'after-change-function (plist-get widget :after-change-hook) nil t)))
 
 (defun scoot-widget--teardown-input-mode (widget-type widget-name)
   "Disable all hooks for WIDGET-TYPE, WIDGET-NAME and restore previous mode."
   (use-local-map scoot-original-local-map)
   (setq scoot-original-local-map nil)
 
-  (let ((widget-config (alist-get (scoot-widget--make-identity widget-type
-                                                               widget-name)
-                                  scoot--active-widgets)))
-    (remove-hook 'pre-command-hook (plist-get widget-config :pre-command-hook) t)
-    (remove-hook 'post-command-hook (plist-get widget-config :post-command-hook) t)
-    (remove-hook 'after-change-function (plist-get widget-config :after-change-hook) t)))
+  (let ((widget (scoot-widget--get-widget-config widget-type widget-name)))
+    (remove-hook 'pre-command-hook (plist-get widget :pre-command-hook) t)
+    (remove-hook 'post-command-hook (plist-get widget :post-command-hook) t)
+    (remove-hook 'after-change-function (plist-get widget :after-change-hook) t)
+
+    (when (plist-get widget :remove-on-teardown)
+      (setq-local scoot--active-widgets (assq-delete-all
+                                         (scoot-widget--make-identity widget-type
+                                                                      widget-name)
+                                         scoot--active-widgets)))))
 
 (defun scoot-widget--pre-command-hook (widget-type widget-name)
   "Prepare state for sync with shadow buffer.
@@ -247,7 +252,7 @@ corresponding position in the visible buffer."
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget that a command is being performed on."
   (let ((widget (scoot-widget--get-widget-config widget-type widget-name)))
-    (setq-local scoot-pre-command-point (point))
+    (setq-local scoot--pre-command-point (point))
     (with-current-buffer (scoot-widget--get-shadow-buffer widget-type widget-name)
       (setq-local scoot--pre-command-point (point)))
     (plist-put widget
@@ -264,20 +269,28 @@ widget that a command is being performed on."
 
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget that a command has been performed on."
-  (let* ((widget-config (alist-get (scoot-widget--make-identity widget-type
-                                                                widget-name)
-                                   scoot--active-widgets))
-         (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
-                                                         widget-name))
-         (sbuf-pos (with-current-buffer shadow-buffer
-                     (list :line (line-number-at-pos)
-                           :col (current-column)))))
-    (when (with-current-buffer shadow-buffer
-            (/= (point) scoot--pre-command-point))
-      (goto-char (point-min))
-      (forward-line (+ (plist-get sbuf-pos :line)
-                       (- (line-number-at-pos (plist-get widget-config :editable-start)) 2)))
-      (forward-char (plist-get sbuf-pos :col)))))
+  (condition-case err
+      (let* ((widget (alist-get (scoot-widget--make-identity widget-type
+                                                             widget-name)
+                                scoot--active-widgets))
+             (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
+                                                             widget-name))
+             (contain-cursor (plist-get widget :contain-cursor))
+             (sbuf-pos (with-current-buffer shadow-buffer
+                         (list :line (line-number-at-pos)
+                               :col (current-column)))))
+        (when scoot--pre-command-point
+          (when (or (with-current-buffer shadow-buffer
+                      (/= (point) scoot--pre-command-point))
+                    (and contain-cursor
+                         (or (> (point) (marker-position (plist-get widget :editable-end)))
+                             (< (point) (marker-position (plist-get widget :editable-start))))))
+            (goto-char (plist-get widget :editable-start))
+            (when (> (plist-get sbuf-pos :line) 1)
+              (forward-line (1- (plist-get sbuf-pos :line))))
+            (forward-char (plist-get sbuf-pos :col)))))
+    (error
+     (message "Error in scoot-widget--post-command-hook: %s" err))))
 
 (defun scoot-widget--after-change-hook (_widget-type _widget-name _beg _end _len)
   "No operation for now.
@@ -294,74 +307,77 @@ BEG, END and LEN describe the change that has occured."
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget whose has changed.
 ORIG-FN is the function of the executing command, with arguments in ARGS."
-  (let ((widget (scoot-widget--get-widget-config widget-type
-                                                 widget-name))
-        (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
-                                                        widget-name)))
-    (advice-remove this-command (plist-get widget :command-advice))
-    (let* ((markp mark-active)
-           (region-start (when markp (scoot-widget--translate-point widget (region-beginning))))
-           (region-end (when markp (scoot-widget--translate-point widget (region-end))))
-           (cmd (with-current-buffer shadow-buffer
-                  (pcase this-command
-                    (`left-char (list :shadow-p (not (bobp)) :exec 'backward-char))
-                    (`right-char (list :shadow-p (not (eobp)) :exec 'forward-char))
-                    (`previous-line (list :shadow-p (not (= 1 (line-number-at-pos)))
-                                          :exec (lambda () (forward-line -1))))
-                    (`next-line (list :shadow-p (not (= (line-number-at-pos)
-                                                        (line-number-at-pos (point-max))))
-                                      :exec (lambda () (forward-line 1))))
-                    (`move-end-of-line (list :shadow-p t :exec 'end-of-line))
-                    (`move-beginning-of-line (list :shadow-p t :exec 'beginning-of-line))
-                    (`left-word (list :shadow-p t :exec 'backward-word))
-                    (`right-word (list :shadow-p t :exec 'forward-word))
-                    (`self-insert-command (list :shadow-p t
-                                                :exec (lambda ()
-                                                        (insert
-                                                         (apply #'make-string args)))))
-                    (`delete-backward-char (list :shadow-p (if (bobp) 'cancel t)
-                                                 :exec (lambda () (delete-char -1))))
-                    (`delete-forward-char (list :shadow-p (if (eobp) 'cancel t)
-                                                :exec (lambda () (delete-char 1))))
-                    (`backward-kill-word (list :shadow-p (if (bobp) 'cancel t)
-                                               :exec (lambda () (backward-kill-word 1))))
-                    (`kill-line (list :shadow-p t))
-                    (`kill-word (list :shadow-p t))
-                    (`kill-region (list :shadow-p t
-                                        :exec (lambda () (funcall #'kill-region
-                                                                  region-start
-                                                                  region-end))
-                                        :post 'deactivate-mark))
-                    (`indent-for-tab-command (list :shadow-p t))
-                    (`newline (list :shadow-p t))
-                    (`undo (list :shadow-p t))
-                    (`yank (list :shadow-p t :post 'deactivate-mark))))))
-      (if cmd
-          (progn
-            (let ((shadow-p (plist-get cmd :shadow-p))
-                  (exec (plist-get cmd :exec))
-                  (exec-cmd (lambda (x)
-                              (cond
-                               ((null x) (apply orig-fn args))
-                               ((functionp x) (funcall x))
-                               ((symbolp x) (funcall (symbol-function x)))
-                               (t (message "Failed to call command action: %s %s"
-                                           (type-of x) x)))))
-                  (post (plist-get cmd :post))
-                  (exec-post (lambda (x)
-                               (when (not (null x))
-                                 (cond
-                                  ((functionp x) (funcall x))
-                                  ((symbolp x) (funcall (symbol-function x)))
-                                  (t (message "Failed to call post-command action: %s %s"
-                                              (type-of x) x)))))))
-              (pcase shadow-p
-                (`t (with-current-buffer shadow-buffer
-                      (funcall exec-cmd exec)))
-                (`nil (funcall exec-cmd exec)))
-              (funcall exec-post post)))
-        (progn
-          (apply orig-fn args))))))
+  (condition-case err
+      (let ((widget (scoot-widget--get-widget-config widget-type
+                                                     widget-name))
+            (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
+                                                            widget-name)))
+        (advice-remove this-command (plist-get widget :command-advice))
+        (let* ((markp mark-active)
+               (region-start (when markp (scoot-widget--translate-point widget (region-beginning))))
+               (region-end (when markp (scoot-widget--translate-point widget (region-end))))
+               (cmd (with-current-buffer shadow-buffer
+                      (pcase this-command
+                        (`left-char (list :shadow-p (not (bobp)) :exec 'backward-char))
+                        (`right-char (list :shadow-p (not (eobp)) :exec 'forward-char))
+                        (`previous-line (list :shadow-p (not (= 1 (line-number-at-pos)))
+                                              :exec (lambda () (forward-line -1))))
+                        (`next-line (list :shadow-p (not (= (line-number-at-pos)
+                                                            (line-number-at-pos (point-max))))
+                                          :exec (lambda () (forward-line 1))))
+                        (`move-end-of-line (list :shadow-p t :exec 'end-of-line))
+                        (`move-beginning-of-line (list :shadow-p t :exec 'beginning-of-line))
+                        (`left-word (list :shadow-p t :exec 'backward-word))
+                        (`right-word (list :shadow-p t :exec 'forward-word))
+                        (`self-insert-command (list :shadow-p t
+                                                    :exec (lambda ()
+                                                            (insert
+                                                             (apply #'make-string args)))))
+                        (`delete-backward-char (list :shadow-p (if (bobp) 'cancel t)
+                                                     :exec (lambda () (delete-char -1))))
+                        (`delete-forward-char (list :shadow-p (if (eobp) 'cancel t)
+                                                    :exec (lambda () (delete-char 1))))
+                        (`backward-kill-word (list :shadow-p (if (bobp) 'cancel t)
+                                                   :exec (lambda () (backward-kill-word 1))))
+                        (`kill-line (list :shadow-p t))
+                        (`kill-word (list :shadow-p t))
+                        (`kill-region (list :shadow-p t
+                                            :exec (lambda () (funcall #'kill-region
+                                                                      region-start
+                                                                      region-end))
+                                            :post 'deactivate-mark))
+                        (`indent-for-tab-command (list :shadow-p t))
+                        (`newline (list :shadow-p t))
+                        (`undo (list :shadow-p t))
+                        (`yank (list :shadow-p t :post 'deactivate-mark))))))
+          (if cmd
+              (progn
+                (let ((shadow-p (plist-get cmd :shadow-p))
+                      (exec (plist-get cmd :exec))
+                      (exec-cmd (lambda (x)
+                                  (cond
+                                   ((null x) (apply orig-fn args))
+                                   ((functionp x) (funcall x))
+                                   ((symbolp x) (funcall (symbol-function x)))
+                                   (t (message "Failed to call command action: %s %s"
+                                               (type-of x) x)))))
+                      (post (plist-get cmd :post))
+                      (exec-post (lambda (x)
+                                   (when (not (null x))
+                                     (cond
+                                      ((functionp x) (funcall x))
+                                      ((symbolp x) (funcall (symbol-function x)))
+                                      (t (message "Failed to call post-command action: %s %s"
+                                                  (type-of x) x)))))))
+                  (pcase shadow-p
+                    (`t (with-current-buffer shadow-buffer
+                          (funcall exec-cmd exec)))
+                    (`nil (funcall exec-cmd exec)))
+                  (funcall exec-post post)))
+            (progn
+              (apply orig-fn args)))))
+    (error
+     (message "Error while executing command advice for %s: %s" this-command err))))
 
 (defun scoot-widget--kill-shadow-buffer (shadow-buffer)
   "Kill the SHADOW-BUFFER.  Run as a hook when killing the parent buffer."
