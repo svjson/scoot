@@ -162,7 +162,7 @@ removed, respectively."
               (when-let ((resize-hook (plist-get widget :resize-hook)))
                 (funcall resize-hook (- new-widget-end widget-start-pos)))))))
     (error
-     (message "Error while refreshing input field: %s" err))))
+     (message "Error while refreshing input field: %s - %s" (car err) (cdr err)))))
 
 (defun scoot-input--cancel-input-mode ()
   "Exit scoot-input-mode and restore the widget area."

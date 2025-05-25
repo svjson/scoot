@@ -290,7 +290,7 @@ widget that a command has been performed on."
               (forward-line (1- (plist-get sbuf-pos :line))))
             (forward-char (plist-get sbuf-pos :col)))))
     (error
-     (message "Error in scoot-widget--post-command-hook: %s" err))))
+     (message "Error in scoot-widget--post-command-hook: %s - %s" (car err) (cdr err)))))
 
 (defun scoot-widget--after-change-hook (_widget-type _widget-name _beg _end _len)
   "No operation for now.
@@ -377,7 +377,7 @@ ORIG-FN is the function of the executing command, with arguments in ARGS."
             (progn
               (apply orig-fn args)))))
     (error
-     (message "Error while executing command advice for %s: %s" this-command err))))
+     (message "Error while executing command advice for %s: %s - %s" this-command (car err) (cdr err)))))
 
 (defun scoot-widget--kill-shadow-buffer (shadow-buffer)
   "Kill the SHADOW-BUFFER.  Run as a hook when killing the parent buffer."

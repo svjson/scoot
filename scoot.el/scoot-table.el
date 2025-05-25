@@ -460,7 +460,7 @@ NEW-WIDTH is the new column width in characters."
                 (delete-region (- (point) diff) (point)))
               (forward-line 1)))))
     (error
-     (message "Error while adjusting column size: %s" err))))
+     (message "Error while adjusting column size: %s - %s" (car err) (cdr err)))))
 
 (defun scoot-table--remove-cell-editor (widget cell)
   "Uninstalls the editable cell and restores a regular table cell.
