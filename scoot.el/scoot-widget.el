@@ -282,9 +282,7 @@ widget that a command has been performed on."
         (when scoot--pre-command-point
           (when (or (with-current-buffer shadow-buffer
                       (/= (point) scoot--pre-command-point))
-                    (and contain-cursor
-                         (or (> (point) (marker-position (plist-get widget :editable-end)))
-                             (< (point) (marker-position (plist-get widget :editable-start))))))
+                    contain-cursor)
             (goto-char (plist-get widget :editable-start))
             (when (> (plist-get sbuf-pos :line) 1)
               (forward-line (1- (plist-get sbuf-pos :line))))
