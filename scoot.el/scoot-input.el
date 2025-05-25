@@ -164,26 +164,6 @@ removed, respectively."
     (error
      (message "Error while refreshing input field: %s - %s" (car err) (cdr err)))))
 
-(defun scoot-input--cancel-input-mode ()
-  "Exit scoot-input-mode and restore the widget area."
-  (interactive)
-  (let ((widget (scoot-widget--get-widget-config 'input 'input)))
-    (when-let ((remove-hook (plist-get widget :remove-hook)))
-      (funcall remove-hook widget))
-    (scoot-input-mode -1)))
-
-(defun scoot-input--confirm-edit ()
-  "Confirm the changes made and exit the input mode."
-  (interactive)
-  (let* ((widget (scoot-widget--get-widget-config 'input 'input))
-         (record (plist-get widget :record))
-         (formatter (plist-get widget :formatter))
-         (value (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
-                  (buffer-string))))
-    (plist-put record :value value)
-    (plist-put record :formatted-value (funcall (plist-get formatter :format-value) value))
-    (scoot-input--cancel-input-mode)))
-
 
 
 ;; Type validation & constraint enforcing
@@ -204,7 +184,7 @@ buffer."
 
 BEG, END and LEN describe the change that has occurred in the shadow
 buffer."
-  (when (not (string-match "^[0-9]*$" value))
+  (when (not (string-match "^-?[0-9]*$" value))
     (delete-region beg end)
     (goto-char beg))
   (when (length= value 0)
@@ -221,6 +201,63 @@ buffer."
       ("STRING" (scoot-input--enforce-string-constraints type-spec value beg end len))
       ("INTEGER" (scoot-input--enforce-integer-constraints type-spec value beg end len))
       (_ nil))))
+
+
+
+;; Commands
+
+(defun scoot-input--cancel-input-mode ()
+  "Exit scoot-input-mode and restore the widget area."
+  (interactive)
+  (let ((widget (scoot-widget--get-widget-config 'input 'input)))
+    (when-let ((remove-hook (plist-get widget :remove-hook)))
+      (funcall remove-hook widget))
+    (scoot-input-mode -1)))
+
+(defun scoot-input--confirm-edit ()
+  "Confirm the changes made and exit the input mode."
+  (interactive)
+  (let* ((widget (scoot-widget--get-widget-config 'input 'input))
+         (record (plist-get widget :record))
+         (formatter (plist-get widget :formatter))
+         (value (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
+                  (buffer-string))))
+    (plist-put record :value value)
+    (plist-put record :formatted-value (funcall (plist-get formatter :format-value) value))
+    (scoot-input--cancel-input-mode)))
+
+(defun scoot-input--cycle-integer (widget n)
+  "Cycle the Integer value at point of WIDGET by N."
+  (let* ((shadow-buffer (scoot-widget--get-shadow-buffer 'input 'input))
+         (pos (- (point) (marker-position (plist-get widget :editable-start))))
+         (buf-value (with-current-buffer shadow-buffer (buffer-string)))
+         (digit (max 0 (1- (- (length buf-value) pos)))))
+    (with-current-buffer shadow-buffer
+      (let ((offset (- (length buf-value) (point)))
+            (new-value (format "%s" (+ (string-to-number buf-value) (* n (expt 10 digit))))))
+        (with-silent-modifications
+          (erase-buffer))
+        (insert new-value)
+        (goto-char (- (length new-value) offset))))))
+
+(defun scoot-input--cycle-value (n)
+  "Cycle the value of the input by N."
+  (let* ((widget (scoot-widget--get-widget-config 'input 'input))
+         (type-spec (plist-get widget :data-type)))
+    (pcase (alist-get 'type type-spec)
+      ("INTEGER" (scoot-input--cycle-integer widget n))
+      (_ nil))))
+
+(defun scoot-input--cycle-value-up ()
+  "Cycle the value of the input."
+  (interactive)
+  (scoot-input--cycle-value 1))
+
+(defun scoot-input--cycle-value-down ()
+  "Cycle the value of the input."
+  (interactive)
+  (scoot-input--cycle-value -1))
+
 
 
 ;; Hooks
@@ -242,6 +279,8 @@ BEG, END and LEN detail the beginning, end and length of the change."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") 'scoot-input--confirm-edit)
     (define-key map (kbd "C-g") 'scoot-input--cancel-input-mode)
+    (define-key map (kbd "<up>") 'scoot-input--cycle-value-up)
+    (define-key map (kbd "<down>") 'scoot-input--cycle-value-down)
     map))
 
 (define-minor-mode scoot-input-mode
