@@ -12,18 +12,19 @@ def make_table_model(conn: Connection, table: Table) -> TableModel:
     tbl = TableModel(name=table.name, schema=table.schema)
     for sa_column in table.columns:
         tbl.add_column(make_table_column(conn, sa_column))
-        for sa_con in table.constraints:
-            if isinstance(sa_con, ForeignKeyConstraint):
-                tbl.constraints.append(
-                    {
-                        "type": "fk",
-                        "columns": [ck for ck in sa_con.column_keys],
-                        "reference": {
-                            "table": sa_con.referred_table.name,
-                            "columns": [fk.column.name for fk in sa_con.elements],
-                        },
-                    }
-                )
+    for sa_con in table.constraints:
+        if isinstance(sa_con, ForeignKeyConstraint):
+            tbl.constraints.append(
+                {
+                    "name": sa_con.name,
+                    "type": "fk",
+                    "columns": [ck for ck in sa_con.column_keys],
+                    "reference": {
+                        "table": sa_con.referred_table.name,
+                        "columns": [fk.column.name for fk in sa_con.elements],
+                    },
+                }
+            )
     tbl.create_stmt = str(CreateTable(table).compile(dialect=conn.engine.dialect))
     return tbl
 
