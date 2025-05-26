@@ -61,6 +61,10 @@
   "Face used to highlight the currently active table cell."
   :group 'scoot)
 
+(defface scoot-table-dirty-cell-marker-face
+  '((t :inherit flycheck-error-list-error))
+  "Face used to indicate a dirty value in a table cell."
+  :group 'scoot)
 
 
 ;; Formatting
@@ -211,9 +215,16 @@ default width of the, presumably, otherwise fixed-width font."
   (scoot-table--insert-divider-row))
 
 (defun scoot-table--insert-table-cell (cell header width fmt column-index)
-  "Insert the table cell CELL."
-  (let* ((cell-start (1- (point)))
+  "Insert the table cell CELL.
+
+Requires:
+HEADER - The table model header description for the column.
+WIDTH - The table model width for the column.
+FMT - The formatter for this cell/column.
+COLUMN-INDEX - The column index."
+  (let* ((cell-start (point))
          (value (plist-get cell :value))
+         (dirty-p (plist-get cell :original-value))
          (formatted-value (plist-get cell :formatted-value))
          (formatter (if (null value)
                         scoot-formatter-null
@@ -227,12 +238,21 @@ default width of the, presumably, otherwise fixed-width font."
                            'value value
                            'record cell
                            'cell-index column-index)))
+    (if dirty-p
+        (insert (propertize ">"
+                            'thing 'table-cell
+                            'face 'scoot-table-dirty-cell-marker-face))
+      (insert (propertize " "
+                          'thing 'table-cell)))
     (when (eq align 'right)
       (insert (make-string padding ?\s)))
-    (funcall
-     (plist-get formatter :output-cell)
-     value
-     formatted-value)
+    (let ((value-start (point)))
+      (funcall
+       (plist-get formatter :output-cell)
+       value
+       formatted-value)
+      (when dirty-p
+        (add-text-properties value-start (point) `(face (:slant italic :inherit ,(get-text-property value-start 'face))))))
     (when (eq align 'left)
       (insert (make-string padding ?\s)))
     (insert " ")
@@ -241,21 +261,20 @@ default width of the, presumably, otherwise fixed-width font."
 (defun scoot-table--insert-table-row (row)
   "Insert the table row ROW."
 
-  (cl-loop for header in (plist-get scoot-table--table-model :headers)
-           for cell in row
-           for width in (plist-get scoot-table--table-model :widths)
-           for fmt in (plist-get scoot-table--table-model :formatters)
-           for index from 0
-           do
-           (insert (propertize
-                    "| "
-                    'thing 'table-border
-                    'face 'scoot-table-face))
-           (scoot-table--insert-table-cell cell header width fmt index))
-  (insert (propertize "|"
-                      'thing 'table-border
-                      'face 'scoot-table-face))
-  (insert "\n"))
+  (let ((border (propertize
+                 "|"
+                 'thing 'table-border
+                 'face 'scoot-table-face)))
+    (cl-loop for header in (plist-get scoot-table--table-model :headers)
+             for cell in row
+             for width in (plist-get scoot-table--table-model :widths)
+             for fmt in (plist-get scoot-table--table-model :formatters)
+             for index from 0
+             do
+             (insert border)
+             (scoot-table--insert-table-cell cell header width fmt index))
+    (insert border)
+    (insert "\n")))
 
 
 (defun scoot-table--insert-divider-row ()
@@ -475,8 +494,8 @@ CELL is the cell summary of the cell under edit."
         (cell-index (plist-get cell :cell-index))
         (record (plist-get cell :record))
         (inhibit-read-only t))
-    (delete-region widget-start (+ 2 widget-end))
-    (goto-char widget-start)
+    (delete-region (1- widget-start) (+ 2 widget-end))
+    (goto-char (1- widget-start))
     (scoot-table--insert-table-cell (plist-get cell :record)
                                     (nth cell-index (plist-get scoot-table--table-model :headers))
                                     (nth cell-index (plist-get scoot-table--table-model :widths))
@@ -489,7 +508,7 @@ CELL is the cell summary of the cell under edit."
   "Enter edit mode at the cell at point."
   (interactive)
   (when (scoot--thing-at-p (point) 'table-cell)
-    (let ((cell (scoot-table--cell-at-point)))
+    (let* ((cell (scoot-table--cell-at-point)))
       (scoot-input--install-input (car (scoot-table--cell-begin))
                                   (car (scoot-table--cell-end))
                                   (alist-get 'typespec (plist-get cell :column))

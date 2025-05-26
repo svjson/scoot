@@ -92,6 +92,21 @@ See `scoot-local--connection-name-resolvers`")
       (setq result (plist-put result (pop plist2) (pop plist2))))
     result))
 
+(defun scoot--plist-remove! (plist key)
+  "Destructively remove KEY and its value from PLIST."
+  (let ((cell plist)
+        prev)
+    (while cell
+      (if (eq (car cell) key)
+          (progn
+            (setcdr cell (cddr cell))
+            (when prev
+              (setcdr prev cell))
+            (setq cell nil)) ;; stop after first match
+        (setq prev cell
+              cell (cddr cell))))
+    plist))
+
 (defun scoot--alist-to-plist (alist)
   "Convert ALIST to plist, transforming `key to :key."
   (cl-loop for (key . value) in alist append (list (intern (format ":%s" key)) value)))

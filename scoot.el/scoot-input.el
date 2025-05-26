@@ -220,10 +220,21 @@ buffer."
   (let* ((widget (scoot-widget--get-widget-config 'input 'input))
          (record (plist-get widget :record))
          (formatter (plist-get widget :formatter))
-         (value (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
-                  (buffer-string))))
-    (plist-put record :value value)
-    (plist-put record :formatted-value (funcall (plist-get formatter :format-value) value))
+         (new-value (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
+                  (buffer-string)))
+         (current-value (plist-get record :value))
+         (original-value (plist-get record :original-value)))
+
+    (cond
+     ((not original-value)
+      (when (not (equal (format "%s" new-value) (format "%s" current-value)))
+        (plist-put record :original-value current-value)))
+
+     ((equal (format "%s" new-value) (format "%s" original-value))
+      (scoot--plist-remove! record :original-value)))
+
+    (plist-put record :value new-value)
+    (plist-put record :formatted-value (funcall (plist-get formatter :format-value) new-value))
     (scoot-input--cancel-input-mode)))
 
 (defun scoot-input--cycle-integer (widget n)
