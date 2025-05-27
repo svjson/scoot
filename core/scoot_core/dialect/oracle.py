@@ -1,4 +1,8 @@
 from typing import Optional, override
+
+import sqlalchemy
+
+from scoot_core.connection import Connection
 from .mapper import TypeConverter, TypeMapper, VARCHARConverter
 from sqlalchemy.dialects.oracle import dialect as oracle_dialect
 from sqlalchemy.sql.type_api import TypeEngine
@@ -60,3 +64,12 @@ class OracleTypeMapper(TypeMapper):
     def parse_decimal(self, args):
         int_args = [int(a) for a in args]
         return types.Decimal(*int_args)
+
+
+TypeMapperImpl = OracleTypeMapper
+
+
+def find_and_apply_additional_constraints(
+    conn: Connection, table: sqlalchemy.Table
+):
+    return []

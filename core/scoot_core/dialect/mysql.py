@@ -1,4 +1,7 @@
 from typing import Optional, override
+
+from sqlalchemy import sql
+import sqlalchemy
 from .mapper import (
     TypeConverter,
     TypeMapper,
@@ -11,6 +14,7 @@ from sqlalchemy.sql.type_api import TypeEngine
 
 from .. import types
 from ..types import SIGNED, UNSIGNED
+from ..connection import Connection
 
 
 class MySQLTypeMapper(TypeMapper):
@@ -60,3 +64,12 @@ class MySQLTypeMapper(TypeMapper):
         native_type = alchemy_type.compile(self.dialect)
 
         return scoot_type, type_expr, native_type
+
+
+TypeMapperImpl = MySQLTypeMapper
+
+
+def find_and_apply_additional_constraints(
+    conn: Connection, table: sqlalchemy.Table
+):
+    return []

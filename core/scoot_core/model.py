@@ -79,7 +79,7 @@ class TableModel:
             "name": self.name,
             "schema": self.schema,
             "columns": [col.to_dict() for col in self.columns],
-            "constraints": [self.constraints],
+            "constraints": self.constraints,
             "create_stmt": self.create_stmt,
         }
 

@@ -1,4 +1,7 @@
 from typing import Optional, override
+
+from sqlalchemy import Connection
+import sqlalchemy
 from .mapper import TypeConverter, TypeMapper, DECIMALConverter, VARCHARConverter
 from sqlalchemy.dialects.postgresql import dialect as postgres_dialect
 from sqlalchemy.sql.type_api import TypeEngine
@@ -58,3 +61,12 @@ class PostgresTypeMapper(TypeMapper):
         native_type = alchemy_type.compile(self.dialect)
 
         return scoot_type, type_expr, native_type
+
+
+TypeMapperImpl = PostgresTypeMapper
+
+
+def find_and_apply_additional_constraints(
+    conn: Connection, table: sqlalchemy.Table
+):
+    return []

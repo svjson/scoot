@@ -1,15 +1,30 @@
-from typing import Optional, cast
+import traceback
+from typing import Any, Optional, cast
 
-from sqlalchemy import inspect, Table, MetaData
+from sqlalchemy import (
+    inspect,
+    Table,
+    Column,
+    Constraint,
+    MetaData,
+    CheckConstraint,
+    ForeignKeyConstraint,
+)
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
 
+from .dialect import sqlglot_dialect
+
 from .connection import Connection
-from .model import TableModel
+from .model import TableModel, ColumnModel
 from .exceptions import ScootSchemaException
-from .dialect import make_table_model
+from .dialect.registry import (
+    resolve_type as resolve_scoot_type,
+    find_and_apply_additional_constraints,
+)
+from . import expression
 
 
 def list_schemas(conn: Connection) -> list[str]:
@@ -38,10 +53,72 @@ def list_databases(conn: Connection) -> list[str]:
     elif dialect == "mysql":
         resultset = conn.execute("SHOW DATABASES;")
         return [str(row[0]) for row in resultset.rows]
+    elif dialect == "postgresql":
+        c = conn.connect()
+        conn.disconnect(c)
 
     raise NotImplementedError(
         f"list databases is not currently supported for dialect '{dialect}'"
     )
+
+
+def make_table_column(conn: Connection, column: Column):
+    scoot_type, driver_type, native_type = resolve_scoot_type(
+        conn.get_dialect(), column.type
+    )
+
+    return ColumnModel(
+        name=column.name,
+        type_=scoot_type,
+        native_type=native_type,
+        nullable=column.nullable,
+        primary_key=column.primary_key,
+        default=(
+            str((cast(Any, column.default).arg))
+            if column.default and column.default
+            else None
+        ),
+    )
+
+
+def parse_constraint(conn: Connection, sa_con: Constraint):
+    if isinstance(sa_con, ForeignKeyConstraint):
+        return {
+            "name": sa_con.name,
+            "type": "fk",
+            "columns": [ck for ck in sa_con.column_keys],
+            "reference": {
+                "table": sa_con.referred_table.name,
+                "columns": [fk.column.name for fk in sa_con.elements],
+            },
+        }
+    elif isinstance(sa_con, CheckConstraint):
+        try:
+            expr = sqlglot.parse_one(
+                str(sa_con.sqltext), read=sqlglot_dialect(conn.get_dialect())
+            )
+            return {
+                "name": sa_con.name,
+                "type": "chk",
+            } | expression.parse_conditional(expr)
+        except Exception:
+            traceback.print_exc()
+            return None
+    else:
+        print(f"- Ignoring Table constraint {sa_con.__class__.__name__}.")
+
+
+def make_table_model(conn: Connection, table: Table) -> TableModel:
+    tbl = TableModel(name=table.name, schema=table.schema)
+    for sa_column in table.columns:
+        tbl.add_column(make_table_column(conn, sa_column))
+    for sa_con in table.constraints:
+        constraint = parse_constraint(conn, sa_con)
+        if constraint:
+            tbl.constraints.append(constraint)
+
+    tbl.create_stmt = str(CreateTable(table).compile(dialect=conn.engine.dialect))
+    return tbl
 
 
 def get_identifier_name(identifier):
@@ -99,6 +176,8 @@ def describe_table(
         table = Table(table_name, md, schema=schema_name, autoload_with=conn.engine)
 
         inspector.reflect_table(table, include_columns=None)
+
+        find_and_apply_additional_constraints(conn, table)
 
         return make_table_model(conn, table)
     except NoSuchTableError as e:

@@ -1,4 +1,10 @@
 from typing import Optional, override
+
+import sqlalchemy
+from sqlalchemy.sql.expression import text
+from sqlalchemy.sql.schema import CheckConstraint
+
+from scoot_core.connection import Connection
 from .mapper import (
     TypeConverter,
     TypeMapper,
@@ -7,6 +13,7 @@ from .mapper import (
     TemporalConverter,
     subst_leading,
 )
+
 from sqlalchemy.dialects.mssql import dialect as mssql_dialect
 from sqlalchemy.sql.type_api import TypeEngine
 
@@ -84,3 +91,41 @@ class MSSQLTypeMapper(TypeMapper):
             case_sensitive=cs_flag.upper() == "CS",
             accent_sensitive=as_flag.upper() == "AS",
         )
+
+
+TypeMapperImpl = MSSQLTypeMapper
+
+
+def find_and_apply_additional_constraints(
+    conn: Connection, table: sqlalchemy.Table
+):
+
+    schema = table.schema
+    if schema:
+        schema = f"'${schema}'"
+    else:
+        schema = "SCHEMA_NAME()"
+
+    tbl_con = conn.execute(
+        f"""
+          SELECT
+            cc.constraint_name constraint_name, cc.check_clause check_sql
+          FROM
+            information_schema.check_constraints cc
+          INNER JOIN
+            information_schema.constraint_column_usage cu
+          ON
+            cc.constraint_name = cu.constraint_name
+          WHERE
+            cu.table_name = '{table.name}'
+          AND
+            cu.table_schema = {schema}
+        """
+    )
+
+    for row in tbl_con.rows:
+        table.constraints.add(
+            CheckConstraint(text(row[1]), name=row[0], table=table)
+        )
+
+    return []
