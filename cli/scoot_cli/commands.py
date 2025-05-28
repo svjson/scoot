@@ -16,7 +16,7 @@ def _dump_single_column_table(header: str, values: list[str]):
 def list_tables(conn: Connection) -> None:
     """List available tables."""
     tables = metadata.list_tables(conn)
-    _dump_single_column_table("Table Name", tables)
+    _dump_single_column_table("Table Name", sorted(tables))
 
 
 def list_databases(conn: Connection) -> None:

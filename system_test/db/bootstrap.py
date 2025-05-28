@@ -117,6 +117,7 @@ class Oracle11gBootstrapper(DbBootstrapper):
         self._execute(f"CREATE USER {schema.name} IDENTIFIED BY password")
         self._execute(f"GRANT CONNECT, RESOURCE TO {schema.name}")
         self._execute(f"ALTER USER {schema.name} QUOTA UNLIMITED ON USERS")
+        self._execute(f"ALTER USER {schema.name} DEFAULT TABLESPACE USERS")
         self._reconfigure()
 
     def create_table(self, table: Table):

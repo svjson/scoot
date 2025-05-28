@@ -1,8 +1,9 @@
-from sqlalchemy import text
+import json
 import pytest
 import threading
+import os
 
-from .db.service import start_service
+from .db.service import start_service, BackendService
 from .db.bootstrap import bootstrap_database
 from .db.log import log
 from .db.backends import BACKENDS
@@ -41,3 +42,21 @@ def emacs_fixture(request, db_backend):
     emacs_daemon = start_emacs_daemon(db_backend)
     yield emacs_daemon
     emacs_daemon.stop()
+
+
+@pytest.fixture(scope="session", name="fake_home_env")
+def cli_test_setup(request, tmp_path_factory, db_backend: BackendService):
+    if not request.config.getoption("--cli"):
+        return
+
+    fake_home = tmp_path_factory.mktemp("fake_home")
+    config_dir = fake_home / ".scoot/config"
+    config_dir.mkdir(parents=True, exist_ok=True)
+
+    config = {
+        "connections": {"default": {"url": db_backend.get_active_connection_url()}}
+    }
+
+    (config_dir / "nexartrade.json").write_text(json.dumps(config, indent=2))
+
+    return {**os.environ, "HOME": str(fake_home)}

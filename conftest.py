@@ -1,3 +1,4 @@
+import pytest
 from system_test.db.backends import BACKENDS
 
 
@@ -11,6 +12,18 @@ def pytest_addoption(parser):
     parser.addoption(
         "--emacs", action="store_true", help="Enable emacs integration tests"
     )
+    parser.addoption(
+        "--cli", action="store_true", help="Enable scoot-cli integration tests"
+    )
+
+
+def pytest_configure(config):
+    config.addinivalue_line("markers", "cli: mark test as requiring --cli to run")
+
+
+def pytest_runtest_setup(item):
+    if "cli" in item.keywords and not item.config.getoption("--cli"):
+        pytest.skip("need --cli option to run")
 
 
 def pytest_generate_tests(metafunc):

@@ -14,5 +14,5 @@ test-core:
 
 test-system:
 	@echo "Running System Tests for all backends..."
-	@.venv/bin/pytest . --backend=all --emacs || exit 1
+	@.venv/bin/pytest . --backend=all --cli --emacs || exit 1
 
