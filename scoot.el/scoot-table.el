@@ -29,6 +29,7 @@
 (require 'scoot-input)
 (require 'scoot-type)
 
+
 
 ;; Customization Options
 
@@ -52,6 +53,9 @@
 (defvar-local scoot-table--cell-overlay nil
   "A reference to the currently active cell overlay.")
 
+(defvar-local scoot-table--table-row-marks nil
+  "Associative list of marked rows, record identity to mark type.")
+
 
 
 ;; Custom faces
@@ -65,6 +69,17 @@
   '((t :inherit flycheck-error-list-error))
   "Face used to indicate a dirty value in a table cell."
   :group 'scoot)
+
+(defface scoot-table-row-marker-delete-face
+  '((t (:background "#482121")))
+  "Face used in row marker overlay  to signal a row containing modified values."
+  :group 'scoot)
+
+(defface scoot-table-row-marker-update-face
+  '((t (:background "#212148")))
+  "Face used in row marker overlay  to signal a row containing modified values."
+  :group 'scoot)
+
 
 
 ;; Formatting
@@ -173,10 +188,32 @@ default width of the, presumably, otherwise fixed-width font."
                 :formatters formatters
                 :records records))))
 
+(defun scoot-table--record-identity (record)
+  "Extract the record identity from RECORD."
+  (list :id (plist-get (nth 0 record) :value)))
+
+(defun scoot-table--cell-modified-p (record-cell)
+  "Determines if RECORD-CELL has been modified.
+
+It is considered to be modified if it contains an
+:original-value property."
+  (plist-member record-cell :original-value))
+
+(defun scoot-table--record-modified-p (record)
+  "Determines if TEST RECORD has been modified.
+
+It is considered to be modified if at least one of its cells
+has stored an :original-value property."
+  (cl-some #'scoot-table--cell-modified-p record))
+
+(defun scoot-table--ensure-row-mark-table ()
+  "Ensure that `scoot-table--table-row-marks` is intialized in the buffer."
+  (when (not scoot-table--table-row-marks)
+    (setq-local scoot-table--table-row-marks (make-hash-table :test #'equal))))
+
 
 
 ;; Table Rendering
-
 
 (defun scoot-table--insert-table-header ()
   "Insert the result set table header."
@@ -214,17 +251,18 @@ default width of the, presumably, otherwise fixed-width font."
 
   (scoot-table--insert-divider-row))
 
-(defun scoot-table--insert-table-cell (cell header width fmt column-index)
+(defun scoot-table--insert-table-cell (record cell header width fmt column-index)
   "Insert the table cell CELL.
 
 Requires:
+RECORD - The record that the cell belongs to.
 HEADER - The table model header description for the column.
 WIDTH - The table model width for the column.
 FMT - The formatter for this cell/column.
 COLUMN-INDEX - The column index."
   (let* ((cell-start (point))
          (value (plist-get cell :value))
-         (dirty-p (plist-get cell :original-value))
+         (dirty-p (scoot-table--cell-modified-p cell))
          (formatted-value (plist-get cell :formatted-value))
          (formatter (if (null value)
                         scoot-formatter-null
@@ -236,7 +274,8 @@ COLUMN-INDEX - The column index."
                            'column-meta header-meta
                            'formatter formatter
                            'value value
-                           'record cell
+                           'record-cell cell
+                           'record record
                            'cell-index column-index)))
     (if dirty-p
         (insert (propertize ">"
@@ -258,22 +297,27 @@ COLUMN-INDEX - The column index."
     (insert " ")
     (add-text-properties cell-start (point) cell-props)))
 
-(defun scoot-table--insert-table-row (row)
-  "Insert the table row ROW."
+(defun scoot-table--insert-table-row (record)
+  "Insert a table row containing RECORD."
 
-  (let ((border (propertize
+  (let ((record-identity (scoot-table--record-identity record))
+        (border (propertize
                  "|"
                  'thing 'table-border
+                 'table-row (list :record record)
                  'face 'scoot-table-face)))
     (cl-loop for header in (plist-get scoot-table--table-model :headers)
-             for cell in row
+             for cell in record
              for width in (plist-get scoot-table--table-model :widths)
              for fmt in (plist-get scoot-table--table-model :formatters)
              for index from 0
              do
              (insert border)
-             (scoot-table--insert-table-cell cell header width fmt index))
+             (scoot-table--insert-table-cell record cell header width fmt index))
     (insert border)
+    (when-let* ((row-mark (gethash record-identity scoot-table--table-row-marks))
+                (type (and (overlayp row-mark) (overlay-get row-mark 'type))))
+      (scoot-table--mark-row record-identity type))
     (insert "\n")))
 
 
@@ -312,9 +356,15 @@ COLUMN-INDEX - The column index."
     (list :type (alist-get 'thing props)
           :column (alist-get 'column-meta props)
           :value (alist-get 'value props)
+          :record-cell (alist-get 'record-cell props)
           :record (alist-get 'record props)
           :formatter (alist-get 'formatter props)
           :cell-index (alist-get 'cell-index props))))
+
+(defun scoot-table--row-at-point ()
+  "Return the result set table row at point."
+  (when (scoot-table--table-at-point-p)
+    (alist-get 'table-row (scoot--props-at (line-beginning-position)))))
 
 (defun scoot-table--cell-begin (&optional point)
   "Find the location of the first char of the cell at POINT.
@@ -440,6 +490,7 @@ buffer."
     (when (scoot--thing-at-p (point) '(table-cell table-header))
       (scoot-table--move-to-cell-value))))
 
+
 
 ;; Cell Editing
 
@@ -488,21 +539,27 @@ NEW-WIDTH is the new column width in characters."
 
 WIDGET is the input widget being uninstalled.
 CELL is the cell summary of the cell under edit."
-  (let ((widget-start (marker-position (plist-get widget :widget-start)))
-        (widget-end (marker-position (plist-get widget :widget-end)))
-        (formatter (plist-get widget :formatter))
-        (cell-index (plist-get cell :cell-index))
-        (record (plist-get cell :record))
-        (inhibit-read-only t))
+  (let* ((widget-start (marker-position (plist-get widget :widget-start)))
+         (widget-end (marker-position (plist-get widget :widget-end)))
+         (formatter (plist-get widget :formatter))
+         (cell-index (plist-get cell :cell-index))
+         (record (plist-get cell :record))
+         (record-cell (plist-get cell :record-cell))
+         (identity (scoot-table--record-identity record))
+         (inhibit-read-only t))
     (delete-region (1- widget-start) (+ 2 widget-end))
     (goto-char (1- widget-start))
-    (scoot-table--insert-table-cell (plist-get cell :record)
+    (scoot-table--insert-table-cell record
+                                    record-cell
                                     (nth cell-index (plist-get scoot-table--table-model :headers))
                                     (nth cell-index (plist-get scoot-table--table-model :widths))
                                     formatter
                                     cell-index)
-    (goto-char (+ widget-start (length (plist-get record :value)))))
-  (scoot-table-mode 1))
+    (goto-char (+ widget-start (length (plist-get record-cell :value))))
+    (scoot-table-mode 1)
+    (if (scoot-table--record-modified-p record)
+        (scoot-table--mark-row identity :update)
+      (scoot-table--unmark-row-if-type identity :update))))
 
 (defun scoot-table--edit-cell ()
   "Enter edit mode at the cell at point."
@@ -514,6 +571,7 @@ CELL is the cell summary of the cell under edit."
                                   :column (plist-get cell :column)
                                   :type (alist-get 'typespec (plist-get cell :column))
                                   :formatter (get-text-property (point) 'formatter)
+                                  :record-cell (plist-get cell :record-cell)
                                   :record (plist-get cell :record)
                                   :resize-hook (lambda (new-width)
                                                  (scoot-table--edit-cell-resize-hook
@@ -521,6 +579,44 @@ CELL is the cell summary of the cell under edit."
                                   :remove-hook (lambda (widget)
                                                  (scoot-table--remove-cell-editor widget cell)))
       (scoot-table-mode -1))))
+
+
+
+;; Row/Table mark actions
+
+(defun scoot-table--mark-row (identity type)
+  "Mark overlay of type TYPE for row with identity IDENTITY."
+  (when-let ((mark (gethash identity scoot-table--table-row-marks)))
+    (delete-overlay mark))
+  (let ((overlay (make-overlay (line-beginning-position) (line-end-position))))
+    (overlay-put overlay 'type type)
+    (pcase type
+      (:delete (overlay-put overlay 'face 'scoot-table-row-marker-delete-face))
+      (:update (overlay-put overlay 'face 'scoot-table-row-marker-update-face)))
+    (puthash identity overlay scoot-table--table-row-marks)))
+
+(defun scoot-table--unmark-row-if-type (identity type)
+  "Remove row marker for record with IDENTITY if the mark is of TYPE."
+  (when-let* ((mark (gethash identity scoot-table--table-row-marks))
+              (unmark (and (overlayp mark)
+                           (equal type (overlay-get mark 'type)))))
+    (delete-overlay mark)
+    (remhash identity scoot-table--table-row-marks)
+    t))
+
+(defun scoot-table--toggle-mark-delete ()
+  "Toggle mark for deletion at row at point."
+  (interactive)
+  (when-let ((row (scoot-table--row-at-point)))
+    (if-let ((identity (scoot-table--record-identity (plist-get row :record))))
+        (progn (if (scoot-table--unmark-row-if-type identity :delete)
+                   (when (scoot-table--record-modified-p
+                          (plist-get (scoot-table--row-at-point) :record))
+                     (scoot-table--mark-row identity :update))
+                   (scoot-table--mark-row identity :delete))
+               (scoot-table--cell-down))
+      (message "Cannot uniquely identify the row at point."))))
+
 
 
 ;; Scoot Table Mode - scoot-table--mode
@@ -538,12 +634,16 @@ CELL is the cell summary of the cell under edit."
     (define-key map (kbd "C-b") 'scoot-table--cell-left)
     (define-key map (kbd "<backtab>") 'scoot-table--cell-left)
     (define-key map (kbd "RET") 'scoot-table--edit-cell)
+    (define-key map (kbd "d") 'scoot-table--toggle-mark-delete)
+    (define-key map (kbd "<deletechar>") 'scoot-table--toggle-mark-delete)
     map))
 
 (define-minor-mode scoot-table-mode
   "Minor mode for navigating and interacting with tables."
   :lighter " Table"
   :keymap scoot-table-mode-map
+
+  (scoot-table--ensure-row-mark-table)
 
   (if scoot-table-mode
       (add-hook 'post-command-hook 'scoot-table--update-overlay nil t)

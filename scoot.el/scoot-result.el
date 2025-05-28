@@ -714,7 +714,9 @@ OP is either `add or `remove."
   (setq-local scoot-xref-action-fn 'scoot-result--xref-action)
   (setq-local scoot-xref-identifier-at-point-fn 'scoot-result--xref-id-at-point)
   (setq-local scoot-xref-completion-provider-fn 'scoot-result--xref-completions)
-  (add-hook 'xref-backend-functions #'scoot--xref-backend nil t))
+  (add-hook 'xref-backend-functions #'scoot--xref-backend nil t)
+
+  (scoot-table--ensure-row-mark-table))
 
 (provide 'scoot-result)
 

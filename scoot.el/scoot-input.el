@@ -76,7 +76,7 @@
     (propertize value
                 'face `(:inherit ,face :background "#000000"))))
 
-(cl-defun scoot-input--install-input (&key begin end column type formatter record resize-hook remove-hook)
+(cl-defun scoot-input--install-input (&key begin end column type formatter record record-cell resize-hook remove-hook)
   "Install an input spanning from BEGIN to END.
 
 FORMATTER will be used to format the value of RECORD according to its
@@ -90,7 +90,7 @@ editing forces a resize of the widget bounds and when the input is
 removed, respectively."
   (let ((inhibit-read-only t)
         (widget (scoot-widget--get-widget-config 'input 'input))
-        (value (plist-get record :formatted-value)))
+        (value (plist-get record-cell :formatted-value)))
     (when resize-hook
       (plist-put widget :resize-hook resize-hook))
     (when remove-hook
@@ -100,6 +100,7 @@ removed, respectively."
 
     (plist-put widget :formatter formatter)
     (plist-put widget :record record)
+    (plist-put widget :record-cell record-cell)
     (plist-put widget :contain-cursor t)
     (plist-put widget :data-type type)
 
@@ -222,23 +223,23 @@ buffer."
   "Confirm the changes made and exit the input mode."
   (interactive)
   (let* ((widget (scoot-widget--get-widget-config 'input 'input))
-         (record (plist-get widget :record))
+         (cell (plist-get widget :record-cell))
          (formatter (plist-get widget :formatter))
          (new-value (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
                   (buffer-string)))
-         (current-value (plist-get record :value))
-         (original-value (plist-get record :original-value)))
+         (current-value (plist-get cell :value))
+         (original-value (plist-get cell :original-value)))
 
     (cond
      ((not original-value)
       (when (not (equal (format "%s" new-value) (format "%s" current-value)))
-        (plist-put record :original-value current-value)))
+        (plist-put cell :original-value current-value)))
 
      ((equal (format "%s" new-value) (format "%s" original-value))
-      (scoot--plist-remove! record :original-value)))
+      (scoot--plist-remove! cell :original-value)))
 
-    (plist-put record :value new-value)
-    (plist-put record :formatted-value (funcall (plist-get formatter :format-value) new-value))
+    (plist-put cell :value new-value)
+    (plist-put cell :formatted-value (funcall (plist-get formatter :format-value) new-value))
     (scoot-input--cancel-input-mode)))
 
 (defun scoot-input--cycle-integer (widget n)
