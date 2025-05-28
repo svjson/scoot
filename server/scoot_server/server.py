@@ -16,6 +16,8 @@ from scoot_server import connmgr
 
 app = Flask(__name__)
 
+config.is_server = True
+
 
 def default_serializer(obj):
     if isinstance(obj, Decimal):

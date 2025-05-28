@@ -92,11 +92,11 @@ class TemporalConverter(TypeConverter):
         ):
             time.timezone = None
 
-        if hasattr(sqlatype, "precision"):
-            print(getattr(sqlatype, "precision"))
+        #        if hasattr(sqlatype, "precision"):
+        #            print(getattr(sqlatype, "precision"))
 
-        if hasattr(sqlatype, "fsp"):
-            print(getattr(sqlatype, "fsp"))
+        #        if hasattr(sqlatype, "fsp"):
+        #            print(getattr(sqlatype, "fsp"))
 
         return types.Temporal(date=date, time=time)
 

@@ -45,7 +45,7 @@ class MySQLTypeMapper(TypeMapper):
                 default=types.Temporal(time=types.Time(clock="24", fsp=6))
             ),
             "INTEGER": types.Integer(64, SIGNED),
-            "VARCHAR": VARCHARConverter(lambda c: print(c)),
+            "VARCHAR": VARCHARConverter(lambda _: None),
         }
 
     @override

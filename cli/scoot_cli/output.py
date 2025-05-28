@@ -1,18 +1,23 @@
+from scoot_core.model import (
+    TableModel,
+    ResultSet,
+    TabularDataAdapter,
+    TableAdapter,
+    ResultSetAdapter,
+)
 
-
-from scoot_core.model import TableModel, ResultSet, TabularDataAdapter, TableAdapter, ResultSetAdapter
 
 class AsciiTable:
 
     def __init__(self, adapter: TabularDataAdapter):
         self.adapter = adapter
-        self.column_names = self.adapter.get_column_names()
+        self.column_names = self.adapter.get_header_labels()
         self.column_widths = self.adapter.get_column_widths()
 
     def _horizontal_border_row(self):
         line = "+"
         for w in self.adapter.get_column_widths():
-            line += "-" * (w+1)
+            line += "-" * (w + 1)
             line += "-+"
         return line
 
@@ -48,8 +53,18 @@ class AsciiTable:
 
     @classmethod
     def from_table_model(cls, table: TableModel):
-        return AsciiTable(TableAdapter(["name", "type", "nullable", "primary_key", "default"],
-                                       table))
+        return AsciiTable(
+            TableAdapter(
+                [
+                    ["Column Name", "name"],
+                    ["Type", "native_type"],
+                    ["Nullable", "nullable"],
+                    ["Primary Key", "primary_key"],
+                    ["Default", "default"],
+                ],
+                table,
+            )
+        )
 
     @classmethod
     def from_result_set(cls, result_set: ResultSet):

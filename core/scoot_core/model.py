@@ -115,6 +115,9 @@ class TabularDataAdapter:
         _ = column
         raise NotImplementedError("Subclass must implement get_cell_data()")
 
+    def get_header_labels(self) -> list[str]:
+        raise NotImplementedError("Subclass must implement get_header_labels()")
+
     def get_column_names(self) -> list[str]:
         raise NotImplementedError("Subclass must implement get_column_names()")
 
@@ -132,6 +135,10 @@ class ListDataAdapter(TabularDataAdapter):
         super().__init__()
         self.headers = headers
         self.data = data
+
+    @override
+    def get_header_labels(self) -> list[str]:
+        return self.headers
 
     @override
     def get_column_names(self) -> list[str]:
@@ -159,12 +166,17 @@ class ListDataAdapter(TabularDataAdapter):
 class TableAdapter(TabularDataAdapter):
     def __init__(self, headers, table):
         super().__init__()
-        self.headers = headers
+        self.headers = [h[0] if isinstance(h, list) else h for h in headers]
+        self.column_names = [h[1] if isinstance(h, list) else h for h in headers]
         self.table = table
 
     @override
-    def get_column_names(self) -> list[str]:
+    def get_header_labels(self) -> list[str]:
         return self.headers
+
+    @override
+    def get_column_names(self) -> list[str]:
+        return self.column_names
 
     @override
     def size(self) -> int:
@@ -172,9 +184,7 @@ class TableAdapter(TabularDataAdapter):
 
     @override
     def get_cell_data(self, row, column):
-        return str(
-            getattr(self.table.columns[row], self.get_column_names()[column])
-        )
+        return str(getattr(self.table.columns[row], self.column_names[column]))
 
     @override
     def _calc_column_max_width(self, col_name) -> int:

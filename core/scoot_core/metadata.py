@@ -17,6 +17,7 @@ from sqlglot import expressions as sge
 
 from .dialect import sqlglot_dialect
 
+from .config import is_server
 from .connection import Connection
 from .model import TableModel, ColumnModel
 from .exceptions import ScootSchemaException
@@ -104,7 +105,7 @@ def parse_constraint(conn: Connection, sa_con: Constraint):
         except Exception:
             traceback.print_exc()
             return None
-    else:
+    elif is_server:
         print(f"- Ignoring Table constraint {sa_con.__class__.__name__}.")
 
 

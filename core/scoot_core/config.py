@@ -6,6 +6,8 @@ default_config_name: Annotated[
     str, "The configuration name used if no configuration has been specified."
 ] = "scoot_default"
 
+is_server = False
+
 
 class Config:
     """Represents a persistent configuration of connections"""
