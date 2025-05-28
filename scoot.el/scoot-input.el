@@ -76,12 +76,14 @@
     (propertize value
                 'face `(:inherit ,face :background "#000000"))))
 
-(defun scoot-input--install-input (begin end type formatter record &optional resize-hook remove-hook)
+(cl-defun scoot-input--install-input (&key begin end column type formatter record resize-hook remove-hook)
   "Install an input spanning from BEGIN to END.
 
 FORMATTER will be used to format the value of RECORD according to its
 display behavior.  Will be pre-populated with the current column value
 and enforce the constraints of TYPE.
+
+COLUMN may be supplied to allow applying column-level constraints.
 
 RESIZE-HOOK and REMOVE-HOOK can be provided for non-standard behavior
 editing forces a resize of the widget bounds and when the input is
@@ -93,6 +95,8 @@ removed, respectively."
       (plist-put widget :resize-hook resize-hook))
     (when remove-hook
       (plist-put widget :remove-hook remove-hook))
+    (when column
+      (plist-put widget :column column))
 
     (plist-put widget :formatter formatter)
     (plist-put widget :record record)
@@ -251,12 +255,32 @@ buffer."
         (insert new-value)
         (goto-char (- (length new-value) offset))))))
 
+(defun scoot-input--cycle-string (widget n)
+  "Cycle the String value at point of WIDGET by N.
+
+Requires an enum-like check constraint on the column."
+  (when-let ((enum-values (alist-get 'rhs
+                                     (alist-get 'condition
+                                                (seq-find (lambda (c)
+                                                            (equal (alist-get 'type c) "chk"))
+                                                          (alist-get 'constraints
+                                                                     (plist-get widget :column)))))))
+    (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
+      (let* ((pos (or (cl-position (buffer-string)
+                                   enum-values
+                                   :test #'string=)
+                      (- 0 n)))
+             (new-value (aref enum-values (mod (+ pos n) (length enum-values)))))
+        (erase-buffer)
+        (insert new-value)))))
+
 (defun scoot-input--cycle-value (n)
   "Cycle the value of the input by N."
   (let* ((widget (scoot-widget--get-widget-config 'input 'input))
          (type-spec (plist-get widget :data-type)))
     (pcase (alist-get 'type type-spec)
       ("INTEGER" (scoot-input--cycle-integer widget n))
+      ("STRING" (scoot-input--cycle-string widget n))
       (_ nil))))
 
 (defun scoot-input--cycle-value-up ()

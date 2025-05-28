@@ -509,16 +509,17 @@ CELL is the cell summary of the cell under edit."
   (interactive)
   (when (scoot--thing-at-p (point) 'table-cell)
     (let* ((cell (scoot-table--cell-at-point)))
-      (scoot-input--install-input (car (scoot-table--cell-begin))
-                                  (car (scoot-table--cell-end))
-                                  (alist-get 'typespec (plist-get cell :column))
-                                  (get-text-property (point) 'formatter)
-                                  (plist-get cell :record)
-                                  (lambda (new-width)
-                                    (scoot-table--edit-cell-resize-hook
-                                     (plist-get cell :cell-index) new-width))
-                                  (lambda (widget)
-                                    (scoot-table--remove-cell-editor widget cell)))
+      (scoot-input--install-input :begin (car (scoot-table--cell-begin))
+                                  :end (car (scoot-table--cell-end))
+                                  :column (plist-get cell :column)
+                                  :type (alist-get 'typespec (plist-get cell :column))
+                                  :formatter (get-text-property (point) 'formatter)
+                                  :record (plist-get cell :record)
+                                  :resize-hook (lambda (new-width)
+                                                 (scoot-table--edit-cell-resize-hook
+                                                  (plist-get cell :cell-index) new-width))
+                                  :remove-hook (lambda (widget)
+                                                 (scoot-table--remove-cell-editor widget cell)))
       (scoot-table-mode -1))))
 
 
