@@ -98,7 +98,7 @@
                                         'face 'scoot-query-block-face
                                         'thing 'query-block)
                             (propertize (make-string
-                                         (1- (- width (length line)))
+                                         (max 0 (1- (- width (length line)) ))
                                          ?\s)
                                         'face 'scoot-query-block-padding-face
                                         'thing 'query-block
