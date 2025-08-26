@@ -119,11 +119,17 @@ default width of the, presumably, otherwise fixed-width font."
         (/ pixel-width char-width))
     (string-width (format "%s" val))))
 
-(defun scoot-table--refresh-visual-model (result-data)
+(defun scoot-table--build-visual-model (result-data)
   "Build the table data model from RESULT-DATA."
-  (let* ((columns-metadata (alist-get 'columns
-                                      (alist-get 'metadata
-                                                 result-data)))
+  (let* ((columns-metadata (if-let* ((col-meta
+                                      (alist-get 'columns
+                                                 (alist-get 'metadata
+                                                            result-data)))
+                                     (_ (> (length col-meta) 0)))
+                               col-meta
+                             (mapcar (lambda (col-name)
+                                       (list (cons 'name col-name)))
+                                     (alist-get 'columns result-data))))
          (formatters (mapcar
                       #'scoot--resolve-formatter-from-column-metadata
                       columns-metadata))
@@ -181,12 +187,18 @@ default width of the, presumably, otherwise fixed-width font."
                              records)
                     (make-list (length headers) 0))
                   headers)))
-    (setq scoot-table--table-model
-          (list :headers headers
-                :tables tables
-                :widths widths
-                :formatters formatters
-                :records records))))
+    (list :headers headers
+          :tables tables
+          :widths widths
+          :formatters formatters
+          :records records)))
+
+(defun scoot-table--refresh-visual-model (result-data)
+  "Build the table data model from RESULT-DATA and store to buffer.
+
+The resulting model is stored in `scoot-table--table-model`"
+  (setq scoot-table--table-model
+        (scoot-table--build-visual-model result-data)))
 
 (defun scoot-table--record-identity (record)
   "Extract the record identity from RECORD."
@@ -334,7 +346,9 @@ COLUMN-INDEX - The column index."
 
 (defun scoot-table--insert-table (result-data)
   "Insert the RESULT-DATA table into the buffer."
+  (message "RESULT-DATA:\n---------\n%s" (pp-to-string result-data))
   (scoot-table--refresh-visual-model result-data)
+  (message "TABLE-MODEL:\n---------\n%s" (pp-to-string scoot-table--table-model))
   (scoot-table--insert-table-header)
   (mapc #'scoot-table--insert-table-row
         (plist-get scoot-table--table-model :records))
