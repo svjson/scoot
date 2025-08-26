@@ -66,4 +66,12 @@ ON
                    "  application_profile.id = application_profile_housing_reference.applicationProfileId;"))))
 
 
+(ert-deftest scoot--plist-select-keys--cherry-picking-existing-keys ()
+  (should (equal (scoot--plist-select-keys (list :headers '("A" "B" "C")
+                                                 :tables '("Table1", "Table2")
+                                                 :widths '(4 8 16))
+                                           '(:headers :widths))
+                 (list :headers '("A" "B" "C")
+                       :widths '(4 8 16)))))
+
 ;;; scoot-common-test.el ends here

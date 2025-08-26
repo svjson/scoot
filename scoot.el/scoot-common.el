@@ -107,6 +107,13 @@ See `scoot-local--connection-name-resolvers`")
               cell (cddr cell))))
     plist))
 
+(defun scoot--plist-select-keys (plist keys)
+  "Return a new plist created from PLIST containing only the keys in KEYS."
+  (let (result)
+    (dolist (key keys result)
+      (when (plist-member plist key)
+        (setq result (plist-put result key (plist-get plist key)))))))
+
 (defun scoot--alist-to-plist (alist)
   "Convert ALIST to plist, transforming `key to :key."
   (cl-loop for (key . value) in alist append (list (intern (format ":%s" key)) value)))
