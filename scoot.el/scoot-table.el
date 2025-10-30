@@ -346,9 +346,9 @@ COLUMN-INDEX - The column index."
 
 (defun scoot-table--insert-table (result-data)
   "Insert the RESULT-DATA table into the buffer."
-  (message "RESULT-DATA:\n---------\n%s" (pp-to-string result-data))
+;  (message "RESULT-DATA:\n---------\n%s" (pp-to-string result-data))
   (scoot-table--refresh-visual-model result-data)
-  (message "TABLE-MODEL:\n---------\n%s" (pp-to-string scoot-table--table-model))
+;  (message "TABLE-MODEL:\n---------\n%s" (pp-to-string scoot-table--table-model))
   (scoot-table--insert-table-header)
   (mapc #'scoot-table--insert-table-row
         (plist-get scoot-table--table-model :records))
