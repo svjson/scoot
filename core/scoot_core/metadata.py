@@ -173,7 +173,6 @@ def describe_table(
         _, schema_name, table_name = parse_table_name(table_expression)
 
         md = MetaData()
-        md.reflect(bind=conn.engine)
         table = Table(table_name, md, schema=schema_name, autoload_with=conn.engine)
 
         inspector.reflect_table(table, include_columns=None)
