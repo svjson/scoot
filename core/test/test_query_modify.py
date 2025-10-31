@@ -64,7 +64,7 @@ def test_remove_column__single_table__aliased_table():
     )
 
 
-@patch("scoot_core.query.describe_table", return_value=users_table)
+@patch("scoot_core.query.try_describe_table", return_value=users_table)
 def test_remove_column__single_table__deconstruct_star(_):
 
     # Given
@@ -80,7 +80,7 @@ def test_remove_column__single_table__deconstruct_star(_):
     )
 
 
-@patch("scoot_core.query.describe_table", return_value=users_table)
+@patch("scoot_core.query.try_describe_table", return_value=users_table)
 def test_remove_column__single_aliased_table__deconstruct_star(_):
 
     # Given

@@ -1,5 +1,5 @@
 from .opcontext import OperationContext
-from .metadata import describe_table
+from .metadata import try_describe_table
 from .model import ResultSet, TableModel
 
 from sqlglot import parse_one, exp
@@ -213,8 +213,8 @@ class SQLQueryModifier:
             tables.append(from_value)
 
         for tbl_expr in tables:
-            tbl_meta = describe_table(
-                self.ctx, tbl_expr.sql(), ignore_failure=True
+            tbl_meta = try_describe_table(
+                self.ctx, tbl_expr.sql()
             )
             if tbl_meta:
                 self._tbl_expr_meta[tbl_meta.name] = tbl_meta

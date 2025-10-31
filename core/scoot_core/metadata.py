@@ -156,8 +156,8 @@ def parse_table_name(table_name) -> tuple[Optional[str], Optional[str], str]:
 
 
 def describe_table(
-    ctx: OperationContext, table_expression: str, ignore_failure=False
-) -> Optional[TableModel]:
+    ctx: OperationContext, table_expression: str
+) -> TableModel:
     """Describe the structure of a database table.
 
     FIXME: Some system tables and constructs that appear to be tables in certain
@@ -189,15 +189,16 @@ def describe_table(
                 find_and_apply_additional_constraints(conn, table)
 
             return make_table_model(conn, table)
-        except NoSuchTableError as e:
-            if ignore_failure:
-                print(
-                    f"describe_table: {table_expression} [{schema_name} {table_name}] {e}"
-                )
-                return None
-            else:
-                raise ScootSchemaException("table", table_expression)
+        except NoSuchTableError:
+            raise ScootSchemaException("table", table_expression)
 
+def try_describe_table(
+        ctx: OperationContext, table_expression: str
+) -> Optional[TableModel]:
+    try:
+        return describe_table(ctx, table_expression)
+    except ScootSchemaException:
+        return None
 
 def resolve_query_metadata(ctx: OperationContext, sql: str):
     with ctx.operation("resolve_query_metadata"):
@@ -207,8 +208,8 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
             expr_tables = list(expr.find_all(sge.Table))
             known_tables = {}
             for tbl in expr_tables:
-                known_tables[tbl.sql()] = describe_table(
-                    ctx, tbl.sql(), ignore_failure=True
+                known_tables[tbl.sql()] = try_describe_table(
+                    ctx, tbl.sql()
                 )
 
         columns = []
