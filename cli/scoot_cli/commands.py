@@ -42,7 +42,8 @@ def describe_table(conn: Connection, table_name: str) -> None:
 
 def execute_query(conn: Connection, query_str: str) -> None:
     """Execute a query"""
-    result = query.execute(conn, query_str)
+    opctx = OperationContext(conn)
+    result = query.execute(opctx, query_str)
 
     ascii_table = AsciiTable.from_result_set(result)
     ascii_table.dump(print)

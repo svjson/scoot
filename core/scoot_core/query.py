@@ -262,6 +262,8 @@ def modify(ctx: OperationContext, sql: str, action_instr: dict) -> ResultSet:
     result_set.metadata = (result_set.metadata or {}) | {"stmt": modified_sql}
     return result_set
 
+def execute(ctx: OperationContext, sql: str):
+    return perform_action(ctx, sql, { "action": "execute"})
 
 def perform_action(ctx: OperationContext, sql: str, action_instr: dict):
     """Perform an action on an SQL query.
