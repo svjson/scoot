@@ -19,11 +19,11 @@ from scoot_server import connmgr
 app = Flask(__name__)
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
 config.is_server = True
+
 
 def default_serializer(obj):
     if isinstance(obj, Decimal):
@@ -47,7 +47,6 @@ def error_response(scoot_error, status: int | None = None):
             status = 404
         else:
             status = 500
-
 
     return json_response(
         {
@@ -114,6 +113,7 @@ def with_request_context(func):
             lines = ctx.format_tree()
             current_app.logger.info("\n".join(lines))
         return result
+
     return wrapper
 
 
@@ -208,9 +208,9 @@ def query_operation(ctx, connection):
     data = request.get_json()
 
     with ctx.span("parse request"):
-      sql = data.get("sql")
-      include_metadata = data.get("metadata", False)
-      action = data.get("action", {"action": "execute"})
+        sql = data.get("sql")
+        include_metadata = data.get("metadata", False)
+        action = data.get("action", {"action": "execute"})
 
     result = query.perform_action(opctx, sql, action)
 
