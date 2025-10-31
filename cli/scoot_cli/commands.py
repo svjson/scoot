@@ -1,17 +1,22 @@
-import json
-from pprint import pprint
+import sys
 
-from scoot_core import metadata, query, OperationContext
-from scoot_core.connection import Connection
+from scoot_core import config, metadata, query, OperationContext
 from scoot_core.model import ListDataAdapter
+from scoot_core.export import get_export_format
 from scoot_cli.output import AsciiTable
-
 
 def _dump_single_column_table(header: str, values: list[str]):
     """Create a printable single-row ascii table from a header name and list of values"""
     ascii_table = AsciiTable(ListDataAdapter([header], [[v] for v in values]))
     ascii_table.dump(print)
 
+def list_connections():
+    _dump_single_column_table("Connections", config.list_configuration_names())
+
+def set_default_connection(conn_name: str) -> None:
+    """Set the default configuration `conn_name`."""
+    config.set_default_connection(conn_name)
+    print(f"Set default connection to '{conn_name}'")
 
 def list_tables(ctx: OperationContext) -> None:
     """List available tables."""
@@ -51,4 +56,10 @@ def export_table(ctx: OperationContext, table_name: str) -> None:
     fmt = get_export_format("ddl")
 
     table = metadata.describe_table(ctx, table_name)
+    mode = "w"
+    output = "export.ddl"
+    with open(output, mode) if output else sys.stdout as f:
+        fmt.start(f)
+        fmt.table(f, table)
+        fmt.end()
 

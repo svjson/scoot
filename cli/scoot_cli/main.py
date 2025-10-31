@@ -5,6 +5,10 @@ from scoot_core import config
 from scoot_core.opcontext import OperationContext
 
 handlers = {
+    "connection": {
+        "list": lambda _1, _2: commands.list_connections(),
+        "set-default": lambda _, args: commands.set_default_connection(args.connection_name)
+    },
     "table": {
         "list": lambda ctx, _: commands.list_tables(ctx),
         "describe": lambda ctx, args: commands.describe_table(
@@ -16,6 +20,15 @@ handlers = {
     "query": lambda ctx, args: commands.execute_query(ctx, args.sql),
 }
 
+def run_command(parser, ctx, args):
+    base_handler = handlers.get(args.command, {})
+    if hasattr(args, "action"):
+        action_handler = base_handler.get(args.action)
+        if action_handler is None:
+            parser.error("No handler for {args.command} {args.action}")
+        action_handler(ctx, args)
+    else:
+        base_handler(ctx, args)
 
 def main():
     # Root parser for the Scoot CLI tool, allowing us to capture non-command
@@ -29,6 +42,15 @@ def main():
     # Actual argument parser for the main command
     parser = argparse.ArgumentParser(prog="scoot", parents=[root_parser])
     subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # Sub-parser for 'connection' commands
+    conn_parser = subparsers.add_parser("connection", help="Connection operations")
+    conn_action_parser = conn_parser.add_subparsers(dest="action")
+
+    set_default_parser = conn_action_parser.add_parser("set-default")
+    set_default_parser.add_argument("connection_name")
+
+    conn_action_parser.add_parser("list")
 
     # Sub-parser for 'table' commands
     table_parser = subparsers.add_parser("table", help="Table operations")
@@ -56,31 +78,29 @@ def main():
     args = parser.parse_args(remaining_args)
 
     url = root_args.url
-    cfg_name = root_args.c or config.default_config_name
-    config.configure(cfg_name)
 
-    if url is None:
-        default_conn = config.app_config.connections.get("default", None)
-        if default_conn:
-            url = default_conn["url"]
+    opctx: OperationContext | None = None
+
+    if args.command != "connection":
+        cfg_name = root_args.c
+        if cfg_name is None and url is None and config.default_connection_exists() is not None:
+            url = config.use_default()
         else:
-            parser.error(
-                "No connection URL provided and no default connection configured."
-            )
+            config.configure(cfg_name)
 
-    conn = Connection(url)
-    opctx = OperationContext(conn)
+        if url is None:
+            default_conn = config.app_config.connections.get("default", None)
+            if default_conn:
+                url = default_conn["url"]
+            else:
+                parser.error(
+                    "No connection URL provided and no default connection configured."
+                )
 
-    base_handler = handlers.get(args.command, {})
+        conn = Connection(url)
+        opctx = OperationContext(conn)
 
-    if hasattr(args, "action"):
-        action_handler = base_handler.get(args.action)
-        if action_handler is None:
-            parser.error("No handler for {args.command} {args.action}")
-        action_handler(opctx, args)
-    else:
-        base_handler(opctx, args)
-
+    run_command(parser, opctx, args)
 
 if __name__ == "__main__":
     main()
