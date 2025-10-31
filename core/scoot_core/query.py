@@ -1,4 +1,4 @@
-from .connection import Connection
+from .opcontext import OperationContext
 from .metadata import describe_table
 from .model import ResultSet, TableModel
 
@@ -6,9 +6,9 @@ from sqlglot import parse_one, exp
 
 
 class SQLQueryModifier:
-    def __init__(self, sql, connection):
+    def __init__(self, sql, ctx):
         self.ast = parse_one(sql)
-        self.connection = connection
+        self.ctx = ctx
         self._tbl_expr_meta: dict[str, TableModel] = {}
         self._identify_items()
 
@@ -214,7 +214,7 @@ class SQLQueryModifier:
 
         for tbl_expr in tables:
             tbl_meta = describe_table(
-                self.connection, tbl_expr.sql(), ignore_failure=True
+                self.ctx, tbl_expr.sql(), ignore_failure=True
             )
             if tbl_meta:
                 self._tbl_expr_meta[tbl_meta.name] = tbl_meta
@@ -225,12 +225,12 @@ class SQLQueryModifier:
         return self.ast.sql()
 
 
-def modify(connection: Connection, sql: str, action_instr: dict) -> ResultSet:
+def modify(ctx: OperationContext, sql: str, action_instr: dict) -> ResultSet:
     target = action_instr.get("target")
     operation = action_instr.get("operation")
     conditions = action_instr.get("conditions", [])
 
-    query_mod = SQLQueryModifier(sql, connection)
+    query_mod = SQLQueryModifier(sql, ctx.connection)
 
     if target == "WHERE":
         for cond in conditions:
@@ -258,12 +258,12 @@ def modify(connection: Connection, sql: str, action_instr: dict) -> ResultSet:
 
     modified_sql = query_mod.get_sql()
 
-    result_set = connection.execute(modified_sql)
+    result_set = ctx.connection.execute(modified_sql)
     result_set.metadata = (result_set.metadata or {}) | {"stmt": modified_sql}
     return result_set
 
 
-def perform_action(connection: Connection, sql: str, action_instr: dict):
+def perform_action(ctx: OperationContext, sql: str, action_instr: dict):
     """Perform an action on an SQL query.
 
     Args:
@@ -272,10 +272,11 @@ def perform_action(connection: Connection, sql: str, action_instr: dict):
             action (dict): The action to perform on the SQL query.
     """
     action = action_instr.get("action")
+    with ctx.operation(action):
+      if action == "execute":
+          return ctx.connection.execute(sql)
+      elif action == "modify":
+          return modify(ctx, sql, action_instr)
+      else:
+          raise ValueError(f"Unknown action: {action}")
 
-    if action == "execute":
-        return connection.execute(sql)
-    elif action == "modify":
-        return modify(connection, sql, action_instr)
-    else:
-        raise ValueError(f"Unknown action: {action}")

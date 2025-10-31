@@ -15,6 +15,8 @@ from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
 
+from .opcontext import OperationContext
+
 from .dialect import sqlglot_dialect
 
 from .config import is_server
@@ -154,7 +156,7 @@ def parse_table_name(table_name) -> tuple[Optional[str], Optional[str], str]:
 
 
 def describe_table(
-    conn: Connection, table_expression: str, ignore_failure=False
+    ctx: OperationContext, table_expression: str, ignore_failure=False
 ) -> Optional[TableModel]:
     """Describe the structure of a database table.
 
@@ -164,104 +166,114 @@ def describe_table(
     devised.
 
     This pertains to SQL Servers sys.* views, for example."""
-    inspector = inspect(conn.engine)
+    with ctx.operation("describe_table"):
+        conn = ctx.connection
+        inspector = inspect(conn.engine)
 
-    table_name = None
-    schema_name = None
+        table_name = None
+        schema_name = None
 
-    try:
-        _, schema_name, table_name = parse_table_name(table_expression)
+        try:
+            _, schema_name, table_name = parse_table_name(table_expression)
 
-        md = MetaData()
-        table = Table(table_name, md, schema=schema_name, autoload_with=conn.engine)
+            md = MetaData()
+#            with ctx.operation("md.reflect"):
+#                md.reflect(bind=conn.engine)
+            with ctx.operation("Table()"):
+                table = Table(table_name, md, schema=schema_name, autoload_with=conn.engine)
 
-        inspector.reflect_table(table, include_columns=None)
+            with ctx.operation("reflect_table"):
+                inspector.reflect_table(table, include_columns=None)
 
-        find_and_apply_additional_constraints(conn, table)
+            with ctx.operation("find_additional_constraints"):
+                find_and_apply_additional_constraints(conn, table)
 
-        return make_table_model(conn, table)
-    except NoSuchTableError as e:
-        if ignore_failure:
-            print(
-                f"describe_table: {table_expression} [{schema_name} {table_name}] {e}"
-            )
-            return None
-        else:
-            raise ScootSchemaException("table", table_expression)
+            return make_table_model(conn, table)
+        except NoSuchTableError as e:
+            if ignore_failure:
+                print(
+                    f"describe_table: {table_expression} [{schema_name} {table_name}] {e}"
+                )
+                return None
+            else:
+                raise ScootSchemaException("table", table_expression)
 
 
-def resolve_query_metadata(conn: Connection, sql: str):
-    expr = sqlglot.parse_one(sql)
+def resolve_query_metadata(ctx: OperationContext, sql: str):
+    with ctx.operation("resolve_query_metadata"):
+        expr = sqlglot.parse_one(sql)
 
-    expr_tables = list(expr.find_all(sge.Table))
-    known_tables = {}
-    for tbl in expr_tables:
-        known_tables[tbl.sql()] = describe_table(
-            conn, tbl.sql(), ignore_failure=True
-        )
+        with ctx.operation("Enumerating known tables"):
+            expr_tables = list(expr.find_all(sge.Table))
+            known_tables = {}
+            for tbl in expr_tables:
+                known_tables[tbl.sql()] = describe_table(
+                    ctx, tbl.sql(), ignore_failure=True
+                )
 
-    columns = []
+        columns = []
 
-    for e in expr.expressions:
-        name = e.alias_or_name
-        table: str | None = getattr(e, "table", None)
-        column: str | None = getattr(e, "name", None)
-        constraints = []
-        table_model: TableModel | None = known_tables.get(table, None)
+        for e in expr.expressions:
+            with ctx.operation("inspect expression"):
+                name = e.alias_or_name
+                table: str | None = getattr(e, "table", None)
+                column: str | None = getattr(e, "name", None)
+                constraints = []
+                table_model: TableModel | None = known_tables.get(table, None)
 
-        if e.alias:
-            if e.this:
-                if e.this.__class__.__name__ == "Column":
-                    column = e.this.name
+                if e.alias:
+                    if e.this:
+                        if e.this.__class__.__name__ == "Column":
+                            column = e.this.name
 
-        if isinstance(e, sge.Star):
-            if table is None and len(expr_tables) == 1:
-                for tbl in expr_tables:
-                    tbl_name = tbl.name
-                    table_model = known_tables.get(tbl.sql())
-                    if table_model:
-                        for c in table_model.columns:
-                            columns.append(
-                                {
-                                    "name": c.name,
-                                    "table": tbl.sql(),
-                                    "column": c.name,
-                                    "constraints": table_model.get_constraints_for_column(
-                                        c.name
-                                    ),
-                                }
-                            )
-            continue
+                if isinstance(e, sge.Star):
+                    if table is None and len(expr_tables) == 1:
+                        for tbl in expr_tables:
+                            tbl_name = tbl.name
+                            table_model = known_tables.get(tbl.sql())
+                            if table_model:
+                                for c in table_model.columns:
+                                    columns.append(
+                                        {
+                                            "name": c.name,
+                                                "table": tbl.sql(),
+                                            "column": c.name,
+                                            "constraints": table_model.get_constraints_for_column(
+                                                c.name
+                                            ),
+                                        }
+                                    )
+                    continue
 
-        if column and table is None or table == "":
-            for tbl_name, tbl_model in known_tables.items():
-                if tbl_model:
-                    for c in tbl_model.columns:
-                        if c.name == column:
-                            table = tbl_name
+                if column and table is None or table == "":
+                    for tbl_name, tbl_model in known_tables.items():
+                        if tbl_model:
+                            for c in tbl_model.columns:
+                                if c.name == column:
+                                    table = tbl_name
+                                    break
+                        if table:
                             break
-                if table:
-                    break
 
-        if table_model:
-            constraints = table_model.get_constraints_for_column(column)
+                if table_model:
+                    constraints = table_model.get_constraints_for_column(column)
 
-        columns.append(
-            {
-                "name": name,
-                "table": table,
-                "column": column,
-                "constraints": constraints,
-            }
-        )
+                columns.append(
+                    {
+                        "name": name,
+                        "table": table,
+                        "column": column,
+                        "constraints": constraints,
+                    }
+                )
 
-    columns = [
-        (
-            table_model.get_column(c.get("column")).to_dict() | c
-            if (table_model := known_tables.get(c.get("table")))
-            else c
-        )
-        for c in columns
-    ]
+        columns = [
+            (
+                table_model.get_column(c.get("column")).to_dict() | c
+                if (table_model := known_tables.get(c.get("table")))
+                else c
+            )
+            for c in columns
+        ]
 
-    return {"columns": columns}
+        return {"columns": columns}

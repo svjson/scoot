@@ -1,10 +1,12 @@
 import traceback
+import logging
 from decimal import Decimal
 from functools import wraps
 
 import orjson
-from flask import Flask, Response, request
+from flask import Flask, Response, current_app, request, g
 from scoot_core import config, metadata, query
+from .context import RequestContext, ServerOperation
 from scoot_core.exceptions import (
     ScootApplicationError,
     ScootConnectionException,
@@ -16,8 +18,13 @@ from scoot_server import connmgr
 
 app = Flask(__name__)
 
-config.is_server = True
+# Configure logging (optional; otherwise Flask uses werkzeug's default)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
+config.is_server = True
 
 def default_serializer(obj):
     if isinstance(obj, Decimal):
@@ -89,6 +96,21 @@ def with_connection(func):
     return wrapper
 
 
+def with_request_context(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        ctx = RequestContext(request.path)
+        g.reqctx = ctx
+        try:
+            result = func(ctx, *args, **kwargs)
+        finally:
+            ctx.root_span.stop()
+            lines = ctx.format_tree()
+            current_app.logger.info("\n".join(lines))
+        return result
+    return wrapper
+
+
 @app.route("/ping", methods=["GET"])
 def ping():
     return json_response({"status": "ok"})
@@ -144,8 +166,10 @@ def list_tables(connection):
 @app.route("/api/<string:conn>/tables/<string:table_name>", methods=["GET"])
 @with_error_handler
 @with_connection
-def describe_table(connection, table_name):
-    return json_response(metadata.describe_table(connection, table_name).to_dict())
+@with_request_context
+def describe_table(ctx, connection, table_name):
+    opctx = ServerOperation(ctx, connection)
+    return json_response(metadata.describe_table(opctx, table_name).to_dict())
 
 
 @app.route("/api/<string:conn>/databases", methods=["GET"])
@@ -165,24 +189,33 @@ def list_schemas(connection):
 @app.route("/api/<string:conn>/query", methods=["POST"])
 @with_error_handler
 @with_connection
-def query_operation(connection):
+@with_request_context
+def query_operation(ctx, connection):
+
+    opctx = ServerOperation(ctx, connection)
     data = request.get_json()
-    sql = data.get("sql")
-    include_metadata = data.get("metadata", False)
-    action = data.get("action", {"action": "execute"})
 
-    result = query.perform_action(connection, sql, action)
+    with ctx.span("parse request"):
+      sql = data.get("sql")
+      include_metadata = data.get("metadata", False)
+      action = data.get("action", {"action": "execute"})
 
-    if result.metadata and (new_stmt := result.metadata.get("stmt")):
-        sql = new_stmt
+    result = query.perform_action(opctx, sql, action)
 
-    query_metadata = (
-        metadata.resolve_query_metadata(connection, sql)
-        if include_metadata
-        else None
-    )
+    with ctx.span("resolve_metadata"):
+        if result.metadata and (new_stmt := result.metadata.get("stmt")):
+            sql = new_stmt
 
-    if query_metadata:
-        result.metadata = (result.metadata or {}) | query_metadata
+        query_metadata = (
+            metadata.resolve_query_metadata(opctx, sql)
+            if include_metadata
+            else None
+        )
 
-    return json_response(result.to_dict())
+        if query_metadata:
+            result.metadata = (result.metadata or {}) | query_metadata
+
+    with ctx.span("serialize"):
+        response = json_response(result.to_dict())
+
+    return response

@@ -1,7 +1,7 @@
 import json
 from pprint import pprint
 
-from scoot_core import metadata, query
+from scoot_core import metadata, query, OperationContext
 from scoot_core.connection import Connection
 from scoot_core.model import ListDataAdapter
 from scoot_cli.output import AsciiTable
@@ -33,7 +33,8 @@ def list_schemas(conn: Connection) -> None:
 
 def describe_table(conn: Connection, table_name: str) -> None:
     """Describe a named table"""
-    table = metadata.describe_table(conn, table_name)
+    opctx = OperationContext(conn)
+    table = metadata.describe_table(opctx, table_name)
 
     ascii_table = AsciiTable.from_table_model(table)
     ascii_table.dump(print)
