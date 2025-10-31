@@ -5,7 +5,7 @@ from functools import wraps
 
 import orjson
 from flask import Flask, Response, current_app, request, g
-from scoot_core import config, metadata, query
+from scoot_core import config, metadata, query, ScootErrorType
 from .context import RequestContext, ServerOperation
 from scoot_core.exceptions import (
     ScootApplicationError,
@@ -18,7 +18,6 @@ from scoot_server import connmgr
 
 app = Flask(__name__)
 
-# Configure logging (optional; otherwise Flask uses werkzeug's default)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
@@ -42,7 +41,14 @@ def json_response(data, status=200):
     )
 
 
-def error_response(scoot_error, status=400):
+def error_response(scoot_error, status: int | None = None):
+    if status is None:
+        if scoot_error.type == ScootErrorType.NOT_FOUND:
+            status = 404
+        else:
+            status = 500
+
+
     return json_response(
         {
             "status": "error",
