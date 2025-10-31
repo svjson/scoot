@@ -48,7 +48,6 @@ class Connection:
 
         @error_handler
         def do_execute(connection: Connection, sql: str):
-
             with connection.engine.connect().execution_options(
                 isolation_level="AUTOCOMMIT"
             ) as conn:

@@ -113,7 +113,7 @@ def parse_constraint(conn: Connection, sa_con: Constraint):
 
 
 def make_table_model(conn: Connection, table: Table) -> TableModel:
-    tbl = TableModel(name=table.name, schema=table.schema)
+    tbl = TableModel(name=table.name, schema=table.schema, sa_table=table)
     for sa_column in table.columns:
         tbl.add_column(make_table_column(conn, sa_column))
     for sa_con in table.constraints:
@@ -156,9 +156,7 @@ def parse_table_name(table_name) -> tuple[Optional[str], Optional[str], str]:
     )
 
 
-def describe_table(
-    ctx: OperationContext, table_expression: str
-) -> TableModel:
+def describe_table(ctx: OperationContext, table_expression: str) -> TableModel:
     """Describe the structure of a database table.
 
     FIXME: Some system tables and constructs that appear to be tables in certain
@@ -178,10 +176,12 @@ def describe_table(
             _, schema_name, table_name = parse_table_name(table_expression)
 
             md = MetaData()
-#            with ctx.operation("md.reflect"):
-#                md.reflect(bind=conn.engine)
+            #            with ctx.operation("md.reflect"):
+            #                md.reflect(bind=conn.engine)
             with ctx.operation("Table()"):
-                table = Table(table_name, md, schema=schema_name, autoload_with=conn.engine)
+                table = Table(
+                    table_name, md, schema=schema_name, autoload_with=conn.engine
+                )
 
             with ctx.operation("reflect_table"):
                 inspector.reflect_table(table, include_columns=None)
@@ -193,13 +193,15 @@ def describe_table(
         except NoSuchTableError:
             raise ScootSchemaException("table", table_expression)
 
+
 def try_describe_table(
-        ctx: OperationContext, table_expression: str
+    ctx: OperationContext, table_expression: str
 ) -> Optional[TableModel]:
     try:
         return describe_table(ctx, table_expression)
     except ScootSchemaException:
         return None
+
 
 def resolve_query_metadata(ctx: OperationContext, sql: str):
     with ctx.operation("resolve_query_metadata"):
@@ -209,9 +211,7 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
             expr_tables = list(expr.find_all(sge.Table))
             known_tables = {}
             for tbl in expr_tables:
-                known_tables[tbl.sql()] = try_describe_table(
-                    ctx, tbl.sql()
-                )
+                known_tables[tbl.sql()] = try_describe_table(ctx, tbl.sql())
 
         columns = []
 
@@ -238,7 +238,7 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
                                     columns.append(
                                         {
                                             "name": c.name,
-                                                "table": tbl.sql(),
+                                            "table": tbl.sql(),
                                             "column": c.name,
                                             "constraints": table_model.get_constraints_for_column(
                                                 c.name

@@ -54,3 +54,9 @@ class ScootApplicationError(ScootError):
 
     def __init__(self, exception):
         super().__init__("server-error", f"{exception}")
+
+class ScootExportFormatError(ScootError):
+    """Signals an unexpected error related to export formats."""
+
+    def __init__(self, format: str):
+        super().__init__("export-format", f"Unknown format: '{format}'")

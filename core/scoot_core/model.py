@@ -1,4 +1,5 @@
 from typing import Any, override, Optional
+from sqlalchemy import Table
 
 from scoot_core import types
 
@@ -44,6 +45,7 @@ class TableModel:
         self._column_indices = {}
         self.create_stmt: Optional[str] = None
         self.constraints = []
+        self.sa_table: Table | None = kwargs.get("sa_table", None)
 
     def add_column(self, column):
         self.columns.append(column)
@@ -89,6 +91,15 @@ class ResultSet:
         self.columns = columns
         self.rows = rows
         self.metadata = metadata
+
+    def row_as_dict(self, index: int):
+        result = {}
+        for i, col_name in enumerate(self.columns):
+            result[col_name] = self.rows[index][i]
+        return result
+
+    def size(self):
+        return len(self.rows)
 
     def to_dict(self):
         result = {"columns": self.columns, "rows": self.rows}

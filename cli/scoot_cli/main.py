@@ -7,18 +7,24 @@ from scoot_core.opcontext import OperationContext
 handlers = {
     "connection": {
         "list": lambda _1, _2: commands.list_connections(),
-        "set-default": lambda _, args: commands.set_default_connection(args.connection_name)
+        "set-default": lambda _, args: commands.set_default_connection(
+            args.connection_name
+        ),
     },
     "table": {
         "list": lambda ctx, _: commands.list_tables(ctx),
-        "describe": lambda ctx, args: commands.describe_table(
-            ctx, args.table_name
+        "describe": lambda ctx, args: commands.describe_table(ctx, args.table_name),
+        "export": lambda ctx, args: commands.export_table(
+            ctx,
+            args.table_name,
+            **{"include_data": args.include_data, "to_file": args.o},
         ),
     },
     "db": {"list": lambda ctx, _: commands.list_databases(ctx)},
     "schema": {"list": lambda ctx, _: commands.list_schemas(ctx)},
     "query": lambda ctx, args: commands.execute_query(ctx, args.sql),
 }
+
 
 def run_command(parser, ctx, args):
     base_handler = handlers.get(args.command, {})
@@ -29,6 +35,7 @@ def run_command(parser, ctx, args):
         action_handler(ctx, args)
     else:
         base_handler(ctx, args)
+
 
 def main():
     # Root parser for the Scoot CLI tool, allowing us to capture non-command
@@ -60,6 +67,11 @@ def main():
     describe_parser = table_action_parser.add_parser("describe")
     describe_parser.add_argument("table_name")
 
+    export_table_parser = table_action_parser.add_parser("export")
+    export_table_parser.add_argument("table_name")
+    export_table_parser.add_argument("--include-data", action="store_true")
+    export_table_parser.add_argument("-o")
+
     # Sub-parser for 'db' commands
     db_parser = subparsers.add_parser("db", help="Database operations")
     db_action_parser = db_parser.add_subparsers(dest="action")
@@ -83,7 +95,11 @@ def main():
 
     if args.command != "connection":
         cfg_name = root_args.c
-        if cfg_name is None and url is None and config.default_connection_exists() is not None:
+        if (
+            cfg_name is None
+            and url is None
+            and config.default_connection_exists() is not None
+        ):
             url = config.use_default()
         else:
             config.configure(cfg_name)
@@ -101,6 +117,7 @@ def main():
         opctx = OperationContext(conn)
 
     run_command(parser, opctx, args)
+
 
 if __name__ == "__main__":
     main()
