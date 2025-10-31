@@ -30,22 +30,23 @@ from .dialect.registry import (
 from . import expression
 
 
-def list_schemas(conn: Connection) -> list[str]:
+def list_schemas(ctx: OperationContext) -> list[str]:
     """Return a list of schema names."""
-    inspector = inspect(conn.engine)
+    inspector = inspect(ctx.connection.engine)
     schemas = inspector.get_schema_names()
     return schemas
 
 
-def list_tables(conn: Connection) -> list[str]:
+def list_tables(ctx: OperationContext) -> list[str]:
     """Return a list of table names."""
-    inspector = inspect(conn.engine)
+    inspector = inspect(ctx.connection.engine)
     tables = inspector.get_table_names()
     return tables
 
 
-def list_databases(conn: Connection) -> list[str]:
+def list_databases(ctx: OperationContext) -> list[str]:
     """Return a list of database names."""
+    conn = ctx.connection
     dialect = conn.engine.dialect.name
 
     if dialect == "mssql":

@@ -165,8 +165,10 @@ def get_connections():
 @app.route("/api/<string:conn>/tables", strict_slashes=False, methods=["GET"])
 @with_error_handler
 @with_connection
-def list_tables(connection):
-    return json_response({"tables": metadata.list_tables(connection)})
+@with_request_context
+def list_tables(ctx, connection):
+    opctx = ServerOperation(ctx, connection)
+    return json_response({"tables": metadata.list_tables(opctx)})
 
 
 @app.route("/api/<string:conn>/tables/<string:table_name>", methods=["GET"])
@@ -181,15 +183,19 @@ def describe_table(ctx, connection, table_name):
 @app.route("/api/<string:conn>/databases", methods=["GET"])
 @with_error_handler
 @with_connection
-def list_databases(connection):
-    return json_response({"databases": metadata.list_databases(connection)})
+@with_request_context
+def list_databases(ctx, connection):
+    opctx = ServerOperation(ctx, connection)
+    return json_response({"databases": metadata.list_databases(opctx)})
 
 
 @app.route("/api/<string:conn>/schemas", methods=["GET"])
 @with_error_handler
 @with_connection
-def list_schemas(connection):
-    return json_response({"schemas": metadata.list_schemas(connection)})
+@with_request_context
+def list_schemas(ctx, connection):
+    opctx = ServerOperation(ctx, connection)
+    return json_response({"schemas": metadata.list_schemas(opctx)})
 
 
 @app.route("/api/<string:conn>/query", methods=["POST"])

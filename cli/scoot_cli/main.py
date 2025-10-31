@@ -2,17 +2,18 @@ import argparse
 from scoot_cli import commands
 from scoot_core.connection import Connection
 from scoot_core import config
+from scoot_core.opcontext import OperationContext
 
 handlers = {
     "table": {
-        "list": lambda conn, _: commands.list_tables(conn),
-        "describe": lambda conn, args: commands.describe_table(
-            conn, args.table_name
+        "list": lambda ctx, _: commands.list_tables(ctx),
+        "describe": lambda ctx, args: commands.describe_table(
+            ctx, args.table_name
         ),
     },
-    "db": {"list": lambda conn, _: commands.list_databases(conn)},
-    "schema": {"list": lambda conn, _: commands.list_schemas(conn)},
-    "query": lambda conn, args: commands.execute_query(conn, args.sql),
+    "db": {"list": lambda ctx, _: commands.list_databases(ctx)},
+    "schema": {"list": lambda ctx, _: commands.list_schemas(ctx)},
+    "query": lambda ctx, args: commands.execute_query(ctx, args.sql),
 }
 
 
@@ -68,6 +69,7 @@ def main():
             )
 
     conn = Connection(url)
+    opctx = OperationContext(conn)
 
     base_handler = handlers.get(args.command, {})
 
@@ -75,9 +77,9 @@ def main():
         action_handler = base_handler.get(args.action)
         if action_handler is None:
             parser.error("No handler for {args.command} {args.action}")
-        action_handler(conn, args)
+        action_handler(opctx, args)
     else:
-        base_handler(conn, args)
+        base_handler(opctx, args)
 
 
 if __name__ == "__main__":

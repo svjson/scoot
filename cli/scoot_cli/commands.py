@@ -13,37 +13,42 @@ def _dump_single_column_table(header: str, values: list[str]):
     ascii_table.dump(print)
 
 
-def list_tables(conn: Connection) -> None:
+def list_tables(ctx: OperationContext) -> None:
     """List available tables."""
-    tables = metadata.list_tables(conn)
+    tables = metadata.list_tables(ctx)
     _dump_single_column_table("Table Name", sorted(tables))
 
 
-def list_databases(conn: Connection) -> None:
+def list_databases(ctx: OperationContext) -> None:
     """List available databases."""
-    databases = metadata.list_databases(conn)
+    databases = metadata.list_databases(ctx)
     _dump_single_column_table("Database Name", databases)
 
 
-def list_schemas(conn: Connection) -> None:
+def list_schemas(ctx: OperationContext) -> None:
     """List available schemas."""
-    schemas = metadata.list_schemas(conn)
+    schemas = metadata.list_schemas(ctx)
     _dump_single_column_table("Schema Name", schemas)
 
 
-def describe_table(conn: Connection, table_name: str) -> None:
+def describe_table(ctx: OperationContext, table_name: str) -> None:
     """Describe a named table"""
-    opctx = OperationContext(conn)
-    table = metadata.describe_table(opctx, table_name)
+    table = metadata.describe_table(ctx, table_name)
 
     ascii_table = AsciiTable.from_table_model(table)
     ascii_table.dump(print)
 
 
-def execute_query(conn: Connection, query_str: str) -> None:
+def execute_query(ctx: OperationContext, query_str: str) -> None:
     """Execute a query"""
-    opctx = OperationContext(conn)
-    result = query.execute(opctx, query_str)
+    result = query.execute(ctx, query_str)
 
     ascii_table = AsciiTable.from_result_set(result)
     ascii_table.dump(print)
+
+def export_table(ctx: OperationContext, table_name: str) -> None:
+    """Export table"""
+    fmt = get_export_format("ddl")
+
+    table = metadata.describe_table(ctx, table_name)
+
