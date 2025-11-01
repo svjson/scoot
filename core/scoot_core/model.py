@@ -66,9 +66,9 @@ class TableModel:
     def column_max_len(self, column_field):
         ml = len(column_field)
         for col in self.columns:
-            l = len(str(getattr(col, column_field)))
-            if l > ml:
-                ml = l
+            ln = len(str(getattr(col, column_field)))
+            if ln > ml:
+                ml = ln
         return ml
 
     def get_constraints_for_column(self, column_name: str):
@@ -168,9 +168,9 @@ class ListDataAdapter(TabularDataAdapter):
         column_index = self.headers.index(col_name)
         ml = len(col_name)
         for row in self.data:
-            l = len(str(row[column_index]))
-            if l > ml:
-                ml = l
+            ln = len(str(row[column_index]))
+            if ln > ml:
+                ml = ln
         return ml
 
 
@@ -201,9 +201,9 @@ class TableAdapter(TabularDataAdapter):
     def _calc_column_max_width(self, col_name) -> int:
         ml = len(col_name)
         for col in self.table.columns:
-            l = len(str(getattr(col, col_name)))
-            if l > ml:
-                ml = l
+            ln = len(str(getattr(col, col_name)))
+            if ln > ml:
+                ml = ln
         return ml
 
 
