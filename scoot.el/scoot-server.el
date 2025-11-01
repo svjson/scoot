@@ -105,12 +105,12 @@
 (defun scoot-server--running-p ()
   "Return non-nil if the Scoot server appears to be running."
   (let (url-buf)
-  (unwind-protect
-      (when (setq url-buf (url-retrieve-synchronously (format "%s/ping" (scoot-server--base-url)) t t 1))
-        (with-current-buffer url-buf
-          (goto-char (point-min))
-          (re-search-forward "200 OK" nil t)))
-    (when url-buf (kill-buffer url-buf)))))
+    (unwind-protect
+        (when (setq url-buf (url-retrieve-synchronously (format "%s/ping" (scoot-server--base-url)) t t 1))
+          (with-current-buffer url-buf
+            (goto-char (point-min))
+            (re-search-forward "200 OK" nil t)))
+      (when url-buf (kill-buffer url-buf)))))
 
 (defun scoot-server--venv-operation (op)
   "Resolve venv root, python binary and pip binary and then execute OP."

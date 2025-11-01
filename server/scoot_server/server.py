@@ -122,6 +122,26 @@ def ping():
     return json_response({"status": "ok"})
 
 
+@app.route("/api/contexts", methods=["GET"])
+@with_error_handler
+def get_contexts():
+    return json_response(
+        {
+            "contexts": {
+                ctx_name: {
+                    "connections": {
+                        conn_name: {}
+                        for conn_name in config.Context.load(
+                            ctx_name
+                        ).list_connection_names()
+                    }
+                }
+                for ctx_name in config.Context.list()
+            }
+        }
+    )
+
+
 @app.route("/api/connection", methods=["POST"])
 @with_error_handler
 def create_connection():

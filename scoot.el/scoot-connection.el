@@ -39,6 +39,9 @@
 (require 'scoot-server)
 (require 'scoot-common)
 
+
+;; Custom variables
+
 (defcustom scoot-server-default-connection-name "default"
   "The name of the default connection name to use, if not provided."
   :type 'string
@@ -51,12 +54,26 @@ active configuration of the Scoot Server."
   :type 'boolean
   :group 'scoot)
 
+
+
+;; Variables
+
+
+;;;###autoload
+(defvar scoot-contexts (make-hash-table :test #'equal)
+  "Table of known scoot context names to lists of known connection names.")
+
 ;;;###autoload
 (defvar scoot-connections (make-hash-table :test #'equal)
   "Table of known scoot connection names to connection strings.")
 
 (defconst scoot--json-headers '(("Content-Type" . "application/json")
                                 ("Accept" . "application/json")))
+
+
+
+;; Connection management
+
 
 (defun scoot-server-base-connection-url (&optional connection-name)
   "Construct the scoot server base url for the API and connection.
@@ -81,17 +98,51 @@ CONN-STRING is the connection-string to use."
   "Store a complete CONNECTION with metadata to the scoot connections table."
   (puthash (plist-get connection :name) connection scoot-connections))
 
+
+
+;; Context management
+
+(defun scoot-context--connection-names (context-name)
+  "Return all registered connection names of context CONTEXT-NAME."
+  (mapcar (lambda (entry) (car entry))
+          (plist-get (gethash context-name scoot-contexts) :connections)))
+
+
+
+;; Prompts
+
 (defun scoot-connection--connection-annotation-fn (connection-name)
   "Annotate CONNECTION-NAME for display `completing-read`."
   (if-let (conn (gethash connection-name scoot-connections nil))
       (format "  %s" conn)
     "  (Not initialized)"))
 
-(cl-defun scoot-connection--connection-prompt (&key connection-name &allow-other-keys)
+(defun scoot-connection--context-annotation-fn (context-name)
+  "Annotate CONTEXT-NAME for display `completing-read`."
+  (if-let (ctx (gethash context-name scoot-contexts nil))
+      (format "  %s" ctx)
+    " (Not initialized)"))
+
+(cl-defun scoot-connection--context-prompt (&key context-name &allow-other-keys)
+  "Prompt the user for a context name.
+
+Optionally provide a default selection with CONTEXT-NAME."
+  (let* ((names (hash-table-keys scoot-contexts)))
+    (scoot--completing-read :name "Scoot Contexts"
+                            :prompt "Context: "
+                            :candidates names
+                            :default-value context-name
+                            :sort-fn #'string<
+                            :annotation-fn 'scoot-connection--context-annotation-fn)))
+
+(cl-defun scoot-connection--connection-prompt (&key context-name connection-name &allow-other-keys)
   "Prompt the user for a connection name.
 
+CONTEXT-NAME controls the selection of connections.
 Optionally provide a default selection with CONNECTION-NAME."
-  (let* ((names (hash-table-keys scoot-connections))
+  (let* ((names (if context-name
+                    (scoot-context--connection-names context-name)
+                  (hash-table-keys scoot-connections)))
          (default (or connection-name (car names))))
     (scoot--completing-read :name "Scoot Connections"
                             :prompt "Connection: "
@@ -112,6 +163,22 @@ Provide a list of valid options in TABLES for completing read action`"
                               :candidates tables
                               :sort-fn #'string<)
     (read-string "Table name: " nil nil table-name)))
+
+
+;; Response formatting
+
+(defun scoot-connection--to-connection-record (json-entry)
+  "Transforms JSON-ENTRY to a connection plist record."
+  (let* ((name (symbol-name (car json-entry)))
+         (conn (cdr json-entry)))
+    (cons name (scoot--plist-merge
+                (list :name name)
+                (scoot--alist-to-plist conn)))))
+
+
+
+;; HTTP functions
+
 
 (cl-defun scoot-connection--error-handler (&key op url retry-fn retry-args connection &allow-other-keys)
   "Return a general purpose error handler with retry capabilities.
@@ -348,6 +415,29 @@ to the currently active configuration of the Scoot Server."
    :retry-fn #'scoot-connection--register-connection
    :retry-args (list callback connection-name connection-string)))
 
+(defun scoot-connection--fetch-contexts (&optional callback)
+  "Query the Scoot Server for configured contexts.
+
+Fetches the remote context index and stores it in the global
+`scoot-contexts' hash.
+
+Successful attempts to list remote contexts will invoke CALLBACK with
+the the resulting hash map as its only argument."
+  (scoot-ensure-server)
+  (scoot-connection--send-request
+   :uri "/api/contexts"
+   :callback (lambda (data)
+               (clrhash scoot-contexts)
+               (mapc
+                (lambda (entry)
+                  (puthash (symbol-name (car entry))
+                           (list :connections
+                                 (mapcar #'scoot-connection--to-connection-record
+                                         (alist-get 'connections (cdr entry))))
+                           scoot-contexts))
+                (alist-get 'contexts data))
+               (funcall callback scoot-contexts))))
+
 (defun scoot-connection--list-remote-connections (callback)
   "Query the Scoot Server for configured connections.
 
@@ -358,16 +448,10 @@ the remote connection collection."
    :uri "/api/connection"
    :callback (lambda (data)
                (let ((connections (alist-get 'connections data)))
-                 (funcall
-                  callback
-                  (mapcar
-                   (lambda (entry)
-                     (let* ((name (symbol-name (car entry)))
-                            (conn (cdr entry)))
-                       (cons name (scoot--plist-merge
-                                   (list :name name)
-                                   (scoot--alist-to-plist conn)))))
-                   connections))))))
+                 (funcall callback
+                          (mapcar
+                           #'scoot-connection--to-connection-record
+                           connections))))))
 
 (defun scoot-connection--describe-table (connection table-name callback)
   "Send a request to the scoot server to describe table TABLE-NAME.

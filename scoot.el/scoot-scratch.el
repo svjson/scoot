@@ -66,24 +66,30 @@
 (defun scoot-new-scratch ()
   "Create a new Scoot scratch buffer."
   (interactive)
+  (scoot-ensure-server)
   (scoot-ensure-scratch-directory)
-  (when-let* ((conn-name (scoot-connection--connection-prompt))
-              (conn-string (or (gethash conn-name scoot-connections)
-                               (read-string (format "Connection string for '%s': " conn-name)))))
-    (unless (gethash conn-name scoot-connections)
-      (scoot-add-connection conn-name conn-string))
-    (when-let* ((scratch-name (read-string (format "Scratch name: ") nil nil conn-name))
-                (filename (expand-file-name (concat scratch-name ".scoot") scoot-scratch-directory))
-                (buffer (find-file-noselect filename)))
-      (with-current-buffer buffer
-        (erase-buffer)
-        (when conn-string
-          (insert (format "-- @connection-string: %s\n" conn-string)))
-        (when conn-name
-          (insert (format "-- @connection-name: %s\n\n" conn-name)))
-        (scoot-scratch-mode)
-        (setq-local scoot-connection-name conn-name))
-      (pop-to-buffer buffer))))
+  (when-let* ((context (scoot-connection--context-prompt))
+              (conn-name (scoot-connection--connection-prompt :context-name context)))
+    (let ((conn-string (unless (member conn-name (scoot-context--connection-names context))
+                         (or (gethash conn-name scoot-connections)
+                             (read-string (format "Connection string for '%s': " conn-name))))))
+      (when conn-string
+        (unless (gethash conn-name scoot-connections)
+          (scoot-add-connection conn-name conn-string)))
+      (when-let* ((scratch-name (read-string (format "Scratch name: ") nil nil conn-name))
+                  (filename (expand-file-name (concat scratch-name ".scoot") scoot-scratch-directory))
+                  (buffer (find-file-noselect filename)))
+        (with-current-buffer buffer
+          (erase-buffer)
+          (when context
+            (insert (format "-- @context: %s\n" context)))
+          (when conn-string
+            (insert (format "-- @connection-string: %s\n" conn-string)))
+          (when conn-name
+            (insert (format "-- @connection-name: %s\n\n" conn-name)))
+          (scoot-scratch-mode)
+          (setq-local scoot-connection-name conn-name))
+        (pop-to-buffer buffer)))))
 
 ;;;###autoload
 (defun scoot-open-scratch ()
