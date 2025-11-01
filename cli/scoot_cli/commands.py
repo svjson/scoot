@@ -5,7 +5,7 @@ from scoot_core import config, metadata, query, OperationContext
 from scoot_core.model import ListDataAdapter
 from scoot_core.export import get_export_format
 from scoot_cli.output import AsciiTable
-from sqlalchemy import select, insert
+from sqlalchemy import select
 
 
 def _dump_single_column_table(header: str, values: list[str]):
@@ -14,14 +14,26 @@ def _dump_single_column_table(header: str, values: list[str]):
     ascii_table.dump(print)
 
 
-def list_connections():
-    _dump_single_column_table("Connections", config.list_configuration_names())
+def list_connections(context_name: str | None):
+    ctx = config.Context.load(context_name)
+    _dump_single_column_table("Connections", ctx.list_connection_names())
 
 
-def set_default_connection(conn_name: str) -> None:
+def list_contexts():
+    _dump_single_column_table("Contexts", config.Context.list())
+
+
+def use_context(context_name: str):
+    config.Context.use(context_name)
+    print(f"Using context '{context_name}'")
+
+
+def set_default_connection(context_name: str | None, conn_name: str) -> None:
     """Set the default configuration `conn_name`."""
-    config.set_default_connection(conn_name)
-    print(f"Set default connection to '{conn_name}'")
+    ctx = config.Context.load(context_name)
+    ctx.set_default_connection(conn_name)
+    ctx.persist()
+    print(f"Set default connection to '{conn_name}' for context '{ctx.name}")
 
 
 def list_tables(ctx: OperationContext) -> None:

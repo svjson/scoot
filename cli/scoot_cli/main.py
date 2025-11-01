@@ -8,10 +8,16 @@ from .clibuilder import ScootCLI
 
 handlers = {
     "connection": {
-        "list": lambda _1, _2: commands.list_connections(),
-        "set-default": lambda _, args: commands.set_default_connection(
-            args.connection_name
+        "list": lambda _1, args: commands.list_connections(
+            getattr(args, "c", None)
         ),
+        "set-default": lambda _, args: commands.set_default_connection(
+            getattr(args, "c", None), args.connection_name
+        ),
+    },
+    "context": {
+        "list": lambda _1, _2: commands.list_contexts(),
+        "use": lambda _, args: commands.use_context(args.context_name),
     },
     "table": {
         "list": lambda ctx, _: commands.list_tables(ctx),
@@ -41,7 +47,7 @@ def run_command(scoot: ScootCLI, ctx, args):
         )
 
     if not isinstance(handler, (FunctionType, LambdaType)):
-        scoot.error("No handler for {args.resource} {args.verb}")
+        scoot.error(f"No handler for {args.resource} {args.verb}")
 
     handler(ctx, args)
 
@@ -53,6 +59,10 @@ def main():
     connection = scoot.resource("connection").description("Connection operations")
     connection.verb("list")
     connection.verb("set-default").argument("connection_name")
+
+    context = scoot.resource("context").description("Context operations")
+    context.verb("list")
+    context.verb("use").argument("context_name")
 
     table = (
         scoot.resource("table").require_connection().description("Table operations")
@@ -81,27 +91,19 @@ def main():
 
     opctx: OperationContext | None = None
 
-    if args.resource != "connection":
+    if args.resource != "connection" and args.resource != "context":
         url = args.url
 
-        cfg_name = args.c
-        if (
-            cfg_name is None
-            and url is None
-            and config.default_connection_exists() is not None
-        ):
-            url = config.use_default()
-        else:
-            config.configure(cfg_name)
+        if url is None:
+            context = config.Context.load(args.c)
+            connection = context.get_default_connection()
+            if connection:
+                url = connection.get("url", None)
 
         if url is None:
-            default_conn = config.app_config.connections.get("default", None)
-            if default_conn:
-                url = default_conn["url"]
-            else:
-                scoot.error(
-                    "No connection URL provided and no default connection configured."
-                )
+            scoot.error(
+                "No connection URL provided and no default connection configured."
+            )
 
         conn = Connection(url)
         opctx = OperationContext(conn)

@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
-from scoot_core.exceptions import ScootConnectionException
+from scoot_core.exceptions import ScootConnectionException, ScootResourceException
 
 default_config_name: Annotated[
     str, "The configuration name used if no configuration has been specified."
@@ -13,6 +13,96 @@ is_server = False
 SCOOT_USER_DIR = Path.home() / ".scoot"
 
 CONFIG_BASE_DIR = SCOOT_USER_DIR / "config"
+
+CURRENT_CONTEXT_PATH = SCOOT_USER_DIR / "current_context.json"
+
+
+def _load_config_file(path: Path) -> dict:
+    """Load a named configuration from disk."""
+    cfg = {"connections": {}}
+    if path.exists():
+        try:
+            with path.open("r", encoding="utf-8") as f:
+                cfg = json.load(f)
+                if cfg["connections"] is None:
+                    cfg["connections"] = {}
+        except Exception as e:
+            print(f"Error reading configuration file: {path}\n{e}")
+    return cfg
+
+
+class Context:
+
+    def __init__(self, name: str, config: dict):
+        self.name = name
+        self.connections: dict[str, dict[str, Any]] = config.get("connections", {})
+
+    def list_connection_names(self) -> list[str]:
+        return list(self.connections.keys())
+
+    def get_default_connection(self):
+        return self.connections.get("default", None)
+
+    def set_default_connection(self, name: str):
+        if name not in self.connections.keys():
+            raise ScootResourceException("connection", name)
+        self.connections["default"] = self.connections[name]
+
+    def persist(self):
+        file_path = CONFIG_BASE_DIR / f"{self.name}.json"
+
+        try:
+            if not file_path.parent.exists():
+                file_path.parent.mkdir(parents=True)
+            with file_path.open("w", encoding="utf-8") as f:
+                json.dump({"connections": self.connections}, f, indent=2)
+        except Exception as e:
+            print(f"Error writing configuration: {file_path}\n{e}")
+        pass
+
+    @staticmethod
+    def list():
+        """List all .json files in CONFIG_BASE_DIR"""
+        if not CONFIG_BASE_DIR.exists():
+            return []
+
+        context_files = CONFIG_BASE_DIR.glob("*.json")
+        context_names = [f.stem for f in context_files if f.is_file()]
+        return context_names
+
+    @staticmethod
+    def load(context_name: str | None):
+        if context_name is None:
+            current_name = Context.current_context_name()
+            if not current_name:
+                raise ScootResourceException("context", "<current_context>")
+            return Context(current_name, _load_config_file(CURRENT_CONTEXT_PATH))
+        else:
+            return Context(
+                context_name,
+                _load_config_file(CONFIG_BASE_DIR / f"{context_name}.json"),
+            )
+
+    @staticmethod
+    def use(ctx_name: str):
+        ctx_path = _config_path(ctx_name)
+        if not ctx_path.exists():
+            raise ScootConnectionException(
+                FileNotFoundError(ctx_path),
+                f"Could not find context '{ctx_name}'.",
+                ctx_name,
+            )
+        if Context.current_context_name():
+            CURRENT_CONTEXT_PATH.unlink()
+        CURRENT_CONTEXT_PATH.symlink_to(ctx_path)
+
+    @staticmethod
+    def current_context_name():
+        return (
+            CURRENT_CONTEXT_PATH.readlink().stem
+            if CURRENT_CONTEXT_PATH.exists() or CURRENT_CONTEXT_PATH.is_symlink()
+            else None
+        )
 
 
 class Config:
@@ -37,21 +127,6 @@ def _config_path(name: str):
     return CONFIG_BASE_DIR / f"{name}.json"
 
 
-def _load_config(path: Path, name: str) -> dict:
-    """Load a named configuration from disk."""
-    config_path = path / name
-    cfg = {"connections": {}}
-    if config_path.exists():
-        try:
-            with config_path.open("r", encoding="utf-8") as f:
-                cfg = json.load(f)
-                if cfg["connections"] is None:
-                    cfg["connections"] = {}
-        except Exception as e:
-            print(f"Error reading configuration file: {config_path}\n{e}")
-    return cfg
-
-
 def persist():
     """Persists the current state of the active configuration."""
     config_path = _config_path(app_config.name)
@@ -69,7 +144,7 @@ def configure(name):
     if name is None:
         name = default_config_name
 
-    config_contents = _load_config(CONFIG_BASE_DIR, name + ".json")
+    config_contents = _load_config_file(CONFIG_BASE_DIR / f"{name}.json")
     global app_config
     app_config = Config(config_contents["connections"], name)
 
@@ -84,17 +159,8 @@ def list_configuration_names():
     return config_names
 
 
-def default_connection_exists():
-    default_cfg_path = SCOOT_USER_DIR / "default_config.json"
-    return (
-        default_cfg_path
-        if default_cfg_path.exists() or default_cfg_path.is_symlink()
-        else None
-    )
-
-
 def use_default():
-    config_contents = _load_config(SCOOT_USER_DIR, "default_config.json")
+    config_contents = _load_config_file(CURRENT_CONTEXT_PATH)
     global app_config
     # Get the file name stem of the file default_cfg_path symlink points to
     default_cfg_path = SCOOT_USER_DIR / "default_config"
