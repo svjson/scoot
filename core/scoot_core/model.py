@@ -217,6 +217,10 @@ class ResultSetAdapter(TabularDataAdapter):
         return self.result_set.columns
 
     @override
+    def get_header_labels(self) -> list[str]:
+        return self.result_set.columns
+
+    @override
     def size(self) -> int:
         return len(self.result_set.rows)
 
@@ -229,7 +233,7 @@ class ResultSetAdapter(TabularDataAdapter):
         column_index = self.result_set.columns.index(col_name)
         ml = len(col_name)
         for row in self.result_set.rows:
-            l = len(str(row[column_index]))
-            if l > ml:
-                ml = l
+            ln = len(str(row[column_index]))
+            if ln > ml:
+                ml = ln
         return ml
