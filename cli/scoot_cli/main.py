@@ -69,7 +69,7 @@ def main():
     )
     table.verb("list")
     table.verb("describe").argument("table_name")
-    table.verb("export").argument("table_name").flag("--include-data")
+    table.verb("export").argument("table_name").flag("--include-data").option("-o")
 
     db = (
         scoot.resource("db").require_connection().description("Database operations")

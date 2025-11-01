@@ -39,6 +39,11 @@ class CommandBuilder:
 
     def flag(self, name):
         self.arguments.append({"name": name, "def": {"action": "store_true"}})
+        return self
+
+    def option(self, name):
+        self.arguments.append({"name": name, "def": {}})
+        return self
 
     def build(self, subparsers):
         props = {}
