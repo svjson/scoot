@@ -1,8 +1,10 @@
-import argparse
-from scoot_cli import commands
+from types import FunctionType, LambdaType
 from scoot_core.connection import Connection
 from scoot_core import config
 from scoot_core.opcontext import OperationContext
+
+from . import commands
+from .clibuilder import ScootCLI
 
 handlers = {
     "connection": {
@@ -26,75 +28,63 @@ handlers = {
 }
 
 
-def run_command(parser, ctx, args):
-    base_handler = handlers.get(args.command, {})
-    if hasattr(args, "action"):
-        action_handler = base_handler.get(args.action)
-        if action_handler is None:
-            parser.error("No handler for {args.command} {args.action}")
-        action_handler(ctx, args)
-    else:
-        base_handler(ctx, args)
+def run_command(scoot: ScootCLI, ctx, args):
+    handler = None
+    if hasattr(args, "resource"):
+        handler = handlers.get(args.resource)
+
+    if hasattr(args, "verb"):
+        handler = (
+            handler.get(args.verb)
+            if handler is not None
+            else handlers.get(args.verb)
+        )
+
+    if not isinstance(handler, (FunctionType, LambdaType)):
+        scoot.error("No handler for {args.resource} {args.verb}")
+
+    handler(ctx, args)
 
 
 def main():
-    # Root parser for the Scoot CLI tool, allowing us to capture non-command
-    # specific flags either before or after the main command args
-    root_parser = argparse.ArgumentParser(prog="scoot", add_help=False)
-    root_parser.add_argument("--url", help="Database URL", required=False)
-    root_parser.add_argument("-c", help="Configuration name", required=False)
 
-    root_args, remaining_args = root_parser.parse_known_args()
+    scoot = ScootCLI()
 
-    # Actual argument parser for the main command
-    parser = argparse.ArgumentParser(prog="scoot", parents=[root_parser])
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    connection = scoot.resource("connection").description("Connection operations")
+    connection.verb("list")
+    connection.verb("set-default").argument("connection_name")
 
-    # Sub-parser for 'connection' commands
-    conn_parser = subparsers.add_parser("connection", help="Connection operations")
-    conn_action_parser = conn_parser.add_subparsers(dest="action")
+    table = (
+        scoot.resource("table").require_connection().description("Table operations")
+    )
+    table.verb("list")
+    table.verb("describe").argument("table_name")
+    table.verb("export").argument("table_name").flag("--include-data")
 
-    set_default_parser = conn_action_parser.add_parser("set-default")
-    set_default_parser.add_argument("connection_name")
+    db = (
+        scoot.resource("db").require_connection().description("Database operations")
+    )
+    db.verb("list")
 
-    conn_action_parser.add_parser("list")
+    schema = (
+        scoot.resource("schema")
+        .require_connection()
+        .description("Schema operations")
+    )
+    schema.verb("list")
 
-    # Sub-parser for 'table' commands
-    table_parser = subparsers.add_parser("table", help="Table operations")
-    table_action_parser = table_parser.add_subparsers(dest="action")
+    scoot.verb("query").require_connection().description(
+        "Query execution"
+    ).argument("sql", "The SQL query to execute")
 
-    table_action_parser.add_parser("list")
-    describe_parser = table_action_parser.add_parser("describe")
-    describe_parser.add_argument("table_name")
-
-    export_table_parser = table_action_parser.add_parser("export")
-    export_table_parser.add_argument("table_name")
-    export_table_parser.add_argument("--include-data", action="store_true")
-    export_table_parser.add_argument("-o")
-
-    # Sub-parser for 'db' commands
-    db_parser = subparsers.add_parser("db", help="Database operations")
-    db_action_parser = db_parser.add_subparsers(dest="action")
-    db_action_parser.add_parser("list")
-
-    # Sub-parser for 'schema' commands
-    schema_parser = subparsers.add_parser("schema", help="Schema operations")
-    schema_action_parser = schema_parser.add_subparsers(dest="action")
-    schema_action_parser.add_parser("list")
-
-    # Sub-parser for 'query' commands
-    query_parser = subparsers.add_parser("query", help="Query execution")
-    query_parser.add_argument("sql", help="The SQL query to execute")
-
-    # Parse the remaining arguments not captured by the root parser
-    args = parser.parse_args(remaining_args)
-
-    url = root_args.url
+    args = scoot.parse()
 
     opctx: OperationContext | None = None
 
-    if args.command != "connection":
-        cfg_name = root_args.c
+    if args.resource != "connection":
+        url = args.url
+
+        cfg_name = args.c
         if (
             cfg_name is None
             and url is None
@@ -109,14 +99,14 @@ def main():
             if default_conn:
                 url = default_conn["url"]
             else:
-                parser.error(
+                scoot.error(
                     "No connection URL provided and no default connection configured."
                 )
 
         conn = Connection(url)
         opctx = OperationContext(conn)
 
-    run_command(parser, opctx, args)
+    run_command(scoot, opctx, args)
 
 
 if __name__ == "__main__":
