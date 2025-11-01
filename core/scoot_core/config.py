@@ -14,6 +14,7 @@ SCOOT_USER_DIR = Path.home() / ".scoot"
 
 CONFIG_BASE_DIR = SCOOT_USER_DIR / "config"
 
+
 class Config:
     """Represents a persistent configuration of connections"""
 
@@ -29,10 +30,12 @@ app_config: Annotated[Config, "The currently active configuration."] = Config(
     {}, default_config_name
 )
 
+
 def _config_path(name: str):
     """Constructs a path to a configuration file on disk based
     on the configuration name."""
     return CONFIG_BASE_DIR / f"{name}.json"
+
 
 def _load_config(path: Path, name: str) -> dict:
     """Load a named configuration from disk."""
@@ -48,6 +51,7 @@ def _load_config(path: Path, name: str) -> dict:
             print(f"Error reading configuration file: {config_path}\n{e}")
     return cfg
 
+
 def persist():
     """Persists the current state of the active configuration."""
     config_path = _config_path(app_config.name)
@@ -59,14 +63,16 @@ def persist():
     except Exception as e:
         print(f"Error writing configuration: {config_path}\n{e}")
 
+
 def configure(name):
     """Initialize the application configuration."""
     if name is None:
         name = default_config_name
 
-    config_contents = _load_config(CONFIG_BASE_DIR, name)
+    config_contents = _load_config(CONFIG_BASE_DIR, name + ".json")
     global app_config
     app_config = Config(config_contents["connections"], name)
+
 
 def list_configuration_names():
     """List all .json files in CONFIG_BASE_DIR"""
@@ -77,9 +83,15 @@ def list_configuration_names():
     config_names = [f.stem for f in config_files if f.is_file()]
     return config_names
 
+
 def default_connection_exists():
     default_cfg_path = SCOOT_USER_DIR / "default_config.json"
-    return default_cfg_path if default_cfg_path.exists() or default_cfg_path.is_symlink() else None
+    return (
+        default_cfg_path
+        if default_cfg_path.exists() or default_cfg_path.is_symlink()
+        else None
+    )
+
 
 def use_default():
     config_contents = _load_config(SCOOT_USER_DIR, "default_config.json")
@@ -90,10 +102,15 @@ def use_default():
     app_config = Config(config_contents["connections"], cfg_name)
     return app_config.connections.get("default", {}).get("url")
 
+
 def set_default_connection(conn_name: str):
     cfg_path = _config_path(conn_name)
     if not cfg_path.exists():
-        raise ScootConnectionException(FileNotFoundError(cfg_path), f"Could not find connection '{conn_name}'.", conn_name)
+        raise ScootConnectionException(
+            FileNotFoundError(cfg_path),
+            f"Could not find connection '{conn_name}'.",
+            conn_name,
+        )
     default_cfg_path = SCOOT_USER_DIR / "default_config.json"
     if default_cfg_path.exists() or default_cfg_path.is_symlink():
         default_cfg_path.unlink()
