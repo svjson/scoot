@@ -54,7 +54,7 @@
         (lambda (_ formatted-value)
           (insert (propertize formatted-value 'face 'scoot-cell-number-face)))
         :sql-literal
-        #'identity))
+        #'scoot--value-to-string))
 
 (defvar scoot-formatter-boolean
   (list :align 'right
@@ -111,6 +111,18 @@
      ((equal "BOOLEAN" column-type) scoot-formatter-boolean)
      ((equal "TEMPORAL" column-type) scoot-formatter-temporal)
      (t scoot-formatter-raw-string))))
+
+(defun scoot--format-value (formatter value &optional metadata)
+  "Format VALUE with FORMATTER using :format-value.
+
+Optionally provide column METADATA."
+  (funcall (plist-get formatter :format-value)
+           value
+           metadata))
+
+(defun scoot--format-literal (formatter value)
+  "Format VALUE as a literal using FORMATTER."
+  (funcall (plist-get formatter :sql-literal) value))
 
 (provide 'scoot-type)
 

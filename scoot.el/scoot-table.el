@@ -138,6 +138,9 @@ default width of the, presumably, otherwise fixed-width font."
                      (let ((name (alist-get 'name column-metadata)))
                        (list :name (alist-get 'name column-metadata)
                              :header-label
+                             (scoot--format-value scoot-formatter-header
+                                                  name
+                                                  column-metadata)
                              (funcall
                               (plist-get scoot-formatter-header
                                          :format-value)
@@ -596,6 +599,38 @@ CELL is the cell summary of the cell under edit."
 
 
 
+;; Copy values
+
+
+(defun scoot-table--kill-ring-save-column-values ()
+  "Save a comma-separated list of the values of column at point to kill ring."
+  (interactive)
+  (let* ((cell (scoot-table--cell-at-point))
+         (formatter (plist-get cell :formatter))
+         (cell-index (plist-get cell :cell-index)))
+    (when (integerp cell-index)
+      (let ((values (mapcar
+                     (lambda (record)
+                       (scoot--format-literal
+                        formatter
+                        (plist-get (nth cell-index record)
+                                   :value)))
+                     (plist-get scoot-table--table-model :records))))
+        (kill-new (string-join values ", "))))))
+
+(defun scoot-table--kill-ring-save-row-values ()
+  "Save a comma-separated list of the values of column at point to kill ring."
+  (interactive)
+  (let* ((row (scoot-table--row-at-point))
+         (record (plist-get row :record)))
+    (kill-new (string-join
+               (cl-loop for cell in record
+                        for formatter in (plist-get scoot-table--table-model :formatters)
+                        collect (scoot--format-literal formatter (plist-get cell :value)))
+               ", "))))
+
+
+
 ;; Row/Table mark actions
 
 (defun scoot-table--mark-row (identity type)
@@ -650,6 +685,8 @@ CELL is the cell summary of the cell under edit."
     (define-key map (kbd "RET") 'scoot-table--edit-cell)
     (define-key map (kbd "d") 'scoot-table--toggle-mark-delete)
     (define-key map (kbd "<deletechar>") 'scoot-table--toggle-mark-delete)
+    (define-key map (kbd "C-c w c") 'scoot-table--kill-ring-save-column-values)
+    (define-key map (kbd "C-c w r") 'scoot-table--kill-ring-save-row-values)
     map))
 
 (define-minor-mode scoot-table-mode
