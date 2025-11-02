@@ -94,9 +94,15 @@ CONN-STRING is the connection-string to use."
              scoot-connections)
     connection))
 
-(defun scoot-connection--store-connection (connection)
-  "Store a complete CONNECTION with metadata to the scoot connections table."
-  (puthash (plist-get connection :name) connection scoot-connections))
+(defun scoot-connection--store-connection (context-name connection)
+  "Store a complete CONNECTION with metadata to the `scoot-contexts` lookup.
+
+The connection is stored under CONTEXT-NAME."
+  (let ((context-collection (gethash context-name scoot-contexts))
+        (plist-entry (list (plist-get connection :name) connection)))
+    (if context-collection
+        (scoot--plist-merge context-collection plist-entry)
+      (puthash context-name plist-entry scoot-contexts))))
 
 
 
@@ -106,6 +112,22 @@ CONN-STRING is the connection-string to use."
   "Return all registered connection names of context CONTEXT-NAME."
   (mapcar (lambda (entry) (car entry))
           (plist-get (gethash context-name scoot-contexts) :connections)))
+
+(defun scoot-context--get-connection (context-name connection-name)
+  "Get the connection details of CONNECTION-NAME in context CONTEXT-NAME."
+  (alist-get connection-name
+             (-> (gethash context-name scoot-contexts)
+                 (plist-get :connections))
+             nil
+             nil
+             'equal))
+
+(defun scoot-context--connection-active-p (connection-obj)
+  (equal "active"
+         (plist-get
+          (scoot-context--get-connection (plist-get connection-obj :context)
+                                         (plist-get connection-obj :name))
+          :status)))
 
 (defun scoot-context--has-connection-p (context-name connection-name)
   "Determine if a connection name is known within a context.
@@ -173,12 +195,13 @@ Provide a list of valid options in TABLES for completing read action`"
 
 ;; Response formatting
 
-(defun scoot-connection--to-connection-record (json-entry)
+(defun scoot-connection--to-connection-record (json-entry context-name)
   "Transforms JSON-ENTRY to a connection plist record."
   (let* ((name (symbol-name (car json-entry)))
          (conn (cdr json-entry)))
     (cons name (scoot--plist-merge
-                (list :name name)
+                (list :name name
+                      :context context-name)
                 (scoot--alist-to-plist conn)))))
 
 
@@ -305,7 +328,13 @@ recoverable errors."
       :parser 'json-read
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
-                  (funcall callback data)))
+                  (if (and connection
+                             (not (scoot-context--connection-active-p connection)))
+                      (scoot-connection--fetch-contexts (lambda (_)
+                                                          (funcall callback data)
+                                                          nil))
+                    (funcall callback data)
+                    nil)))
       :error (scoot-connection--error-handler :op op
                                               :url url
                                               :retry-fn retry-fn
@@ -345,7 +374,7 @@ CALLBACK will be invoked with the result if the operation is successful."
                   callback
                   (list :type 'query
                         :result data
-                        :connection connection-name
+                        :connection connection
                         :statement stmt))))))
 
 (defun scoot-connection--execute-statement (connection stmt callback)
@@ -423,6 +452,7 @@ to the currently active configuration of the Scoot Server."
      :callback (lambda (data)
                  (funcall callback
                           (scoot-connection--store-connection
+                           context-name
                            (scoot--plist-merge
                             (scoot--alist-to-plist (alist-get 'connection data))
                             (list :context context-name
@@ -441,33 +471,20 @@ Successful attempts to list remote contexts will invoke CALLBACK with
 the the resulting hash map as its only argument."
   (scoot-ensure-server)
   (scoot-connection--send-request
-   :uri "/api/contexts"
+   :uri "/api/connection-manager"
    :callback (lambda (data)
                (clrhash scoot-contexts)
                (mapc
                 (lambda (entry)
                   (puthash (symbol-name (car entry))
                            (list :connections
-                                 (mapcar #'scoot-connection--to-connection-record
+                                 (mapcar (lambda (conn-alist)
+                                           (scoot-connection--to-connection-record conn-alist (symbol-name (car entry))))
                                          (alist-get 'connections (cdr entry))))
                            scoot-contexts))
                 (alist-get 'contexts data))
-               (funcall callback scoot-contexts))))
-
-(defun scoot-connection--list-remote-connections (callback)
-  "Query the Scoot Server for configured connections.
-
-Successful attempts to list remote connections will invoke CALLBACK with
-the remote connection collection."
-  (scoot-ensure-server)
-  (scoot-connection--send-request
-   :uri "/api/connection"
-   :callback (lambda (data)
-               (let ((connections (alist-get 'connections data)))
-                 (funcall callback
-                          (mapcar
-                           #'scoot-connection--to-connection-record
-                           connections))))))
+               (when callback
+                 (funcall callback scoot-contexts)))))
 
 (defun scoot-connection--describe-table (connection table-name callback)
   "Send a request to the scoot server to describe table TABLE-NAME.
@@ -493,7 +510,7 @@ result."
                     (list :type 'object
                           :object-type 'table
                           :object-name (alist-get 'name data)
-                          :connection connection-name
+                          :connection connection
                           :result `((columns . ,columns)
                                     (rows . ,(mapcar (lambda (entry)
                                                        (mapcar (lambda (col-name)

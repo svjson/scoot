@@ -54,14 +54,14 @@ If this variable is not defined locally, the global variable
 See `scoot--try-resolvers`.")
 
 
-(defvar-local scoot-local--connection-name-resolvers nil
-  "Buffer local list of resolver functions for connection-name.
+(defvar-local scoot-local--connection-resolvers nil
+  "Buffer local list of resolver functions for resolving local connection.
 
-Used by various common scoot operations that require a connection-name to
-resolve it in a way that suits the current buffer's mode.
+Used by various common scoot operations that require a connection, and
+resolving it in a way that suits the current mode of the buffer.
 
 If this variable is not defined locally, the global variable
-`scoot-default--connection-name-resolvers` will be used.
+`scoot-default--connection-resolvers` will be used.
 
 See `scoot--try-resolvers`.")
 
@@ -70,10 +70,10 @@ See `scoot--try-resolvers`.")
 
 See `scoot-local--table-name-resolvers`")
 
-(defvar scoot-default--connection-name-resolvers (list 'scoot-connection--connection-prompt)
-  "Global default list of resolver functions for connection-name.
+(defvar scoot-default--connection-resolvers (list 'scoot-connection--connection-prompt)
+  "Global default list of resolver functions for connection.
 
-See `scoot-local--connection-name-resolvers`")
+See `scoot-local--connection-resolvers`")
 
 (defvar scoot-default--context-name-resolvers (list 'scoot-connection--context-prompt)
     "Global default list of resolver functions for context-name.
@@ -425,15 +425,15 @@ available \"completing-read backend\"."
          :interactive t)))
 
 (defun scoot--interactive-resolve-connection (&optional context-name)
-  "Interactively resolve connection-name using configured resolvers.
+  "Interactively resolve connection using configured resolvers.
 
 If CONTEXT-NAME is not given an attempt will be made to resolve it using
 `scoot--interactive-resolve-context-name'."
   (unless context-name
     (setq context-name (scoot--interactive-resolve-context-name)))
   (scoot--try-resolvers
-   'scoot-local--connection-name-resolvers
-   'scoot-default--connection-name-resolvers
+   'scoot-local--connection-resolvers
+   'scoot-default--connection-resolvers
    (list :connection-name "default"
          :interactive t)))
 

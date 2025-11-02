@@ -22,6 +22,7 @@
 ;;; Code:
 
 (require 'scoot-scratch)
+(require 'scoot-test-fixtures)
 (require 'ert)
 
 
@@ -35,12 +36,6 @@ and executes BODY."
      (insert ,contents)
      (scoot-scratch-mode)
      ,@body))
-
-(defun to-hash-table (plist)
-  (let ((tbl (make-hash-table :test 'equal)))
-    (while plist
-      (puthash (pop plist) (pop plist) tbl))
-    tbl))
 
 
 
@@ -57,7 +52,7 @@ SELECT * FROM users;
    (goto-char (point-max))
    (let ((block-props (cdr (scoot-scratch--scratch-block-at-point))))
      (should (equal (pp-to-string block-props)
-                    (pp-to-string (to-hash-table (list "connection-name" "app-production"
+                    (pp-to-string (scoot-test--to-hash-table (list "connection-name" "app-production"
                                                        "context" "client-A"))))))))
 
 
@@ -81,7 +76,7 @@ SELECT * FROM users;
    (forward-line 4)
    (let ((block-props (cdr (scoot-scratch--scratch-block-at-point))))
      (should (equal (pp-to-string block-props)
-                    (pp-to-string (to-hash-table (list "connection-name" "app-production"
+                    (pp-to-string (scoot-test--to-hash-table (list "connection-name" "app-production"
                                                        "context" "client-A"))))))))
 
 
@@ -104,7 +99,7 @@ SELECT * FROM users;
    (goto-char (point-max))
    (let ((block-props (cdr (scoot-scratch--scratch-block-at-point))))
      (should (equal (pp-to-string block-props)
-                    (pp-to-string (to-hash-table (list "connection-name" "local-dev"
+                    (pp-to-string (scoot-test--to-hash-table (list "connection-name" "local-dev"
                                                        "context" "client-B"))))))))
 
 
@@ -126,7 +121,7 @@ SELECT * FROM users;
    (goto-char (point-max))
    (let ((block-props (cdr (scoot-scratch--scratch-block-at-point))))
      (should (equal (pp-to-string block-props)
-                    (pp-to-string (to-hash-table (list "connection-name" "local-dev"
+                    (pp-to-string (scoot-test--to-hash-table (list "connection-name" "local-dev"
                                                        "context" "client-A"))))))))
 
 

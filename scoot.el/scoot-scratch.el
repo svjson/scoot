@@ -194,8 +194,7 @@ execution to resume."
        callback))
 
      ((and context-name
-           connection-name
-           (scoot-context--has-connection-p context-name connection-name))
+           connection-name)
       (funcall callback (list :context context-name
                               :name connection-name)))
 
@@ -343,7 +342,7 @@ scratch comments and configuration annotations."
               '(scoot-scratch--context-resolve-context-name
                 scoot-connection--context-prompt))
 
-  (setq-local scoot-local--connection-name-resolvers
+  (setq-local scoot-local--connection-resolvers
               '(scoot-scratch--context-resolve-connection
                 scoot-connection--connection-prompt))
 

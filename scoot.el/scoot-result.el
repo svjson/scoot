@@ -65,8 +65,8 @@
 (defvar-local scoot-result--current-sql-statement nil
   "The current SQL statement that the current buffer is based on.")
 
-(defvar-local scoot-result--result-connection-name nil
-  "The server connection name used by the current Scoot Result Buffer.")
+(defvar-local scoot-result--result-connection nil
+  "The server connection used by the current Scoot Result Buffer.")
 
 (defvar-local scoot-result--result-type nil
   "The type of result displayed in the current buffer.
@@ -255,7 +255,7 @@ INFO contains the grid information as a plist with the following properties:
 
 (defun scoot-result--insert-buffer-info ()
   "Insert result buffer basic header information."
-  (let ((connection (gethash scoot-result--result-connection-name scoot-connections)))
+  (let ((connection scoot-result--result-connection))
 
     (scoot-result--insert-property-grid
      (list :columns 2
@@ -381,7 +381,7 @@ STMT is the SQL statement that produced the result.
 TYPE is the type of result (query/objects/object).
 OBJECT-TYPE is the type of object (table/schema/database).
 OBJECT-NAME is the name of the object described."
-  (concat (format "*scoot(%s)" connection)
+  (concat (format "*scoot(%s)" (plist-get connection :name))
           (pcase type
             ('query ": query")
             ('object (concat " "
@@ -424,7 +424,7 @@ Additional keys for type object:
       (with-current-buffer buf
         (read-only-mode -1)
         (scoot-result-mode)
-        (setq-local scoot-result--result-connection-name (plist-get connection :name)
+        (setq-local scoot-result--result-connection (scoot-context--get-connection (plist-get connection :context) (plist-get connection :name))
                     scoot-result--result-type type
                     scoot-result--result-object-type object-type
                     scoot-result--result-object-name object-name
@@ -456,16 +456,12 @@ Additional keys for type object:
         (unless scoot-table-mode (scoot-table-mode 1))
       (when scoot-table-mode (scoot-table-mode -1)))))
 
-(defun scoot-result--buffer-connection ()
-  "Get the connection used to retrieve the current result."
-  (gethash scoot-result--result-connection-name scoot-connections))
-
 (defun scoot-result--execute-query ()
   "Execute the current query in this result buffer."
   (interactive)
   (setq scoot-result--current-sql-statement (scoot-qb--get-query))
   (scoot-connection--execute-statement
-   (scoot-result--buffer-connection)
+   scoot-result--result-connection
    scoot-result--current-sql-statement
    #'scoot-result--open-result-buffer))
 
@@ -479,7 +475,7 @@ OP is either `add or `remove."
                (column (alist-get 'column col))
                (name (alist-get 'name col)))
       (scoot-connection--modify-statement
-       (scoot-result--buffer-connection)
+       scoot-result--result-connection
        scoot-result--current-sql-statement
        `("SELECT" ,op)
        (list (list (cons 'name name)
@@ -501,7 +497,7 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
       (let* ((value (plist-get cell :value)))
         (when (or value allow-null)
           (scoot-connection--modify-statement
-           (scoot-result--buffer-connection)
+           scoot-result--result-connection
            scoot-result--current-sql-statement
            `("WHERE" ,op)
            (list (alist-get 'name column)
@@ -543,7 +539,7 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
 
 (defun scoot-result--xref-action (xref-target)
   "Find location for XREF-TARGET."
-  (let* ((xref-conn-cache (scoot-xref--get-conn-cache (scoot-result--buffer-connection)))
+  (let* ((xref-conn-cache (scoot-xref--get-conn-cache scoot-result--result-connection))
          (identifier (plist-get xref-target :xref))
          (cached-xref (gethash identifier xref-conn-cache)))
     (if (scoot-xref--is-valid-xref cached-xref xref-target)
@@ -555,7 +551,7 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
                          (make-scoot-xref-async-location :identifier identifier :marker nil :pending t))))
         (cond
          ((or (member target '(:column :table)))
-          (progn (scoot-connection--describe-table (scoot-result--buffer-connection)
+          (progn (scoot-connection--describe-table scoot-result--result-connection
                                                    t-table
                                                    (lambda (result-context)
                                                      (let* ((buf (scoot-result--open-result-buffer result-context))
@@ -567,7 +563,7 @@ ALLOW-NULL signals whether this operation is legal for NULL values."
                                                        (xref-find-definitions identifier))))
                  (list xref-async-response)))
          ((equal target :expr)
-          (progn (scoot-connection--execute-statement (scoot-result--buffer-connection)
+          (progn (scoot-connection--execute-statement scoot-result--result-connection
                                                       (concat
                                                        (format "SELECT * FROM %s WHERE " (plist-get xref-target :table))
                                                        (string-join
@@ -703,7 +699,8 @@ OP is either `add or `remove."
 
 (define-derived-mode scoot-result-mode fundamental-mode "Scoot Result"
   "Major mode for displaying and interacting with SQL resultsets."
-  (setq-local scoot-local--connection-name-resolvers '((lambda () scoot-result--result-connection-name)))
+  (setq-local scoot-local--context-name-resolvers '((lambda () (plist-get scoot-result--result-connection :context))))
+  (setq-local scoot-local--connection-resolvers '((lambda () scoot-result--result-connection)))
   (setq-local scoot-local--table-name-resolvers '(scoot-result--tables-in-result
                                                   scoot-connection--table-prompt))
 
