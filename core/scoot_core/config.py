@@ -40,6 +40,9 @@ class Context:
     def list_connection_names(self) -> list[str]:
         return list(self.connections.keys())
 
+    def get_connection(self, name: str):
+        return self.connections.get(name, None)
+
     def get_default_connection(self):
         return self.connections.get("default", None)
 
@@ -61,7 +64,7 @@ class Context:
         pass
 
     @staticmethod
-    def list():
+    def list() -> list[str]:
         """List all .json files in CONFIG_BASE_DIR"""
         if not CONFIG_BASE_DIR.exists():
             return []
@@ -69,6 +72,18 @@ class Context:
         context_files = CONFIG_BASE_DIR.glob("*.json")
         context_names = [f.stem for f in context_files if f.is_file()]
         return context_names
+
+    @staticmethod
+    def load_manifest() -> dict[str, dict[str, dict[str, dict]]]:
+        return {
+            ctx_name: {
+                "connections": {
+                    conn_name: {}
+                    for conn_name in Context.load(ctx_name).list_connection_names()
+                }
+            }
+            for ctx_name in Context.list()
+        }
 
     @staticmethod
     def load(context_name: str | None):
@@ -95,6 +110,11 @@ class Context:
         if Context.current_context_name():
             CURRENT_CONTEXT_PATH.unlink()
         CURRENT_CONTEXT_PATH.symlink_to(ctx_path)
+
+    @staticmethod
+    def exists(ctx_name: str):
+        ctx_path = _config_path(ctx_name)
+        return ctx_path.exists()
 
     @staticmethod
     def current_context_name():

@@ -83,10 +83,15 @@ def with_error_handler(func):
 
 def with_connection(func):
     @wraps(func)
-    def wrapper(conn, *args, **kwargs):
-        connection = connmgr.get_connection(conn)
+    def wrapper(ctx, conn, *args, **kwargs):
+        connection = connmgr.get_connection(ctx, conn)
         if connection is None:
-            configured_conn = config.app_config.connections.get(conn, None)
+            context = (
+                config.Context.load(ctx)
+                if config.Context.exists(ctx)
+                else config.Context(ctx, {"connections": {}})
+            )
+            configured_conn = context.get_connection(conn)
             if configured_conn is None:
                 raise ScootConnectionException(
                     "unknown-connection", f"Unknown connection: '{conn}'", conn
@@ -94,14 +99,16 @@ def with_connection(func):
             conn_url = configured_conn["url"]
             print(f"Creating connection using url: {conn_url}")
 
-            connection = connmgr.create_connection(conn, configured_conn["url"])
+            connection = connmgr.create_connection(
+                ctx, conn, configured_conn["url"]
+            )
 
         return func(connection, *args, **kwargs)
 
     return wrapper
 
 
-def with_request_context(func):
+def with_op_env(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         ctx = RequestContext(request.path)
@@ -122,29 +129,21 @@ def ping():
     return json_response({"status": "ok"})
 
 
+@app.route("/api/connection-manager", methods=["GET"])
+@with_error_handler
+def get_connections():
+    return json_response({"contexts": connmgr.get_connections()})
+
+
 @app.route("/api/contexts", methods=["GET"])
 @with_error_handler
 def get_contexts():
-    return json_response(
-        {
-            "contexts": {
-                ctx_name: {
-                    "connections": {
-                        conn_name: {}
-                        for conn_name in config.Context.load(
-                            ctx_name
-                        ).list_connection_names()
-                    }
-                }
-                for ctx_name in config.Context.list()
-            }
-        }
-    )
+    return json_response({"contexts": config.Context.load_manifest()})
 
 
-@app.route("/api/connection", methods=["POST"])
+@app.route("/api/contexts/<string:ctx>/connections", methods=["POST"])
 @with_error_handler
-def create_connection():
+def create_connection(ctx: str):
     data = request.get_json()
     url = data.get("url", None)
     name = data.get("name", "default")
@@ -157,7 +156,7 @@ def create_connection():
             )
         )
 
-    conn = connmgr.create_connection(name, url)
+    conn = connmgr.create_connection(ctx, name, url)
 
     if persist:
         config.app_config.connections[name] = {"url": url}
@@ -166,64 +165,61 @@ def create_connection():
     return json_response({"status": "ok", "connection": conn.to_dict()})
 
 
-@app.route("/api/connection", methods=["GET"])
-@with_error_handler
-def get_connections():
-    result = {
-        "connections": {
-            n: {"status": "inactive"}
-            for n, _ in config.app_config.connections.items()
-        }
-    }
-
-    for n, c in connmgr.connections.items():
-        result["connections"][n] = c.to_dict()
-
-    return json_response(result)
-
-
-@app.route("/api/<string:conn>/tables", strict_slashes=False, methods=["GET"])
+@app.route(
+    "/api/contexts/<string:ctx>/connections/<string:conn>/tables",
+    strict_slashes=False,
+    methods=["GET"],
+)
 @with_error_handler
 @with_connection
-@with_request_context
+@with_op_env
 def list_tables(ctx, connection):
     opctx = ServerOperation(ctx, connection)
     return json_response({"tables": metadata.list_tables(opctx)})
 
 
-@app.route("/api/<string:conn>/tables/<string:table_name>", methods=["GET"])
+@app.route(
+    "/api/contexts/<string:ctx>/connections/<string:conn>/tables/<string:table_name>",
+    methods=["GET"],
+)
 @with_error_handler
 @with_connection
-@with_request_context
+@with_op_env
 def describe_table(ctx, connection, table_name):
     opctx = ServerOperation(ctx, connection)
     return json_response(metadata.describe_table(opctx, table_name).to_dict())
 
 
-@app.route("/api/<string:conn>/databases", methods=["GET"])
+@app.route(
+    "/api/contexts/<string:ctx>/connections/<string:conn>/databases",
+    methods=["GET"],
+)
 @with_error_handler
 @with_connection
-@with_request_context
+@with_op_env
 def list_databases(ctx, connection):
     opctx = ServerOperation(ctx, connection)
     return json_response({"databases": metadata.list_databases(opctx)})
 
 
-@app.route("/api/<string:conn>/schemas", methods=["GET"])
+@app.route(
+    "/api/contexts/<string:ctx>/connections/<string:conn>/schemas", methods=["GET"]
+)
 @with_error_handler
 @with_connection
-@with_request_context
+@with_op_env
 def list_schemas(ctx, connection):
     opctx = ServerOperation(ctx, connection)
     return json_response({"schemas": metadata.list_schemas(opctx)})
 
 
-@app.route("/api/<string:conn>/query", methods=["POST"])
+@app.route(
+    "/api/contexts/<string:ctx>/connections/<string:conn>/query", methods=["POST"]
+)
 @with_error_handler
 @with_connection
-@with_request_context
+@with_op_env
 def query_operation(ctx, connection):
-
     opctx = ServerOperation(ctx, connection)
     data = request.get_json()
 

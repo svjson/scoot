@@ -43,7 +43,7 @@ def start_emacs_daemon(db_backend: BackendService):
     log.info(f"Placing {init_dest}...")
     shutil.copyfile(os.path.join("system_test", "emacs", "test-init.el"), init_dest)
 
-    log.info(f"Starting emacs daemon...")
+    log.info("Starting emacs daemon...")
     backend_name = db_backend.config.get('name')
     instance_name = f"dmn_{backend_name}"
 
@@ -54,7 +54,7 @@ def start_emacs_daemon(db_backend: BackendService):
         {
             "SCOOT_TEMP_EMACS_DIR": tmp_emacs_home,
             "SCOOT_EMACS_INSTANCE_NAME": instance_name,
-            "SCOOT_TEST_CONNECTION": f"(list :name \"{backend_name}\" :url \"{conn_url}\")",
+            "SCOOT_TEST_CONNECTION": f"(list :context \"{backend_name}\" :name \"{backend_name}\" :url \"{conn_url}\")",
         },
     )
 
@@ -131,14 +131,14 @@ def run_test(emacs_daemon: EmacsDaemon, test_file, test_name, context_name=None)
     else:
         log.error(f"Failed: '{test_name}'")
         log.error(f"Output:\n{result.get('Messages', '').replace('\\n', '\n')}")
-        log.error(f"----------------------------------------------------------")
+        log.error("----------------------------------------------------------")
         log.error(
             f"Assertions:\n{result.get('Assertions', '').replace('\\n', '\n')}"
         )
-        log.error(f"----------------------------------------------------------")
+        log.error("----------------------------------------------------------")
         log.error(
             f"ServerOutput:\n{result.get('ServerOutput', '').replace('\\n', '\n')}"
         )
-        log.error(f"----------------------------------------------------------")
+        log.error("----------------------------------------------------------")
 
     assert success

@@ -38,15 +38,15 @@ Scoot Server maintains stateful database connections that must be registered bef
 
 This design allows the server to manage multiple active connections concurrently, each identified by name, and keeps client requests lightweight and reusable.
 
-| Endpoint                                     | Method | Description                                  |
-|----------------------------------------------|--------|----------------------------------------------|
-| `/api/<connection_name>/tables`              | GET    | Returns list of all tables                   |
-| `/api/<connection_name>/tables/<table_name>` | GET    | Returns schema info for a table              |
-| `/api/<connection_name>/databases`           | GET    | Returns list of databases                    |
-| `/api/<connection_name>/schemas`             | GET    | Returns list of schemas                      |
-| `/api/<connection_name>/query`               | POST   | Executes a raw SQL query                     |
-| `/api/connection`                            | POST   | Registers a new database connection          |
-| `/api/connection`                            | GET    | Returns a list of all registered connections |
+| Endpoint                                                     | Method | Description                                 |
+|--------------------------------------------------------------|--------|---------------------------------------------|
+| `/api/connection-manager`                                    | GET    | Returns the state of registered connections |
+| `/api/contexts/<ctx>/connections`                            | POST   | Registers a new database connection         |
+| `/api/contexts/<ctx>/connections/<conn>/tables`              | GET    | Returns list of all tables                  |
+| `/api/contexts/<ctx>/connections/<conn>/tables/<table_name>` | GET    | Returns schema info for a table             |
+| `/api/contexts/<ctx>/connections/<conn>/databases`           | GET    | Returns list of databases                   |
+| `/api/contexts/<ctx>/connections/<conn>/schemas`             | GET    | Returns list of schemas                     |
+| `/api/contexts/<ctx>/connections/<conn>/query`               | POST   | Executes a raw SQL query                    |
 
 ## Example Requests
 
@@ -55,7 +55,7 @@ This design allows the server to manage multiple active connections concurrently
 #### Request
 
 ```http
-POST /api/default/query HTTP/1.1
+POST /api/contexts/default/connections/default/query HTTP/1.1
 Content-Type: application/json
 
 {
@@ -84,7 +84,7 @@ to the active server configuration.
 #### Request
 
 ```http
-POST /api/connection HTTP/1.1
+POST /api/contexts/default/connections HTTP/1.1
 Content-Type: application/json
 
 {
