@@ -27,35 +27,6 @@
 
 
 
-(ert-deftest scoot-connection--store-connection--empty-context-store ()
-  (clrhash scoot-contexts)
-  (scoot-connection--store-connection "my-context" (list :name "my-conn"
-                                                         :host "localhost"
-                                                         :port "1412"))
-  (should (equal (pp-to-string scoot-contexts)
-                 (pp-to-string (scoot-test--to-hash-table
-                                (list "my-context" (list "my-conn" (list :name "my-conn"
-                                                                         :host "localhost"
-                                                                         :port "1412"))))))))
-
-(ert-deftest scoot-connection--store-connection--existing-context ()
-  (clrhash scoot-contexts)
-  (puthash "my-context" (list "existing-conn" (list :name "existing-conn"
-                                                    :host "nonlocalhost"
-                                                    :port "1431"))
-           scoot-contexts)
-
-  (scoot-connection--store-connection "my-context" (list :name "my-conn"
-                                                         :host "localhost"
-                                                         :port "1412"))
-  (should (equal (pp-to-string scoot-contexts)
-                 (pp-to-string (scoot-test--to-hash-table
-                                (list "my-context" (list "existing-conn" (list :name "existing-conn"
-                                                                               :host "nonlocalhost"
-                                                                               :port "1431")
-                                                         "my-conn" (list :name "my-conn"
-                                                                         :host "localhost"
-                                                                         :port "1412"))))))))
 
 
 

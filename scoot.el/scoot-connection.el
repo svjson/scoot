@@ -94,16 +94,6 @@ CONN-STRING is the connection-string to use."
              scoot-connections)
     connection))
 
-(defun scoot-connection--store-connection (context-name connection)
-  "Store a complete CONNECTION with metadata to the `scoot-contexts` lookup.
-
-The connection is stored under CONTEXT-NAME."
-  (let ((context-collection (gethash context-name scoot-contexts))
-        (plist-entry (list (plist-get connection :name) connection)))
-    (if context-collection
-        (scoot--plist-merge context-collection plist-entry)
-      (puthash context-name plist-entry scoot-contexts))))
-
 
 
 ;; Context management
