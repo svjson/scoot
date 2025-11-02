@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import TextIO
+from typing import IO
 
 from sqlalchemy import Dialect, Table
 
@@ -16,27 +16,23 @@ class StreamFormatter:
     def _verify_tables(self, tables: list[TableModel]) -> list[Table]:
         return [self._verify_table(table) for table in tables]
 
-    def start(self, stream: TextIO) -> None:
+    def start(self, stream: IO) -> None:
         pass
 
     @abstractmethod
-    def table(self, stream: TextIO, table: TableModel) -> None:
+    def table(self, stream: IO, table: TableModel) -> None:
         pass
 
     @abstractmethod
     def row(
-        self,
-        stream: TextIO,
-        dialect: Dialect,
-        table_model: TableModel,
-        record: dict,
+        self, stream: IO, dialect: Dialect, table_model: TableModel, record: dict
     ) -> None:
         pass
 
     @abstractmethod
     def rows(
         self,
-        stream: TextIO,
+        stream: IO,
         dialect: Dialect,
         table_models: list[TableModel],
         resultset: ResultSet,

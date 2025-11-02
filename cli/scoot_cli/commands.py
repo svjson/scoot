@@ -63,12 +63,12 @@ def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
     """Execute a query"""
     result = query.execute(ctx, query_str)
 
-    output = kwargs.get("to_file", None)
-    format = kwargs.get("format", "ddl")
     mode = "w"
+    to_file = None
+    format = kwargs.get("output_format") or "ascii"
     dialect = ctx.connection.engine.dialect
 
-    if output:
+    if format != "ascii":
         result.metadata = metadata.resolve_query_metadata(ctx, query_str)
 
         tables = [
@@ -76,7 +76,7 @@ def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
             for table_name in result.get_table_names()
         ]
 
-        with exporter(format, output, mode) as exp:
+        with exporter(format, to_file, mode) as exp:
             exp.start()
             exp.rows(dialect, tables, result)
             exp.end()
@@ -88,7 +88,7 @@ def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
 
 def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
     """Export table"""
-    format = kwargs.get("format", "ddl")
+    format = kwargs.get("format") or "ddl"
     mode = "w"
     output = kwargs.get("to_file", None)
     include_create = kwargs.get("include_create", True)

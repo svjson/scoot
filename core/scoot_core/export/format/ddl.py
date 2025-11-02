@@ -1,9 +1,9 @@
-from typing import TextIO, override
+from typing import IO, override
 
 from scoot_core.export.format.stream import StreamFormatter
 from ...model import ResultSet, TableModel
 from .. import register_formatter
-from sqlalchemy import Dialect, Table, insert
+from sqlalchemy import Dialect, insert
 
 
 @register_formatter("ddl")
@@ -14,11 +14,7 @@ class DDLFormatter(StreamFormatter):
 
     @override
     def row(
-        self,
-        stream: TextIO,
-        dialect: Dialect,
-        table_model: TableModel,
-        record: dict,
+        self, stream: IO, dialect: Dialect, table_model: TableModel, record: dict
     ):
         table = self._verify_table(table_model)
         stmt = insert(table).values(**record)
@@ -27,7 +23,7 @@ class DDLFormatter(StreamFormatter):
     @override
     def rows(
         self,
-        stream: TextIO,
+        stream: IO,
         dialect: Dialect,
         table_models: list[TableModel],
         resultset: ResultSet,
@@ -52,4 +48,5 @@ class DDLFormatter(StreamFormatter):
         )
 
     def end(self, stream):
+        stream.write("\n")
         pass

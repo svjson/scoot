@@ -1,5 +1,5 @@
 import sys
-from typing import TextIO
+from typing import IO, TextIO
 
 from sqlalchemy import Dialect
 
@@ -11,7 +11,7 @@ from .registry import get_export_format
 
 
 class FormatExportAdapter:
-    def __init__(self, formatter: StreamFormatter, stream: TextIO):
+    def __init__(self, formatter: StreamFormatter, stream: IO):
         self.formatter = formatter
         self.stream = stream
 
@@ -31,14 +31,17 @@ class FormatExportAdapter:
 
 
 class Exporter:
-    def __init__(self, format, output, mode):
+    def __init__(self, format: str, to_file: str | None, mode: str):
         self.format = format
-        self.output = output
+        self.to_file: str | None = to_file
         self.mode = mode
-        self.stream = None
+        self.stream: IO = (
+            open(self.to_file, self.mode)
+            if self.to_file is not None
+            else sys.stdout
+        )
 
     def __enter__(self):
-        self.stream = open(self.output, self.mode) if self.output else sys.stdout
         fmt = get_export_format(self.format)
         if fmt is None:
             raise ScootExportFormatError(self.format)
@@ -46,7 +49,7 @@ class Exporter:
         return FormatExportAdapter(fmt, self.stream)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.stream and not self.output:
+        if self.stream and self.to_file is not None:
             self.stream.close()
 
         return False

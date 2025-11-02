@@ -25,13 +25,17 @@ handlers = {
         "export": lambda ctx, args: commands.export_table(
             ctx,
             args.table_name,
-            **{"include_data": args.include_data, "to_file": args.o},
+            **{
+                "include_data": args.include_data,
+                "output_format": args.o,
+                "to_file": args.f,
+            },
         ),
     },
     "db": {"list": lambda ctx, _: commands.list_databases(ctx)},
     "schema": {"list": lambda ctx, _: commands.list_schemas(ctx)},
     "query": lambda ctx, args: commands.execute_query(
-        ctx, args.sql, **{"to_file": args.o}
+        ctx, args.sql, **{"output_format": args.o}
     ),
 }
 
@@ -71,7 +75,9 @@ def main():
     )
     table.verb("list")
     table.verb("describe").argument("table_name")
-    table.verb("export").argument("table_name").flag("--include-data").option("-o")
+    table.verb("export").argument("table_name").flag("--include-data").option(
+        "-o"
+    ).option("-f")
 
     db = (
         scoot.resource("db").require_connection().description("Database operations")
