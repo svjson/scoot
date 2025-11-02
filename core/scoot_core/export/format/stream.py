@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import IO
 
 from sqlalchemy import Dialect, Table
@@ -20,7 +20,7 @@ class StreamFormatter:
         pass
 
     @abstractmethod
-    def table(self, stream: IO, table: TableModel) -> None:
+    def table(self, stream: IO, table_model: TableModel) -> None:
         pass
 
     @abstractmethod

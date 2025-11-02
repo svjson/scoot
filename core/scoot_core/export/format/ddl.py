@@ -9,8 +9,8 @@ from sqlalchemy import Dialect, insert
 @register_formatter("ddl")
 class DDLFormatter(StreamFormatter):
     @override
-    def table(self, stream, table: TableModel):
-        stream.write(str(table.create_stmt))
+    def table(self, stream: IO, table_model: TableModel):
+        stream.write(str(table_model.create_stmt))
 
     @override
     def row(

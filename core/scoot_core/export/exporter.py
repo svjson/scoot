@@ -31,12 +31,14 @@ class FormatExportAdapter:
 
 
 class Exporter:
-    def __init__(self, format: str, to_file: str | None, mode: str):
+    def __init__(
+        self, format: str, to_file: str | None = None, mode: str | None = None
+    ):
         self.format = format
         self.to_file: str | None = to_file
         self.mode = mode
         self.stream: IO = (
-            open(self.to_file, self.mode)
+            open(self.to_file, self.mode or "w")
             if self.to_file is not None
             else sys.stdout
         )

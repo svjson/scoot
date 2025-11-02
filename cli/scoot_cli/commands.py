@@ -51,12 +51,16 @@ def list_schemas(ctx: OperationContext) -> None:
     _dump_single_column_table("Schema Name", schemas)
 
 
-def describe_table(ctx: OperationContext, table_name: str) -> None:
+def describe_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
     """Describe a named table"""
     table = metadata.describe_table(ctx, table_name)
 
-    ascii_table = AsciiTable.from_table_model(table)
-    ascii_table.dump(print)
+    format = kwargs.get("output_format") or "ascii"
+
+    with exporter(format) as exp:
+        exp.start()
+        exp.table(table)
+        exp.end()
 
 
 def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
@@ -68,33 +72,28 @@ def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
     format = kwargs.get("output_format") or "ascii"
     dialect = ctx.connection.engine.dialect
 
-    if format != "ascii":
-        result.metadata = metadata.resolve_query_metadata(ctx, query_str)
+    result.metadata = metadata.resolve_query_metadata(ctx, query_str)
 
-        tables = [
-            metadata.describe_table(ctx, table_name)
-            for table_name in result.get_table_names()
-        ]
+    tables = [
+        metadata.describe_table(ctx, table_name)
+        for table_name in result.get_table_names()
+    ]
 
-        with exporter(format, to_file, mode) as exp:
-            exp.start()
-            exp.rows(dialect, tables, result)
-            exp.end()
-
-    else:
-        ascii_table = AsciiTable.from_result_set(result)
-        ascii_table.dump(print)
+    with exporter(format, to_file, mode) as exp:
+        exp.start()
+        exp.rows(dialect, tables, result)
+        exp.end()
 
 
 def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
     """Export table"""
-    format = kwargs.get("format") or "ddl"
+    format = kwargs.get("output_format") or "ddl"
     mode = "w"
-    output = kwargs.get("to_file", None)
+    to_file = kwargs.get("to_file", None)
     include_create = kwargs.get("include_create", True)
     include_data = kwargs.get("include_data", False)
 
-    with exporter(format, output, mode) as exp:
+    with exporter(format, to_file, mode) as exp:
         table = metadata.describe_table(ctx, table_name)
 
         exp.start()

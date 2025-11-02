@@ -21,7 +21,9 @@ handlers = {
     },
     "table": {
         "list": lambda ctx, _: commands.list_tables(ctx),
-        "describe": lambda ctx, args: commands.describe_table(ctx, args.table_name),
+        "describe": lambda ctx, args: commands.describe_table(
+            ctx, args.table_name, **{"output_format": args.o}
+        ),
         "export": lambda ctx, args: commands.export_table(
             ctx,
             args.table_name,
@@ -74,7 +76,7 @@ def main():
         scoot.resource("table").require_connection().description("Table operations")
     )
     table.verb("list")
-    table.verb("describe").argument("table_name")
+    table.verb("describe").argument("table_name").option("-o")
     table.verb("export").argument("table_name").flag("--include-data").option(
         "-o"
     ).option("-f")
