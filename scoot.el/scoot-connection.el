@@ -450,14 +450,9 @@ to the currently active configuration of the Scoot Server."
              (name . ,connection-name)
              (persist . ,scoot-auto-persist-connections))
      :callback (lambda (data)
-                 (funcall callback
-                          (scoot-connection--store-connection
-                           context-name
-                           (scoot--plist-merge
-                            (scoot--alist-to-plist (alist-get 'connection data))
-                            (list :context context-name
-                                  :name connection-name
-                                  :url connection-string)))))
+                 (scoot-connection--fetch-contexts
+                  (lambda (_)
+                    (funcall callback (scoot-context--get-connection context-name connection-name)))))
      :retry-fn #'scoot-connection--register-connection
      :retry-args (list callback connection))))
 

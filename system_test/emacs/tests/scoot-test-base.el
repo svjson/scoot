@@ -27,6 +27,7 @@
 
 (require 'cl-lib)
 (require 'ert)
+(require 'scoot-connection)
 (require 'scoot-common)
 (require 'scoot-table)
 
