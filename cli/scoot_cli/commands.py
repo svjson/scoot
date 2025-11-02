@@ -1,9 +1,6 @@
-import sys
-
-from scoot_core.exceptions import ScootExportFormatError
 from scoot_core import config, metadata, query, OperationContext
 from scoot_core.model import ListDataAdapter
-from scoot_core.export import get_export_format
+from scoot_core.export import exporter
 from scoot_cli.output import AsciiTable
 from sqlalchemy import select
 
@@ -62,12 +59,31 @@ def describe_table(ctx: OperationContext, table_name: str) -> None:
     ascii_table.dump(print)
 
 
-def execute_query(ctx: OperationContext, query_str: str) -> None:
+def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
     """Execute a query"""
     result = query.execute(ctx, query_str)
 
-    ascii_table = AsciiTable.from_result_set(result)
-    ascii_table.dump(print)
+    output = kwargs.get("to_file", None)
+    format = kwargs.get("format", "ddl")
+    mode = "w"
+    dialect = ctx.connection.engine.dialect
+
+    if output:
+        result.metadata = metadata.resolve_query_metadata(ctx, query_str)
+
+        tables = [
+            metadata.describe_table(ctx, table_name)
+            for table_name in result.get_table_names()
+        ]
+
+        with exporter(format, output, mode) as exp:
+            exp.start()
+            exp.rows(dialect, tables, result)
+            exp.end()
+
+    else:
+        ascii_table = AsciiTable.from_result_set(result)
+        ascii_table.dump(print)
 
 
 def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
@@ -78,19 +94,17 @@ def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
     include_create = kwargs.get("include_create", True)
     include_data = kwargs.get("include_data", False)
 
-    fmt = get_export_format(format)
-    if fmt is None:
-        raise ScootExportFormatError(format)
+    with exporter(format, output, mode) as exp:
+        table = metadata.describe_table(ctx, table_name)
 
-    table = metadata.describe_table(ctx, table_name)
-    with open(output, mode) if output else sys.stdout as f:
-        fmt.start(f)
+        exp.start()
         if include_create:
-            fmt.table(f, table)
-        fmt.end(f)
+            exp.table(table)
 
         if include_data and table.sa_table is not None:
             stmt = select(table.sa_table)
             query_str = stmt.compile(dialect=ctx.connection.engine.dialect)
             result = query.execute(ctx, str(query_str))
-            fmt.rows(f, ctx.connection.engine.dialect, table.sa_table, result)
+            exp.rows(ctx.connection.engine.dialect, [table], result)
+
+        exp.end()

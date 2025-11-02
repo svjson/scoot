@@ -1,14 +1,20 @@
 import importlib
+from typing import Type
 
-_FORMATTERS= {}
+from scoot_core.export.format.stream import StreamFormatter
 
-def register_formatter(name):
-    def decorator(cls):
+_FORMATTERS: dict[str, Type[StreamFormatter]] = {}
+
+
+def register_formatter(name: str):
+    def decorator(cls: Type[StreamFormatter]):
         _FORMATTERS[name] = cls
         return cls
+
     return decorator
 
-def get_export_format(name):
+
+def get_export_format(name: str) -> StreamFormatter | None:
     if name in _FORMATTERS:
         return _FORMATTERS[name]()
     try:

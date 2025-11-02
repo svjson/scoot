@@ -98,6 +98,12 @@ class ResultSet:
             result[col_name] = self.rows[index][i]
         return result
 
+    def get_table_names(self) -> set[str]:
+        if self.metadata is None:
+            return set()
+
+        return set(col.get("table", "") for col in self.metadata.get("columns", []))
+
     def size(self):
         return len(self.rows)
 

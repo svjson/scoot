@@ -30,7 +30,9 @@ handlers = {
     },
     "db": {"list": lambda ctx, _: commands.list_databases(ctx)},
     "schema": {"list": lambda ctx, _: commands.list_schemas(ctx)},
-    "query": lambda ctx, args: commands.execute_query(ctx, args.sql),
+    "query": lambda ctx, args: commands.execute_query(
+        ctx, args.sql, **{"to_file": args.o}
+    ),
 }
 
 
@@ -85,7 +87,7 @@ def main():
 
     scoot.verb("query").require_connection().description(
         "Query execution"
-    ).argument("sql", "The SQL query to execute")
+    ).argument("sql", "The SQL query to execute").option("-o")
 
     args = scoot.parse()
 
