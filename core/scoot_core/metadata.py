@@ -1,5 +1,5 @@
 import traceback
-from typing import Any, Optional, cast
+from typing import Any, Optional, Type, cast
 
 from sqlalchemy import (
     inspect,
@@ -209,9 +209,9 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
 
         with ctx.operation("Enumerating known tables"):
             expr_tables = list(expr.find_all(sge.Table))
-            known_tables = {}
+            known_tables: dict[str, TableModel | None] = {}
             for tbl in expr_tables:
-                known_tables[tbl.sql()] = try_describe_table(ctx, tbl.sql())
+                known_tables[str(tbl.sql())] = try_describe_table(ctx, tbl.sql())
 
         columns = []
 
@@ -221,12 +221,14 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
                 table: str | None = getattr(e, "table", None)
                 column: str | None = getattr(e, "name", None)
                 constraints = []
-                table_model: TableModel | None = known_tables.get(table, None)
+                table_model: TableModel | None = (
+                    known_tables.get(table, None) if table is not None else None
+                )
 
                 if e.alias:
                     if e.this:
                         if e.this.__class__.__name__ == "Column":
-                            column = e.this.name
+                            column = str(e.this.name)
 
                 if isinstance(e, sge.Star):
                     if table is None and len(expr_tables) == 1:
@@ -247,17 +249,17 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
                                     )
                     continue
 
-                if column and table is None or table == "":
+                if column is not None and (table is None or table == ""):
                     for tbl_name, tbl_model in known_tables.items():
                         if tbl_model:
                             for c in tbl_model.columns:
-                                if c.name == column:
+                                if c.name.lower() == column.lower():
                                     table = tbl_name
                                     break
                         if table:
                             break
 
-                if table_model:
+                if table_model and column:
                     constraints = table_model.get_constraints_for_column(column)
 
                 columns.append(
@@ -271,7 +273,11 @@ def resolve_query_metadata(ctx: OperationContext, sql: str):
 
         columns = [
             (
-                table_model.get_column(c.get("column")).to_dict() | c
+                (
+                    (col.to_dict() if col is Type[ColumnModel] else c)
+                    if (col := table_model.get_column(c.get("column")))
+                    else c
+                )
                 if (table_model := known_tables.get(c.get("table")))
                 else c
             )

@@ -7,7 +7,7 @@ from scoot_core import types
 class ColumnModel:
     def __init__(
         self,
-        name,
+        name: str,
         type_: types.Type | None,
         nullable,
         primary_key,
@@ -17,6 +17,7 @@ class ColumnModel:
         sqltype: str | None = None,
     ):
         self.name = name
+        self.lname = name.lower()
         self.type = type_
         self.native_type = native_type
         self.sqltype = sqltype
@@ -41,7 +42,7 @@ class TableModel:
     def __init__(self, name, schema, **kwargs):
         self.name = name
         self.schema = schema
-        self.columns = kwargs.get("columns", [])
+        self.columns: list[ColumnModel] = kwargs.get("columns", [])
         self._column_indices = {}
         self.create_stmt: Optional[str] = None
         self.constraints = []
@@ -50,18 +51,23 @@ class TableModel:
     def add_column(self, column):
         self.columns.append(column)
 
-    def get_column(self, column_name):
-        col_index = self._column_indices.get(column_name, None)
-        for i in range(0, len(self.columns)):
-            if self.columns[i].name == column_name:
-                self._column_indices[column_name] = i
-                col_index = i
-                break
+    def get_column(self, column_name: str) -> ColumnModel | dict:
+        lcolname = column_name.lower()
+        col_index = self._column_indices.get(lcolname, None)
+        if col_index is None:
+            for i in range(0, len(self.columns)):
+                if self.columns[i].lname == lcolname:
+                    self._column_indices[lcolname] = i
+                    col_index = i
+                    break
 
         if col_index is None:
             return {}
 
         return self.columns[col_index]
+
+    def column_names(self) -> list[str]:
+        return [column.name for column in self.columns]
 
     def column_max_len(self, column_field):
         ml = len(column_field)
