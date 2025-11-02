@@ -6,6 +6,41 @@ from .. import register_formatter
 from sqlalchemy import Dialect, insert
 
 
+def _format_insert(sql: str) -> str:
+    """Format a SQL INSERT statement by splitting value tuples onto new lines.
+
+    Works safely as long as parentheses are balanced within VALUES(...).
+    """
+    prefix, values_part = sql.split("VALUES", 1)
+    tuples = []
+    depth = 0
+    current = []
+    indent = 2
+
+    i = 0
+    while i < len(values_part):
+        ch = values_part[i]
+        current.append(ch)
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                j = i + 1
+                while j < len(values_part) and values_part[j] in " \t\n,":
+                    if values_part[j] == ",":
+                        current.append(values_part[j])
+                        break
+                    j += 1
+                tuples.append("".join(current).strip())
+                current = []
+                i = j
+        i += 1
+    indent_str = " " * indent
+    formatted = "\n".join(f"{indent_str}{t}" for t in tuples)
+    return f"{prefix}VALUES\n{formatted}\n"
+
+
 @register_formatter("ddl")
 class DDLFormatter(StreamFormatter):
     @override
@@ -40,9 +75,11 @@ class DDLFormatter(StreamFormatter):
             [dict(zip(resultset.columns, row)) for row in resultset.rows]
         )
         stream.write(
-            str(
-                stmt.compile(
-                    dialect=dialect, compile_kwargs={"literal_binds": True}
+            _format_insert(
+                str(
+                    stmt.compile(
+                        dialect=dialect, compile_kwargs={"literal_binds": True}
+                    )
                 )
             )
         )
