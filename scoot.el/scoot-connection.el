@@ -107,6 +107,12 @@ CONN-STRING is the connection-string to use."
   (mapcar (lambda (entry) (car entry))
           (plist-get (gethash context-name scoot-contexts) :connections)))
 
+(defun scoot-context--has-connection-p (context-name connection-name)
+  "Determine if a connection name is known within a context.
+
+Checks if CONNECTION-NAME is known within the CONTEXT-NAME context."
+  (member connection-name (scoot-context--connection-names context-name)))
+
 
 
 ;; Prompts
@@ -205,12 +211,11 @@ CONNECTION - (Optional) Used to register connections unknown to the server."
 
        (pcase error
          ("query-error" (message "%s" display-msg))
-         ("unknown-connection" (if (and retry-fn connection)
+         ("unknown-connection" (if (and retry-fn connection nil)
                                    (scoot-connection--register-connection
                                     (lambda (_)
                                       (apply retry-fn retry-args))
-                                    (plist-get connection :name)
-                                    (plist-get connection :url))
+                                    connection)
                                  (funcall unhandled-error-msg)))
          (_ (funcall unhandled-error-msg)))
        (when (string-equal error "missing-driver")
@@ -235,8 +240,8 @@ or configured towards another target."
   (if connection-string
       (scoot-connection--register-connection (lambda (connection)
                                                (funcall callback connection))
-                                             connection-name
-                                             connection-string)
+                                             (list :name connection-name
+                                                   :url connection-string))
     (progn
       (scoot-connection--list-remote-connections
        (lambda (remote-connections)
@@ -323,11 +328,12 @@ REQUEST-OP is a symbol describing the purpose of the server request.
 ACTION is an alist describing the action of the operation..
 CALLBACK will be invoked with the result if the operation is successful."
   (scoot-ensure-server)
-  (let ((connection-name (plist-get connection :name)))
+  (let ((context-name (or (plist-get connection :context) "__session__"))
+        (connection-name (plist-get connection :name)))
     (scoot-connection--send-request
      :connection connection
      :op request-op
-     :uri (format "/api/%s/query" connection-name)
+     :uri (format "/api/contexts/%s/connections/%s/query" context-name connection-name)
      :method "POST"
      :body `(("sql" . ,stmt)
              ("metadata" . t)
@@ -384,36 +390,46 @@ Invokes CALLBACK with the result if successful."
 
   (scoot-ensure-server)
   (scoot-connection--send-request
-   :uri (format "/api/%s/%s"
+   :uri (format "/api/contexts/%s/connections/%s/%s"
+                (plist-get connection :context)
                 (plist-get connection :name)
                 object-type)
    :op (intern (concat "list-" (symbol-name object-type)))
    :callback callback))
 
-(defun scoot-connection--register-connection (callback connection-name connection-string)
+(defun scoot-connection--register-connection (callback connection)
   "Registers a database connection in the Scoot Server.
 
 CALLBACK will be called upon a successful connection made using the supplied
-CONNECTION-NAME and CONNECTION-STRING.
+CONNECTION.
+
+CONNECTION is expected to be connection plist:
+    (:context CONTEXT-NAME-STR
+     :name CONNECTION-NAME-STR
+     :url CONNECTION-STRING)
 
 if `scoot-auto-persist-connections` is non-nil, the connection will be persisted
 to the currently active configuration of the Scoot Server."
   (scoot-ensure-server)
-  (scoot-connection--send-request
-   :uri "/api/connection"
-   :method "POST"
-   :body `((url . ,connection-string)
-           (name . ,connection-name)
-           (persist . ,scoot-auto-persist-connections))
-   :callback (lambda (data)
-               (funcall callback
-                        (scoot-connection--store-connection
-                         (scoot--plist-merge
-                          (scoot--alist-to-plist (alist-get 'connection data))
-                          (list :name connection-name
-                                :url connection-string)))))
-   :retry-fn #'scoot-connection--register-connection
-   :retry-args (list callback connection-name connection-string)))
+  (let ((context-name (or (plist-get connection :context) "__session__"))
+        (connection-name (or (plist-get connection :name) "default"))
+        (connection-string (plist-get connection :url)))
+    (scoot-connection--send-request
+     :uri (format  "/api/contexts/%s/connections" context-name)
+     :method "POST"
+     :body `((url . ,connection-string)
+             (name . ,connection-name)
+             (persist . ,scoot-auto-persist-connections))
+     :callback (lambda (data)
+                 (funcall callback
+                          (scoot-connection--store-connection
+                           (scoot--plist-merge
+                            (scoot--alist-to-plist (alist-get 'connection data))
+                            (list :context context-name
+                                  :name connection-name
+                                  :url connection-string)))))
+     :retry-fn #'scoot-connection--register-connection
+     :retry-args (list callback connection))))
 
 (defun scoot-connection--fetch-contexts (&optional callback)
   "Query the Scoot Server for configured contexts.
@@ -462,9 +478,11 @@ this function.
 If the request is successful CALLBACK will be called with the formatted
 result."
   (scoot-ensure-server)
-  (let ((connection-name (plist-get connection :name)))
+  (let ((context-name (plist-get connection :context))
+        (connection-name (plist-get connection :name)))
     (scoot-connection--send-request
-     :uri (format "/api/%s/tables/%s"
+     :uri (format "/api/contexts/%s/connections/%s/tables/%s"
+                  context-name
                   connection-name
                   table-name)
      :op 'describe-table

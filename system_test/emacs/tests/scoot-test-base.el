@@ -110,7 +110,7 @@ BODY is the elisp code to execute while the customized key icons are active."
 (defmacro with-result-buffer (args &rest body)
   "Execute a query and open the result buffer with optional timeout.
 
-ARGS is bind form with the following possible keys:
+ARGS is a bind form with the following possible keys:
   query       - The SQL query to execute.  Required.
   timeout     - The timeout in seconds.  Optional.
   keep-buffer - Keeps the resulting buffer if given a non-nil value.
@@ -130,8 +130,7 @@ BODY is the elisp code to execute once the query buffer has been opened."
                    (lambda (result-context)
                      (setq result-buf (scoot-result--open-result-buffer result-context)))))
 
-                scoot-test--connection-name
-                scoot-test--connection-string)
+                scoot-test--connection)
 
                (with-timeout (timeout (error "Query timed out (timeout: %s)" timeout))
                  (while (null result-buf)

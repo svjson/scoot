@@ -59,24 +59,25 @@
   (scoot--list-objects 'tables "Table Name"))
 
 ;;;###autoload
-(defun scoot-describe-table (&optional table-name connection-name)
+(defun scoot-describe-table (&optional table-name connection)
   "Describe a table as defined by arguments or selected interactively.
 
-TABLE-NAME and CONNECTION-NAME are optional, and will be attempted to be
+TABLE-NAME and CONNECTION are optional, and will be attempted to be
 resolved using the context of the function call, if called interactively."
   (interactive)
-  (let* ((conn-name (or connection-name
-                        (scoot--interactive-resolve-connection-name)))
-         (conn (gethash conn-name scoot-connections))
+  (let* ((conn (or connection
+                   (scoot--interactive-resolve-connection)))
          (tbl (or table-name
                   (scoot--try-resolvers
                    'scoot-local--table-name-resolvers
                    'scoot-default--table-name-resolvers
-                   (list :connection-name conn-name
+                   (list :connection conn
                          :interactive t)))))
     (scoot-connection--describe-table conn
                                       tbl
                                       #'scoot-result--open-result-buffer)))
+
+
 
 (provide 'scoot)
 

@@ -42,6 +42,18 @@ If this variable is not defined locally, the global variable
 
 See `scoot--try-resolvers`.")
 
+(defvar-local scoot-local--context-name-resolvers nil
+  "Buffer local list of resolver functions for context-name.
+
+Used by various common scoot operations that require a context-name to
+resolve it in a way that suits the current buffer's mode.
+
+If this variable is not defined locally, the global variable
+`scoot-default--context-name-resolvers` will be used.
+
+See `scoot--try-resolvers`.")
+
+
 (defvar-local scoot-local--connection-name-resolvers nil
   "Buffer local list of resolver functions for connection-name.
 
@@ -57,10 +69,16 @@ See `scoot--try-resolvers`.")
   "Global default list of resolver functions for table-name.
 
 See `scoot-local--table-name-resolvers`")
+
 (defvar scoot-default--connection-name-resolvers (list 'scoot-connection--connection-prompt)
   "Global default list of resolver functions for connection-name.
 
 See `scoot-local--connection-name-resolvers`")
+
+(defvar scoot-default--context-name-resolvers (list 'scoot-connection--context-prompt)
+    "Global default list of resolver functions for context-name.
+
+See `scoot-local--context-name-resolvers`")
 
 (defvar-local scoot--saved-cursor-pos nil
   "Temporary storage of cursor position during buffer modification.")
@@ -398,8 +416,21 @@ available \"completing-read backend\"."
               :buffer (concat "*helm " (downcase name) "*"))
       (completing-read prompt candidates nil nil default-value))))
 
-(defun scoot--interactive-resolve-connection-name ()
-  "Interactively resolve connection-name using configured resolvers."
+(defun scoot--interactive-resolve-context-name ()
+  "Interactively resolve context-name using configured resolvers."
+  (scoot--try-resolvers
+   'scoot-local--context-name-resolvers
+   'scoot-default--context-name-resolvers
+   (list :context-name "default"
+         :interactive t)))
+
+(defun scoot--interactive-resolve-connection (&optional context-name)
+  "Interactively resolve connection-name using configured resolvers.
+
+If CONTEXT-NAME is not given an attempt will be made to resolve it using
+`scoot--interactive-resolve-context-name'."
+  (unless context-name
+    (setq context-name (scoot--interactive-resolve-context-name)))
   (scoot--try-resolvers
    'scoot-local--connection-name-resolvers
    'scoot-default--connection-name-resolvers
@@ -411,8 +442,7 @@ available \"completing-read backend\"."
 
 OBJECT-TYPE is the type of the object to list.
 TITLE is the resultset header to be used."
-  (let* ((connection-name (scoot--interactive-resolve-connection-name))
-         (connection (gethash connection-name scoot-connections)))
+  (let* ((connection (scoot--interactive-resolve-connection)))
     (scoot-connection--list-objects
      connection
      object-type
@@ -428,7 +458,7 @@ TITLE is the resultset header to be used."
                                   'vector)))
                 (metadata . ((columns . [((name . ,title)
                                           (type . "OBJECT-NAME"))]))))
-              :connection connection-name))))))
+              :connection connection))))))
 
 
 (provide 'scoot-common)

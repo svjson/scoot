@@ -424,7 +424,7 @@ Additional keys for type object:
       (with-current-buffer buf
         (read-only-mode -1)
         (scoot-result-mode)
-        (setq-local scoot-result--result-connection-name connection
+        (setq-local scoot-result--result-connection-name (plist-get connection :name)
                     scoot-result--result-type type
                     scoot-result--result-object-type object-type
                     scoot-result--result-object-name object-name

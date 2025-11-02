@@ -1,4 +1,4 @@
-;;; scoot-test.el --- summary -*- lexical-binding: t -*-
+;;; scoot-table.table-model.test.el --- summary -*- lexical-binding: t -*-
 
 ;; This file is not part of GNU Emacs
 
@@ -25,6 +25,8 @@
 (require 'scoot-table)
 (require 'scoot-common)
 (require 'ert)
+
+
 
 (ert-deftest scoot-table--build-visual-model--simple-example ()
   (let ((result-model '((columns . ["RentalObjectCode" "Status"])

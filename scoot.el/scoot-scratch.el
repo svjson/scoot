@@ -138,12 +138,12 @@ Returns point or nil."
     (cons (match-string 1 line)
           (string-trim (match-string 2 line)))))
 
-(defun scoot-scratch--resolve-context-at-point ()
-  "Extracts relevant SQL lines and connection context."
+(defun scoot-scratch--scratch-block-at-point ()
+  "Extracts relevant SQL lines and connection context from the scratch block."
   (save-excursion
     (let ((lines '())
           (stop nil)
-          (context-props (make-hash-table :test 'equal)))
+          (block-props (make-hash-table :test 'equal)))
       (while (not stop)
         (when (eq (line-number-at-pos) 1)
           (setq stop t))
@@ -152,29 +152,39 @@ Returns point or nil."
           (if (string-match-p "^[\s]*-[-]+" line)
               (when-let* ((prop (scoot--parse-context-annotation line))
                           (prop-name (car prop)))
-                (if (gethash prop-name context-props)
-                    (setq stop t)
-                  (puthash prop-name (cdr prop) context-props)))
-            (if (eq 0 (hash-table-count context-props))
+                (if (gethash prop-name block-props)
+                    (when (gethash "context" block-props)
+                      (setq stop t))
+                  (puthash prop-name (cdr prop) block-props)))
+            (if (eq 0 (hash-table-count block-props))
                 (push line lines)
-              (setq stop t)))
+              (when (gethash "context" block-props)
+                (setq stop t))))
           (forward-line -1)
           (end-of-line)))
       (cons (string-join lines "\n")
-            context-props))))
+            block-props))))
 
-(cl-defun scoot-scratch--context-resolve-connection-name (&allow-other-keys)
-  "Resolve the connection-name from the annotated context at point."
-  (let* ((ctx (scoot-scratch--resolve-context-at-point))
+(cl-defun scoot-scratch--context-resolve-context-name (&allow-other-keys)
+  "Resolve the context-name from the annotated context at point."
+  (let* ((ctx (scoot-scratch--scratch-block-at-point))
          (ctx-props (cdr ctx)))
-    (gethash "connection-name" ctx-props)))
+    (gethash "context" ctx-props)))
+
+(cl-defun scoot-scratch--context-resolve-connection (&allow-other-keys)
+  "Resolve the connection-name from the annotated context at point."
+  (let* ((ctx (scoot-scratch--scratch-block-at-point))
+         (ctx-props (cdr ctx)))
+    (list :context (gethash "context" ctx-props)
+          :name (gethash "connection-name" ctx-props))))
 
 (defun scoot-scratch--ensure-ctx-connection (ctx-props callback)
   "Ensure that the connection specified in the scratch context CTX-PROPS is valid.
 
 The verified connection will be passed as an argument to CALLBACK to allow
 execution to resume."
-  (let ((connection-name (gethash "connection-name" ctx-props))
+  (let ((context-name (gethash "context" ctx-props))
+        (connection-name (gethash "connection-name" ctx-props))
         (connection-string (gethash "connection-string" ctx-props)))
     (cond
      ((and connection-name connection-string)
@@ -182,6 +192,12 @@ execution to resume."
        connection-name
        connection-string
        callback))
+
+     ((and context-name
+           connection-name
+           (scoot-context--has-connection-p context-name connection-name))
+      (funcall callback (list :context context-name
+                              :name connection-name)))
 
      ((and connection-name (gethash connection-name scoot-connections))
       (funcall callback (gethash connection-name scoot-connections)))
@@ -193,14 +209,16 @@ execution to resume."
                               (equal (plist-get conn :url) connection-string))
                      (setq match conn)))
                  scoot-connections)
-        (funcall callback match))))))
+        (funcall callback match)))
+     (t
+      (message "No contextual connection information available.")))))
 
 (defun scoot-scratch--ctx-operation-at-point (callback)
   "Prepare the stage for an operation depending on scratch context.
 
-Resolves the current context and ensures the configured connection,
+Resolves the current scratch block and ensures the configured connection,
 and then calls CALLBACK with the resolved information."
-  (let* ((ctx (scoot-scratch--resolve-context-at-point))
+  (let* ((ctx (scoot-scratch--scratch-block-at-point))
          (ctx-content (car ctx))
          (ctx-props (cdr ctx)))
     (scoot-scratch--ensure-ctx-connection
@@ -321,8 +339,12 @@ scratch comments and configuration annotations."
   (setq-local comment-end "")
   (setq-local scoot-connection-name nil)
 
+  (setq-local scoot-local--context-name-resolvers
+              '(scoot-scratch--context-resolve-context-name
+                scoot-connection--context-prompt))
+
   (setq-local scoot-local--connection-name-resolvers
-              '(scoot-scratch--context-resolve-connection-name
+              '(scoot-scratch--context-resolve-connection
                 scoot-connection--connection-prompt))
 
   (setq-local scoot-local--table-name-resolvers
