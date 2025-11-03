@@ -1,3 +1,4 @@
+
 name: Run Tests
 
 on:
@@ -5,9 +6,8 @@ on:
   pull_request:
 
 jobs:
-  # 
+
   # Core tests
-  # 
   core:
     runs-on: ubuntu-latest
     container:
@@ -23,9 +23,9 @@ jobs:
       - name: Run core tests
         run: make test-core
 
-  # 
+
+
   # Emacs unit tests
-  # 
   emacs-unit:
     runs-on: ubuntu-latest
     container:
@@ -41,9 +41,9 @@ jobs:
       - name: Run Emacs unit tests
         run: make test-emacs-unit
 
-  # 
+
+
   # System / integration tests per backend
-  # 
   system:
     runs-on: ubuntu-latest
     container:
@@ -63,9 +63,9 @@ jobs:
       - name: Run system tests for ${{ matrix.backend }}
         run: make test-backend BACKEND=${{ matrix.backend }}
 
-  # 
+
+
   # Big monolithic run (leak detector)
-  # 
   full-suite:
     runs-on: ubuntu-latest
     container:
