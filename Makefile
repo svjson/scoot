@@ -6,6 +6,7 @@ dev-setup:
 	.venv/bin/pip install -e ./core
 	.venv/bin/pip install -e ./cli
 	.venv/bin/pip install -e ./server
+	.venv/bin/pip install -r requirements-test.txt
 
 test: test-system
 
