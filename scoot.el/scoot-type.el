@@ -45,7 +45,7 @@
           (insert (propertize formatted-value 'face 'scoot-cell-string-face)))
         :sql-literal
         (lambda (value)
-          (concat "'" value "'"))))
+          (format "'%s'" value))))
 
 (defvar scoot-formatter-number
   (list :align 'right
@@ -66,6 +66,7 @@
                               (if (eq val t)
                                   'scoot-cell-boolean-true-face
                                 'scoot-cell-boolean-false-face))))
+        :sql-literal
         (lambda (value)
           (cond
            (value "TRUE")
@@ -79,7 +80,7 @@
           (insert (propertize formatted-value 'face 'scoot-cell-temporal-face)))
         :sql-literal
         (lambda (value)
-          (concat "'" value "'"))))
+          (format "'%s'" value))))
 
 (defvar scoot-formatter-raw-string
   (list :align 'left
@@ -89,7 +90,7 @@
           (insert (propertize formatted-value 'type 'scoot-cell-generic-face)))
         :sql-literal
         (lambda (value)
-          (concat "'" value "'"))))
+          (format "'%s'" value))))
 
 (defvar scoot-formatter-null
   (list :align 'right
@@ -119,7 +120,6 @@ Optionally provide column METADATA."
   (funcall (plist-get formatter :format-value)
            value
            metadata))
-
 (defun scoot--format-literal (formatter value)
   "Format VALUE as a literal using FORMATTER."
   (funcall (plist-get formatter :sql-literal) value))

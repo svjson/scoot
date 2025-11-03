@@ -58,7 +58,7 @@
         :tables ("Listing")
         :widths (16 6)
         :formatters
-        ((:align left :format-value scoot--value-to-string :output-cell #[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-string-face))) (t)] :sql-literal #[(value) ((concat "'" value "'")) (t)])
+        ((:align left :format-value scoot--value-to-string :output-cell #[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-string-face))) (t)] :sql-literal #[(value) ((format "'%s'") value) (t)])
          (:align right :format-value scoot--value-to-string :output-cell #[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-number-face))) (t)] :sql-literal identity))
         :records
         (((:value "705-021-99-0008" :formatted-value "705-021-99-0008")
