@@ -1,7 +1,4 @@
-import sqlalchemy
-
-from . import registry
-from ..connection import Connection
+from .registry import resolve_type, find_and_apply_additional_constraints
 
 
 def sqlglot_dialect(dialect_name: str):
@@ -13,7 +10,8 @@ def sqlglot_dialect(dialect_name: str):
     return dialect_name
 
 
-def find_and_apply_additional_constraints(
-    conn: Connection, table: sqlalchemy.Table
-):
-    return registry.find_and_apply_additional_constraints(conn, table)
+__all__ = [
+    "sqlglot_dialect",
+    "resolve_type",
+    "find_and_apply_additional_constraints",
+]

@@ -5,9 +5,11 @@ from .connection import Connection
 
 class OperationEnv:
 
-    def __init__(self, connection: Connection, cache: dict[str, Cache] = {}):
+    def __init__(
+        self, connection: Connection, cache: dict[str, Cache] | None = None
+    ):
         self.connection = connection
-        self.cache = cache
+        self.cache = cache or {}
         pass
 
     def get_dialect(self) -> str:

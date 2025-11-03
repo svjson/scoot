@@ -1,9 +1,12 @@
+import pytest
+
 from system_test.db.service import BackendService
 
 from scoot_core import OperationEnv
 from scoot_core.query import SQLQueryModifier
 
 
+@pytest.mark.core
 def test__remove_single_item_from_select_STAR(db_backend: BackendService):
     # Given
     opctx = OperationEnv(db_backend.connection)

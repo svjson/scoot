@@ -1,5 +1,5 @@
 import traceback
-from typing import Any, Optional, Type, cast
+from typing import Any, Optional, cast
 
 from sqlalchemy import (
     inspect,
@@ -67,9 +67,7 @@ def list_databases(ctx: OperationEnv) -> list[str]:
 
 
 def make_table_column(conn: Connection, column: Column):
-    scoot_type, driver_type, native_type = resolve_scoot_type(
-        conn.get_dialect(), column.type
-    )
+    scoot_type, _, native_type = resolve_scoot_type(conn.get_dialect(), column.type)
 
     return ColumnModel(
         name=column.name,
@@ -221,9 +219,11 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
 
         with ctx.operation("Enumerating known tables"):
             expr_tables = list(expr.find_all(sge.Table))
-            known_tables: dict[str, TableModel | None] = {}
+            known_tables: dict[str, TableModel] = {}
             for tbl in expr_tables:
-                known_tables[str(tbl.sql())] = try_describe_table(ctx, tbl.sql())
+                tbl_meta = try_describe_table(ctx, tbl.sql())
+                if tbl_meta:
+                    known_tables[str(tbl.sql())] = tbl_meta
 
         columns = []
 
@@ -234,7 +234,9 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
                 column: str | None = getattr(e, "name", None)
                 constraints = []
                 table_model: TableModel | None = (
-                    known_tables.get(table, None) if table is not None else None
+                    known_tables.get(table.casefold(), None)
+                    if table is not None
+                    else None
                 )
 
                 if e.alias:
@@ -267,6 +269,7 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
                             for c in tbl_model.columns:
                                 if c.name.lower() == column.lower():
                                     table = tbl_name
+                                    table_model = tbl_model
                                     break
                         if table:
                             break
@@ -286,11 +289,11 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
         columns = [
             (
                 (
-                    (col.to_dict() if col is Type[ColumnModel] else c)
+                    (c | col.to_dict() if isinstance(col, ColumnModel) else c)
                     if (col := table_model.get_column(c.get("column")))
                     else c
                 )
-                if (table_model := known_tables.get(c.get("table")))
+                if (table_model := known_tables.get(c.get("table").casefold()))
                 else c
             )
             for c in columns

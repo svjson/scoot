@@ -30,6 +30,9 @@ class BackendService:
         self.container_name = container.name
         self.name = config.get("name")
 
+    def get_name(self):
+        return str(self.name)
+
     def connect(self) -> sqlalchemy.Connection:
         return self.connection.connect().execution_options(
             isolation_level="AUTOCOMMIT"

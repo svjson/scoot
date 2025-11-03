@@ -67,6 +67,7 @@ class OracleTypeMapper(TypeMapper):
 
 
 TypeMapperImpl = OracleTypeMapper
+type_mapper = OracleTypeMapper()
 
 
 def find_and_apply_additional_constraints(

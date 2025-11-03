@@ -15,7 +15,7 @@ lock = threading.Lock()
 @pytest.fixture(scope="session")
 def db_backend(request, backend):
     if not backend:
-        raise Exception(f"No Backend specified.")
+        raise Exception("No Backend specified.")
 
     if backend not in BACKENDS.keys():
         raise Exception(f"Unknown backend {backend}")

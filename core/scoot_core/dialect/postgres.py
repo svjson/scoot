@@ -64,6 +64,7 @@ class PostgresTypeMapper(TypeMapper):
 
 
 TypeMapperImpl = PostgresTypeMapper
+type_mapper = PostgresTypeMapper()
 
 
 def find_and_apply_additional_constraints(

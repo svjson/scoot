@@ -67,6 +67,7 @@ class MySQLTypeMapper(TypeMapper):
 
 
 TypeMapperImpl = MySQLTypeMapper
+type_mapper = MySQLTypeMapper()
 
 
 def find_and_apply_additional_constraints(

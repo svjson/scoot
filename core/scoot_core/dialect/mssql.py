@@ -94,6 +94,7 @@ class MSSQLTypeMapper(TypeMapper):
 
 
 TypeMapperImpl = MSSQLTypeMapper
+type_mapper = MSSQLTypeMapper()
 
 
 def find_and_apply_additional_constraints(

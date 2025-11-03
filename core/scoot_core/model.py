@@ -38,6 +38,9 @@ class ColumnModel:
         }
 
 
+NULL_COLUMN = ColumnModel.__new__(ColumnModel)
+
+
 class TableModel:
     def __init__(self, name, schema, **kwargs):
         self.name = name
@@ -51,7 +54,7 @@ class TableModel:
     def add_column(self, column):
         self.columns.append(column)
 
-    def get_column(self, column_name: str) -> ColumnModel | dict:
+    def get_column(self, column_name: str) -> ColumnModel:
         lcolname = column_name.lower()
         col_index = self._column_indices.get(lcolname, None)
         if col_index is None:
@@ -62,7 +65,7 @@ class TableModel:
                     break
 
         if col_index is None:
-            return {}
+            return NULL_COLUMN
 
         return self.columns[col_index]
 
