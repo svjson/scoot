@@ -103,7 +103,7 @@ SELECT * FROM users;
                                                        "context" "client-B"))))))))
 
 
-(ert-deftest scoot-scratch--scratch-block-at-point--multiple-blocks-shared-contxt--end-of-second-block ()
+(ert-deftest scoot-scratch--scratch-block-at-point--multiple-blocks-shared-context--end-of-second-block ()
   (with-scratch-buffer
    "
 -- @context: client-A

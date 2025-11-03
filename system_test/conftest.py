@@ -5,9 +5,8 @@ import os
 
 from .db.service import start_service, BackendService
 from .db.bootstrap import bootstrap_database
-from .db.log import log
 from .db.backends import BACKENDS
-from .emacs_test_runner import start_emacs_daemon
+from .emacs_test_runner import start_emacs_daemon, start_emacs_unit_test_daemon
 
 lock = threading.Lock()
 
@@ -32,6 +31,15 @@ def db_backend(request, backend):
                 db_backend.teardown()
         finally:
             lock.release()
+
+
+@pytest.fixture(scope="session", name="emacs_unit_test_daemon")
+def emacs_unit_test_fixture(request):
+    if not request.config.getoption("--emacs-unit"):
+        pytest.skip("Emacs unit tests are disabled")
+    emacs_unit_daemon = start_emacs_unit_test_daemon()
+    yield emacs_unit_daemon
+    emacs_unit_daemon.stop()
 
 
 @pytest.fixture(scope="session", name="emacs_daemon")

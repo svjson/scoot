@@ -13,6 +13,9 @@ def pytest_addoption(parser):
         "--emacs", action="store_true", help="Enable emacs integration tests"
     )
     parser.addoption(
+        "--emacs-unit", action="store_true", help="Enable emacs unit tests"
+    )
+    parser.addoption(
         "--cli", action="store_true", help="Enable scoot-cli integration tests"
     )
     parser.addoption(

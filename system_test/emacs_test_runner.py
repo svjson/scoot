@@ -66,6 +66,38 @@ def start_emacs_daemon(db_backend: BackendService):
     return EmacsDaemon(instance_name, pid)
 
 
+def start_emacs_unit_test_daemon():
+    """
+    Configures and starts a daemonized Emacs instance to use for
+    running ert tests.
+    """
+    tmp_emacs_home = tempfile.mkdtemp(prefix="emacs-test-")
+    log.info(f"Create tmp emacs home: {tmp_emacs_home}")
+
+    init_dest = os.path.join(tmp_emacs_home, "init.el")
+    log.info(f"Placing {init_dest}...")
+    shutil.copyfile(os.path.join("system_test", "emacs", "test-init.el"), init_dest)
+
+    log.info("Starting emacs daemon...")
+    instance_name = "dmn_unit_test"
+
+    run_script(
+        "system_test/emacs/start_emacs_daemon.sh",
+        {
+            "SCOOT_TEMP_EMACS_DIR": tmp_emacs_home,
+            "SCOOT_EMACS_INSTANCE_NAME": instance_name,
+            "SCOOT_TEST_CONNECTION": "nil",
+        },
+    )
+
+    pid = get_emacs_pid(tmp_emacs_home)
+
+    log.info(
+        f"Emacs daemon with pid {pid} running from user-emacs-directory {tmp_emacs_home}"
+    )
+    return EmacsDaemon(instance_name, pid)
+
+
 @wait_and_retry(wait_interval=0.1)
 def get_emacs_pid(emacs_home: str):
     """
@@ -102,7 +134,13 @@ def parse_test_result(result: str):
     return sections
 
 
-def run_test(emacs_daemon: EmacsDaemon, test_file, test_name, context_name=None):
+def run_test(
+    emacs_daemon: EmacsDaemon,
+    test_file,
+    test_name,
+    root_path=["system_test", "emacs", "test"],
+    context_name=None,
+):
     """
     Run a test in `test_file` identified by the symbol `test_name`.
 
@@ -118,7 +156,7 @@ def run_test(emacs_daemon: EmacsDaemon, test_file, test_name, context_name=None)
     context_label = f" ({context_name})" if context_name else ""
     log.info(f"Running test{context_label}: '{test_name}")
 
-    relative_test_file = os.path.join("system_test", "emacs", "tests", test_file)
+    relative_test_file = os.path.join(*root_path, test_file)
 
     emacs_daemon.eval_lisp(f"(load-file \"{relative_test_file}\")", True, True)
 
