@@ -604,25 +604,29 @@ CELL is the cell summary of the cell under edit."
          (formatter (plist-get cell :formatter))
          (cell-index (plist-get cell :cell-index)))
     (when (integerp cell-index)
-      (let ((values (mapcar
-                     (lambda (record)
-                       (scoot--format-literal
-                        formatter
-                        (plist-get (nth cell-index record)
-                                   :value)))
-                     (plist-get scoot-table--table-model :records))))
-        (kill-new (string-join values ", "))))))
+      (let* ((values (mapcar
+                      (lambda (record)
+                        (scoot--format-literal
+                         formatter
+                         (plist-get (nth cell-index record)
+                                    :value)))
+                      (plist-get scoot-table--table-model :records)))
+             (result (string-join values ", ")))
+        (kill-new result)
+        (message result)))))
 
 (defun scoot-table--kill-ring-save-row-values ()
   "Save a comma-separated list of the values of column at point to kill ring."
   (interactive)
   (let* ((row (scoot-table--row-at-point))
-         (record (plist-get row :record)))
-    (kill-new (string-join
+         (record (plist-get row :record))
+         (result (string-join
                (cl-loop for cell in record
                         for formatter in (plist-get scoot-table--table-model :formatters)
                         collect (scoot--format-literal formatter (plist-get cell :value)))
-               ", "))))
+               ", ")))
+    (kill-new result)
+    (message result)))
 
 
 
