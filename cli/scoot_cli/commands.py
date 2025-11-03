@@ -1,4 +1,4 @@
-from scoot_core import config, metadata, query, OperationContext
+from scoot_core import config, metadata, query, OperationEnv
 from scoot_core.model import ListDataAdapter
 from scoot_core.export import exporter
 from scoot_cli.output import AsciiTable
@@ -33,27 +33,27 @@ def set_default_connection(context_name: str | None, conn_name: str) -> None:
     print(f"Set default connection to '{conn_name}' for context '{ctx.name}")
 
 
-def list_tables(ctx: OperationContext) -> None:
+def list_tables(op_env: OperationEnv) -> None:
     """List available tables."""
-    tables = metadata.list_tables(ctx)
+    tables = metadata.list_tables(op_env)
     _dump_single_column_table("Table Name", sorted(tables))
 
 
-def list_databases(ctx: OperationContext) -> None:
+def list_databases(op_env: OperationEnv) -> None:
     """List available databases."""
-    databases = metadata.list_databases(ctx)
+    databases = metadata.list_databases(op_env)
     _dump_single_column_table("Database Name", databases)
 
 
-def list_schemas(ctx: OperationContext) -> None:
+def list_schemas(op_env: OperationEnv) -> None:
     """List available schemas."""
-    schemas = metadata.list_schemas(ctx)
+    schemas = metadata.list_schemas(op_env)
     _dump_single_column_table("Schema Name", schemas)
 
 
-def describe_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
+def describe_table(op_env: OperationEnv, table_name: str, **kwargs) -> None:
     """Describe a named table"""
-    table = metadata.describe_table(ctx, table_name)
+    table = metadata.describe_table(op_env, table_name)
 
     format = kwargs.get("output_format") or "ascii"
 
@@ -63,19 +63,19 @@ def describe_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
         exp.end()
 
 
-def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
+def execute_query(op_env: OperationEnv, query_str: str, **kwargs) -> None:
     """Execute a query"""
-    result = query.execute(ctx, query_str)
+    result = query.execute(op_env, query_str)
 
     mode = "w"
     to_file = None
     format = kwargs.get("output_format") or "ascii"
-    dialect = ctx.connection.engine.dialect
+    dialect = op_env.connection.engine.dialect
 
-    result.metadata = metadata.resolve_query_metadata(ctx, query_str)
+    result.metadata = metadata.resolve_query_metadata(op_env, query_str)
 
     tables = [
-        metadata.describe_table(ctx, table_name)
+        metadata.describe_table(op_env, table_name)
         for table_name in result.get_table_names()
     ]
 
@@ -85,7 +85,7 @@ def execute_query(ctx: OperationContext, query_str: str, **kwargs) -> None:
         exp.end()
 
 
-def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
+def export_table(op_env: OperationEnv, table_name: str, **kwargs) -> None:
     """Export table"""
     format = kwargs.get("output_format") or "ddl"
     mode = "w"
@@ -94,7 +94,7 @@ def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
     include_data = kwargs.get("include_data", False)
 
     with exporter(format, to_file, mode) as exp:
-        table = metadata.describe_table(ctx, table_name)
+        table = metadata.describe_table(op_env, table_name)
 
         exp.start()
         if include_create:
@@ -102,8 +102,8 @@ def export_table(ctx: OperationContext, table_name: str, **kwargs) -> None:
 
         if include_data and table.sa_table is not None:
             stmt = select(table.sa_table)
-            query_str = stmt.compile(dialect=ctx.connection.engine.dialect)
-            result = query.execute(ctx, str(query_str))
-            exp.rows(ctx.connection.engine.dialect, [table], result)
+            query_str = stmt.compile(dialect=op_env.connection.engine.dialect)
+            result = query.execute(op_env, str(query_str))
+            exp.rows(op_env.connection.engine.dialect, [table], result)
 
         exp.end()

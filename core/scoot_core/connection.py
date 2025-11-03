@@ -34,6 +34,9 @@ class Connection:
         self.close()
         self.engine = create_engine(url)
 
+    def default_schema(self):
+        return self.engine.url.database
+
     def execute(self, sql: str) -> ResultSet:
         """Execute a raw SQL query.
 
@@ -86,3 +89,7 @@ class Connection:
             "database": url.database,
             "driver": url.drivername,
         }
+
+    def __str__(self):
+        url = self.engine.url
+        return f"{url.drivername}//{url.username}:xxxxx@${url.host}:{url.port}/{url.database}"

@@ -1,7 +1,7 @@
 from types import FunctionType, LambdaType
 from scoot_core.connection import Connection
 from scoot_core import config
-from scoot_core.opcontext import OperationContext
+from scoot_core import OperationEnv
 
 from . import commands
 from .clibuilder import ScootCLI
@@ -20,12 +20,12 @@ handlers = {
         "use": lambda _, args: commands.use_context(args.context_name),
     },
     "table": {
-        "list": lambda ctx, _: commands.list_tables(ctx),
-        "describe": lambda ctx, args: commands.describe_table(
-            ctx, args.table_name, **{"output_format": args.o}
+        "list": lambda op_env, _: commands.list_tables(op_env),
+        "describe": lambda op_env, args: commands.describe_table(
+            op_env, args.table_name, **{"output_format": args.o}
         ),
-        "export": lambda ctx, args: commands.export_table(
-            ctx,
+        "export": lambda op_env, args: commands.export_table(
+            op_env,
             args.table_name,
             **{
                 "include_data": args.include_data,
@@ -34,8 +34,8 @@ handlers = {
             },
         ),
     },
-    "db": {"list": lambda ctx, _: commands.list_databases(ctx)},
-    "schema": {"list": lambda ctx, _: commands.list_schemas(ctx)},
+    "db": {"list": lambda op_env, _: commands.list_databases(op_env)},
+    "schema": {"list": lambda op_env, _: commands.list_schemas(op_env)},
     "query": lambda ctx, args: commands.execute_query(
         ctx, args.sql, **{"output_format": args.o}
     ),
@@ -99,7 +99,7 @@ def main():
 
     args = scoot.parse()
 
-    opctx: OperationContext | None = None
+    op_env: OperationEnv | None = None
 
     if args.resource != "connection" and args.resource != "context":
         url = args.url
@@ -116,9 +116,9 @@ def main():
             )
 
         conn = Connection(url)
-        opctx = OperationContext(conn)
+        op_env = OperationEnv(conn)
 
-    run_command(scoot, opctx, args)
+    run_command(scoot, op_env, args)
 
 
 if __name__ == "__main__":

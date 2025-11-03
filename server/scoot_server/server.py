@@ -5,7 +5,7 @@ from functools import wraps
 
 import orjson
 from flask import Flask, Response, current_app, request, g
-from scoot_core import config, metadata, query, ScootErrorType
+from scoot_core import Cache, config, metadata, query, ScootErrorType
 from .context import RequestContext, ServerOperation
 from scoot_core.exceptions import (
     ScootApplicationError,
@@ -81,43 +81,54 @@ def with_error_handler(func):
     return wrapper
 
 
-def with_connection(func):
-    @wraps(func)
-    def wrapper(ctx, conn, *args, **kwargs):
-        connection = connmgr.get_connection(ctx, conn)
-        if connection is None:
-            context = (
-                config.Context.load(ctx)
-                if config.Context.exists(ctx)
-                else config.Context(ctx, {"connections": {}})
+_cache: dict[str, dict[str, dict[str, Cache]]] = {}
+
+
+def get_cache(ctx, conn) -> dict[str, Cache]:
+    ctx_cache = _cache.get(ctx, None)
+    if not ctx_cache:
+        ctx_cache = {}
+        _cache[ctx] = ctx_cache
+    conn_cache = ctx_cache.get(conn, None)
+    if not conn_cache:
+        conn_cache = {}
+        ctx_cache[conn] = conn_cache
+    return conn_cache
+
+
+def get_connection(ctx, conn):
+    connection = connmgr.get_connection(ctx, conn)
+    if connection is None:
+        context = (
+            config.Context.load(ctx)
+            if config.Context.exists(ctx)
+            else config.Context(ctx, {"connections": {}})
+        )
+        configured_conn = context.get_connection(conn)
+        if configured_conn is None:
+            raise ScootConnectionException(
+                "unknown-connection", f"Unknown connection: '{conn}'", conn
             )
-            configured_conn = context.get_connection(conn)
-            if configured_conn is None:
-                raise ScootConnectionException(
-                    "unknown-connection", f"Unknown connection: '{conn}'", conn
-                )
-            conn_url = configured_conn["url"]
-            print(f"Creating connection using url: {conn_url}")
+        conn_url = configured_conn["url"]
+        connection = connmgr.create_connection(ctx, conn, conn_url)
+        print(f"Opened connection {ctx}/{conn}: {str(connection)}")
 
-            connection = connmgr.create_connection(
-                ctx, conn, configured_conn["url"]
-            )
-
-        return func(connection, *args, **kwargs)
-
-    return wrapper
+    return connection
 
 
 def with_op_env(func):
     @wraps(func)
-    def wrapper(*args, **kwargs):
-        ctx = RequestContext(request.path)
+    def wrapper(ctx, conn, *args, **kwargs):
+        connection = get_connection(ctx, conn)
+        req_env = RequestContext(request.path)
+        cache = get_cache(ctx, conn)
         g.reqctx = ctx
+        op_env = ServerOperation(req_env, connection, cache)
         try:
-            result = func(ctx, *args, **kwargs)
+            result = func(op_env=op_env, *args, **kwargs)
         finally:
-            ctx.root_span.stop()
-            lines = ctx.format_tree()
+            op_env.ctx.root_span.stop()
+            lines = op_env.ctx.format_tree()
             current_app.logger.info("\n".join(lines))
         return result
 
@@ -171,11 +182,9 @@ def create_connection(ctx: str):
     methods=["GET"],
 )
 @with_error_handler
-@with_connection
 @with_op_env
-def list_tables(ctx, connection):
-    opctx = ServerOperation(ctx, connection)
-    return json_response({"tables": metadata.list_tables(opctx)})
+def list_tables(op_env):
+    return json_response({"tables": metadata.list_tables(op_env)})
 
 
 @app.route(
@@ -183,11 +192,9 @@ def list_tables(ctx, connection):
     methods=["GET"],
 )
 @with_error_handler
-@with_connection
 @with_op_env
-def describe_table(ctx, connection, table_name):
-    opctx = ServerOperation(ctx, connection)
-    return json_response(metadata.describe_table(opctx, table_name).to_dict())
+def describe_table(op_env, table_name):
+    return json_response(metadata.describe_table(op_env, table_name).to_dict())
 
 
 @app.route(
@@ -195,47 +202,41 @@ def describe_table(ctx, connection, table_name):
     methods=["GET"],
 )
 @with_error_handler
-@with_connection
 @with_op_env
-def list_databases(ctx, connection):
-    opctx = ServerOperation(ctx, connection)
-    return json_response({"databases": metadata.list_databases(opctx)})
+def list_databases(op_env):
+    return json_response({"databases": metadata.list_databases(op_env)})
 
 
 @app.route(
     "/api/contexts/<string:ctx>/connections/<string:conn>/schemas", methods=["GET"]
 )
 @with_error_handler
-@with_connection
 @with_op_env
-def list_schemas(ctx, connection):
-    opctx = ServerOperation(ctx, connection)
-    return json_response({"schemas": metadata.list_schemas(opctx)})
+def list_schemas(op_env):
+    return json_response({"schemas": metadata.list_schemas(op_env)})
 
 
 @app.route(
     "/api/contexts/<string:ctx>/connections/<string:conn>/query", methods=["POST"]
 )
 @with_error_handler
-@with_connection
 @with_op_env
-def query_operation(ctx, connection):
-    opctx = ServerOperation(ctx, connection)
-    data = request.get_json()
+def query_operation(op_env: ServerOperation):
 
-    with ctx.span("parse request"):
+    with op_env.operation("parse request"):
+        data = request.get_json()
         sql = data.get("sql")
         include_metadata = data.get("metadata", False)
         action = data.get("action", {"action": "execute"})
 
-    result = query.perform_action(opctx, sql, action)
+    result = query.perform_action(op_env, sql, action)
 
-    with ctx.span("resolve_metadata"):
+    with op_env.operation("resolve_metadata"):
         if result.metadata and (new_stmt := result.metadata.get("stmt")):
             sql = new_stmt
 
         query_metadata = (
-            metadata.resolve_query_metadata(opctx, sql)
+            metadata.resolve_query_metadata(op_env, sql)
             if include_metadata
             else None
         )
@@ -243,7 +244,7 @@ def query_operation(ctx, connection):
         if query_metadata:
             result.metadata = (result.metadata or {}) | query_metadata
 
-    with ctx.span("serialize"):
+    with op_env.operation("serialize"):
         response = json_response(result.to_dict())
 
     return response

@@ -1,9 +1,9 @@
-
 import time
 import uuid
 
-from scoot_core.connection import Connection
-from scoot_core.opcontext import Operation, OperationContext
+from scoot_core import OperationEnv, Cache, Connection
+from scoot_core.openv import Operation
+
 
 class RequestContext:
     def __init__(self, path: str):
@@ -13,6 +13,7 @@ class RequestContext:
         self.spans = []
         self.root_span = _SpanNode(name=path, parent=None)
         self.stack = [self.root_span]
+
     def span(self, name):
         """Context manager for timing sub-operations."""
         return _Span(self, name)
@@ -53,6 +54,7 @@ class _SpanNode:
 
 class _Span(Operation):
     """Context manager that records a nested span in RequestContext."""
+
     def __init__(self, ctx: RequestContext, name: str):
         super().__init__(name)
         self.ctx = ctx
@@ -71,10 +73,13 @@ class _Span(Operation):
             if self.ctx.stack and self.ctx.stack[-1] is self.node:
                 self.ctx.stack.pop()
 
-class ServerOperation(OperationContext):
 
-    def __init__(self, ctx: RequestContext, connection: Connection):
-        super().__init__(connection)
+class ServerOperation(OperationEnv):
+
+    def __init__(
+        self, ctx: RequestContext, connection: Connection, cache: dict[str, Cache]
+    ):
+        super().__init__(connection, cache)
         self.ctx = ctx
 
     def operation(self, name):

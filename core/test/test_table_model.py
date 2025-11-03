@@ -1,18 +1,5 @@
 from scoot_core.model import TableModel, ColumnModel
-from scoot_core import types
-
-INTEGER = types.Integer(bits=64, signed=types.SIGNED)
-DATETIME = types.Temporal(
-    date=types.Date(min=(0000, 1, 1), max=(9999, 12, 31), calendar="gregorian"),
-    time=types.Time(clock="24"),
-)
-
-
-def VARCHAR(size):
-    types.String(max_len=size, encoding="utf-8", collation=None)
-
-
-BOOLEAN = types.Boolean()
+from .table_model_fixture import INTEGER, VARCHAR, DATETIME, BOOLEAN
 
 
 def test_get_column__case_insensitivity():

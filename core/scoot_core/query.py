@@ -1,4 +1,4 @@
-from .opcontext import OperationContext
+from .openv import OperationEnv
 from .metadata import try_describe_table
 from .model import ResultSet, TableModel
 
@@ -213,9 +213,7 @@ class SQLQueryModifier:
             tables.append(from_value)
 
         for tbl_expr in tables:
-            tbl_meta = try_describe_table(
-                self.ctx, tbl_expr.sql()
-            )
+            tbl_meta = try_describe_table(self.ctx, tbl_expr.sql())
             if tbl_meta:
                 self._tbl_expr_meta[tbl_meta.name] = tbl_meta
 
@@ -225,7 +223,7 @@ class SQLQueryModifier:
         return self.ast.sql()
 
 
-def modify(ctx: OperationContext, sql: str, action_instr: dict) -> ResultSet:
+def modify(ctx: OperationEnv, sql: str, action_instr: dict) -> ResultSet:
     target = action_instr.get("target")
     operation = action_instr.get("operation")
     conditions = action_instr.get("conditions", [])
@@ -262,10 +260,12 @@ def modify(ctx: OperationContext, sql: str, action_instr: dict) -> ResultSet:
     result_set.metadata = (result_set.metadata or {}) | {"stmt": modified_sql}
     return result_set
 
-def execute(ctx: OperationContext, sql: str):
-    return perform_action(ctx, sql, { "action": "execute"})
 
-def perform_action(ctx: OperationContext, sql: str, action_instr: dict):
+def execute(ctx: OperationEnv, sql: str):
+    return perform_action(ctx, sql, {"action": "execute"})
+
+
+def perform_action(ctx: OperationEnv, sql: str, action_instr: dict):
     """Perform an action on an SQL query.
 
     Args:
@@ -275,10 +275,9 @@ def perform_action(ctx: OperationContext, sql: str, action_instr: dict):
     """
     action = action_instr.get("action")
     with ctx.operation(action):
-      if action == "execute":
-          return ctx.connection.execute(sql)
-      elif action == "modify":
-          return modify(ctx, sql, action_instr)
-      else:
-          raise ValueError(f"Unknown action: {action}")
-
+        if action == "execute":
+            return ctx.connection.execute(sql)
+        elif action == "modify":
+            return modify(ctx, sql, action_instr)
+        else:
+            raise ValueError(f"Unknown action: {action}")

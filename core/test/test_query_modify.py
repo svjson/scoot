@@ -2,16 +2,8 @@ from scoot_core.query import SQLQueryModifier
 from scoot_core.model import TableModel, ColumnModel
 from unittest.mock import patch
 
-from scoot_core import types
-from scoot_core.types import SIGNED
+from .table_model_fixture import INTEGER, VARCHAR, DATETIME, BOOLEAN
 
-INTEGER = types.Integer(bits=64, signed=SIGNED)
-VARCHAR = lambda size: types.String(max_len=size, encoding="utf-8", collation=None)
-DATETIME = types.Temporal(
-    date=types.Date(min=(0000, 1, 1), max=(9999, 12, 31), calendar="gregorian"),
-    time=types.Time(clock="24"),
-)
-BOOLEAN = types.Boolean()
 
 users_table = TableModel(
     "users",

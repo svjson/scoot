@@ -15,14 +15,14 @@ from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
 
-from .opcontext import OperationContext
+from .openv import OperationEnv
 
 from .dialect import sqlglot_dialect
 
 from .config import is_server
 from .connection import Connection
 from .model import TableModel, ColumnModel
-from .exceptions import ScootSchemaException
+from .exceptions import ScootQueryException, ScootSchemaException
 from .dialect.registry import (
     resolve_type as resolve_scoot_type,
     find_and_apply_additional_constraints,
@@ -30,21 +30,21 @@ from .dialect.registry import (
 from . import expression
 
 
-def list_schemas(ctx: OperationContext) -> list[str]:
+def list_schemas(ctx: OperationEnv) -> list[str]:
     """Return a list of schema names."""
     inspector = inspect(ctx.connection.engine)
     schemas = inspector.get_schema_names()
     return schemas
 
 
-def list_tables(ctx: OperationContext) -> list[str]:
+def list_tables(ctx: OperationEnv) -> list[str]:
     """Return a list of table names."""
     inspector = inspect(ctx.connection.engine)
     tables = inspector.get_table_names()
     return tables
 
 
-def list_databases(ctx: OperationContext) -> list[str]:
+def list_databases(ctx: OperationEnv) -> list[str]:
     """Return a list of database names."""
     conn = ctx.connection
     dialect = conn.engine.dialect.name
@@ -156,7 +156,7 @@ def parse_table_name(table_name) -> tuple[Optional[str], Optional[str], str]:
     )
 
 
-def describe_table(ctx: OperationContext, table_expression: str) -> TableModel:
+def describe_table(op_env: OperationEnv, table_expression: str) -> TableModel:
     """Describe the structure of a database table.
 
     FIXME: Some system tables and constructs that appear to be tables in certain
@@ -165,8 +165,8 @@ def describe_table(ctx: OperationContext, table_expression: str) -> TableModel:
     devised.
 
     This pertains to SQL Servers sys.* views, for example."""
-    with ctx.operation("describe_table"):
-        conn = ctx.connection
+    with op_env.operation("describe_table"):
+        conn = op_env.connection
         inspector = inspect(conn.engine)
 
         table_name = None
@@ -175,27 +175,39 @@ def describe_table(ctx: OperationContext, table_expression: str) -> TableModel:
         try:
             _, schema_name, table_name = parse_table_name(table_expression)
 
+            if not table_name:
+                raise ScootQueryException(
+                    f"Failed to resolve table from expression: {table_expression}"
+                )
+
+            if table_name:
+                cached = op_env.table_model_cache(conn.default_schema(), table_name)
+                if cached:
+                    return cached
+
             md = MetaData()
             #            with ctx.operation("md.reflect"):
             #                md.reflect(bind=conn.engine)
-            with ctx.operation("Table()"):
+            with op_env.operation("Table()"):
                 table = Table(
                     table_name, md, schema=schema_name, autoload_with=conn.engine
                 )
 
-            with ctx.operation("reflect_table"):
+            with op_env.operation("reflect_table"):
                 inspector.reflect_table(table, include_columns=None)
 
-            with ctx.operation("find_additional_constraints"):
+            with op_env.operation("find_additional_constraints"):
                 find_and_apply_additional_constraints(conn, table)
 
-            return make_table_model(conn, table)
+            return op_env.cache_table_model(
+                conn.default_schema(), table_name, make_table_model(conn, table)
+            )
         except NoSuchTableError:
             raise ScootSchemaException("table", table_expression)
 
 
 def try_describe_table(
-    ctx: OperationContext, table_expression: str
+    ctx: OperationEnv, table_expression: str
 ) -> Optional[TableModel]:
     try:
         return describe_table(ctx, table_expression)
@@ -203,7 +215,7 @@ def try_describe_table(
         return None
 
 
-def resolve_query_metadata(ctx: OperationContext, sql: str):
+def resolve_query_metadata(ctx: OperationEnv, sql: str):
     with ctx.operation("resolve_query_metadata"):
         expr = sqlglot.parse_one(sql)
 
