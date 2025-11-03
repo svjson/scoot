@@ -141,11 +141,6 @@ default width of the, presumably, otherwise fixed-width font."
                              (scoot--format-value scoot-formatter-header
                                                   name
                                                   column-metadata)
-                             (funcall
-                              (plist-get scoot-formatter-header
-                                         :format-value)
-                              name
-                              column-metadata)
                              :metadata column-metadata)))
                    columns-metadata))
          (tables (cl-remove-duplicates (mapcar
