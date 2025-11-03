@@ -58,6 +58,7 @@ class VerbBuilder:
 
     def command(self, cmd: CommandHandler):
         self._command = cmd
+        return self
 
     def build(self, subparsers):
         props = {}
@@ -98,14 +99,18 @@ class ResourceBuilder:
     def requires_connection(self):
         return self._require_conn
 
-    def build(self, subparsers):
+    def command(self, cmd: CommandHandler):
+        self._command = cmd
+        return self
+
+    def build(self, subparsers, require_verb=True):
         props = {}
         if self._description:
             props["help"] = self._description
         if self._require_conn:
             props["parents"] = [self._conn_arg]
         parser = subparsers.add_parser(self._name, **props)
-        subparsers = parser.add_subparsers(dest="verb")
+        subparsers = parser.add_subparsers(dest="verb", required=require_verb)
 
         for verb in self._verbs.values():
             verb.build(subparsers)
@@ -141,9 +146,9 @@ class ScootCLI:
     def requires_connection(self):
         return False
 
-    def _build_parser(self, subparsers):
+    def _build_parser(self, subparsers, require_verb=True):
         for resource in self._resources.values():
-            resource.build(subparsers)
+            resource.build(subparsers, require_verb)
 
         for verb in self._verbs.values():
             verb.build(subparsers)
@@ -161,22 +166,24 @@ class ScootCLI:
     def _resolve_verb(self, args):
         args = args[0]
         ctx = self
+        next = None
         if hasattr(args, "resource"):
-            ctx = self._resources.get(args.resource, None)
+            next = self._resources.get(args.resource, None)
 
-        if ctx is None:
-            return None
+        if next is None:
+            return ctx
+        ctx = next
 
         if hasattr(args, "verb"):
-            ctx = ctx._verbs.get(args.verb, None)
+            next = ctx._verbs.get(args.verb, None)
 
-        return ctx
+        return next or ctx
 
     def parse(self) -> Tuple[Namespace, CommandHandler | None, bool]:
         preparser_sub = self.preparser.add_subparsers(
             dest="resource", required=True
         )
-        self._build_parser(preparser_sub)
+        self._build_parser(preparser_sub, require_verb=False)
         verb = self._resolve_verb(self.preparser.parse_known_args())
         glob_args, remaining = self.connarg_parser.parse_known_args()
 
@@ -189,5 +196,7 @@ class ScootCLI:
             setattr(parsed, "url", glob_args.url)
             return (parsed, verb._command, True)
 
-        self._build_parser(self.subparsers)
-        return (self.parser.parse_args(), verb._command, False)
+        self._build_parser(self.subparsers, require_verb=verb._command is None)
+        parsed = self.parser.parse_args()
+
+        return (parsed, verb._command, False)

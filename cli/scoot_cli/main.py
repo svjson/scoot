@@ -38,7 +38,11 @@ def define_connection(scoot: ScootCLI):
 
 def define_context(scoot: ScootCLI):
     # Resource - context
-    context = scoot.resource("context").description("Context operations")
+    context = (
+        scoot.resource("context")
+        .description("Context operations")
+        .command(lambda _1, _2: commands.show_current_context())
+    )
 
     # Verb - list
     context.verb("list").command(lambda _1, _2: commands.list_contexts())

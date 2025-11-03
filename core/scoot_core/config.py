@@ -46,6 +46,17 @@ class Context:
     def get_default_connection(self):
         return self.connections.get("default", None)
 
+    def get_default_connection_name(self):
+        val = self.get_default_connection()
+        if val:
+            # Default connection is stored url-only at this time, so let's find
+            # the matching "original". Yes, this is dodgy.
+            for name, conn in self.connections.items():
+                if name != "default" and conn.get("url") == val.get("url"):
+                    return name
+
+        return "default"
+
     def set_default_connection(self, name: str):
         if name not in self.connections.keys():
             raise ScootResourceException("connection", name)

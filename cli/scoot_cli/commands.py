@@ -20,6 +20,12 @@ def list_contexts():
     _dump_single_column_table("Contexts", config.Context.list())
 
 
+def show_current_context():
+    ctx = config.Context.load(None)
+    print(f"Current context: {ctx.name}")
+    print(f"Default connection: {ctx.get_default_connection_name()}")
+
+
 def use_context(context_name: str):
     config.Context.use(context_name)
     print(f"Using context '{context_name}'")
