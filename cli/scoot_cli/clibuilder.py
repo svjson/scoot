@@ -20,15 +20,17 @@ def _make_connection_args_parser():
     return connarg_parser
 
 
-class VerbBuilder:
-
-    def __init__(self, verb: str, **kwargs):
-        self._verb = verb
+class BaseBuilder:
+    def __init__(self, name: str, **kwargs):
+        self._name = name
         self._description = kwargs.get("description", None)
-        self.arguments = []
         self._require_conn = kwargs.get("require_connection", False)
         self._conn_arg: ArgumentParser | None = kwargs.get("conn_arg", None)
         self._command: CommandHandler | None = None
+
+    def description(self, docstring: str):
+        self._description = docstring
+        return self
 
     def require_connection(self):
         self._require_conn = True
@@ -37,9 +39,16 @@ class VerbBuilder:
     def requires_connection(self):
         return self._require_conn
 
-    def description(self, description):
-        self._description = description
+    def command(self, cmd: CommandHandler):
+        self._command = cmd
         return self
+
+
+class VerbBuilder(BaseBuilder):
+
+    def __init__(self, verb: str, **kwargs):
+        super().__init__(verb, **kwargs)
+        self.arguments = []
 
     def argument(self, name, description: str | None = None):
         props = {}
@@ -56,30 +65,22 @@ class VerbBuilder:
         self.arguments.append({"name": name, "def": {}})
         return self
 
-    def command(self, cmd: CommandHandler):
-        self._command = cmd
-        return self
-
     def build(self, subparsers):
         props = {}
         if self._description:
             props["help"] = self._description
         if self._require_conn:
             props["parents"] = [self._conn_arg]
-        parser = subparsers.add_parser(self._verb, **props)
+        parser = subparsers.add_parser(self._name, **props)
 
         for arg in self.arguments:
             parser.add_argument(arg.get("name"), **arg.get("def"))
 
 
-class ResourceBuilder:
+class ResourceBuilder(BaseBuilder):
     def __init__(self, name: str, **kwargs):
-        self._name = name
-        self._description: str | None = None
+        super().__init__(name, **kwargs)
         self._verbs: dict[str, VerbBuilder] = {}
-        self._require_conn = False
-        self._conn_arg: ArgumentParser | None = kwargs.get("conn_arg", None)
-        self._command: CommandHandler | None = None
 
     def verb(self, verb):
         builder = VerbBuilder(
@@ -87,21 +88,6 @@ class ResourceBuilder:
         )
         self._verbs[verb] = builder
         return builder
-
-    def description(self, docstring: str):
-        self._description = docstring
-        return self
-
-    def require_connection(self):
-        self._require_conn = True
-        return self
-
-    def requires_connection(self):
-        return self._require_conn
-
-    def command(self, cmd: CommandHandler):
-        self._command = cmd
-        return self
 
     def build(self, subparsers, require_verb=True):
         props = {}
