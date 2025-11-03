@@ -4,104 +4,113 @@ from scoot_core import config
 from scoot_core import OperationEnv
 
 from . import commands
-from .clibuilder import ScootCLI
+from .clibuilder import ScootCLI, require
 
-handlers = {
-    "connection": {
-        "list": lambda _1, args: commands.list_connections(
-            getattr(args, "c", None)
-        ),
-        "set-default": lambda _, args: commands.set_default_connection(
+
+def define_db(scoot: ScootCLI):
+    # Resource - db
+    db = (
+        scoot.resource("db").require_connection().description("Database operations")
+    )
+
+    # Verb - list
+    db.verb("list").command(
+        lambda op_env, _: commands.list_databases(require(op_env))
+    )
+
+
+def define_connection(scoot: ScootCLI):
+    # Resource - connection
+    connection = scoot.resource("connection").description("Connection operations")
+
+    # Verb - list
+    connection.verb("list").command(
+        lambda _1, args: commands.list_connections(getattr(args, "c", None))
+    )
+
+    # Verb - set-default
+    connection.verb("set-default").argument("connection_name").command(
+        lambda _, args: commands.set_default_connection(
             getattr(args, "c", None), args.connection_name
-        ),
-    },
-    "context": {
-        "list": lambda _1, _2: commands.list_contexts(),
-        "use": lambda _, args: commands.use_context(args.context_name),
-    },
-    "table": {
-        "list": lambda op_env, _: commands.list_tables(op_env),
-        "describe": lambda op_env, args: commands.describe_table(
-            op_env, args.table_name, **{"output_format": args.o}
-        ),
-        "export": lambda op_env, args: commands.export_table(
-            op_env,
+        )
+    )
+
+
+def define_context(scoot: ScootCLI):
+    # Resource - context
+    context = scoot.resource("context").description("Context operations")
+
+    # Verb - list
+    context.verb("list").command(lambda _1, _2: commands.list_contexts())
+
+    # Verb - use
+    context.verb("use").argument("context_name").command(
+        lambda _, args: commands.use_context(args.context_name)
+    )
+
+
+def define_query(scoot: ScootCLI):
+    # Verb - query
+    scoot.verb("query").require_connection().description(
+        "Query execution"
+    ).argument("sql", "The SQL query to execute").option("-o").command(
+        lambda op_env, args: commands.execute_query(
+            require(op_env), args.sql, **{"output_format": args.o}
+        )
+    )
+
+
+def define_schema(scoot: ScootCLI):
+    # Resource - schema
+    schema = (
+        scoot.resource("schema")
+        .require_connection()
+        .description("Schema operations")
+    )
+
+    # Verb - list
+    schema.verb("list").command(
+        lambda op_env, _: commands.list_schemas(require(op_env))
+    )
+
+
+def define_table(scoot: ScootCLI):
+    # Resource - table
+    table = (
+        scoot.resource("table").require_connection().description("Table operations")
+    )
+
+    # Verb - list
+    table.verb("list").command(
+        lambda op_env, _: commands.list_tables(require(op_env))
+    )
+
+    # Verb - describe
+    table.verb("describe").argument("table_name").option("-o").command(
+        lambda op_env, args: commands.describe_table(
+            require(op_env), args.table_name, **{"output_format": args.o}
+        )
+    )
+
+    # Verb - export
+    table.verb("export").argument("table_name").flag("--include-data").option(
+        "-o"
+    ).option("-f").command(
+        lambda op_env, args: commands.export_table(
+            require(op_env),
             args.table_name,
             **{
                 "include_data": args.include_data,
                 "output_format": args.o,
                 "to_file": args.f,
             },
-        ),
-    },
-    "db": {"list": lambda op_env, _: commands.list_databases(op_env)},
-    "schema": {"list": lambda op_env, _: commands.list_schemas(op_env)},
-    "query": lambda ctx, args: commands.execute_query(
-        ctx, args.sql, **{"output_format": args.o}
-    ),
-}
-
-
-def run_command(scoot: ScootCLI, ctx, args):
-    handler = None
-    if hasattr(args, "resource"):
-        handler = handlers.get(args.resource)
-
-    if hasattr(args, "verb"):
-        handler = (
-            handler.get(args.verb)
-            if handler is not None
-            else handlers.get(args.verb)
         )
-
-    if not isinstance(handler, (FunctionType, LambdaType)):
-        scoot.error(f"No handler for {args.resource} {args.verb}")
-
-    handler(ctx, args)
-
-
-def main():
-
-    scoot = ScootCLI()
-
-    connection = scoot.resource("connection").description("Connection operations")
-    connection.verb("list")
-    connection.verb("set-default").argument("connection_name")
-
-    context = scoot.resource("context").description("Context operations")
-    context.verb("list")
-    context.verb("use").argument("context_name")
-
-    table = (
-        scoot.resource("table").require_connection().description("Table operations")
     )
-    table.verb("list")
-    table.verb("describe").argument("table_name").option("-o")
-    table.verb("export").argument("table_name").flag("--include-data").option(
-        "-o"
-    ).option("-f")
 
-    db = (
-        scoot.resource("db").require_connection().description("Database operations")
-    )
-    db.verb("list")
 
-    schema = (
-        scoot.resource("schema")
-        .require_connection()
-        .description("Schema operations")
-    )
-    schema.verb("list")
-
-    scoot.verb("query").require_connection().description(
-        "Query execution"
-    ).argument("sql", "The SQL query to execute").option("-o")
-
-    args = scoot.parse()
-
-    op_env: OperationEnv | None = None
-
-    if args.resource != "connection" and args.resource != "context":
+def make_operation_env(scoot, args, requires_conn):
+    """Create an OperationEnv if required by the command."""
+    if requires_conn:
         url = args.url
 
         if url is None:
@@ -116,9 +125,26 @@ def main():
             )
 
         conn = Connection(url)
-        op_env = OperationEnv(conn)
+        return OperationEnv(conn)
 
-    run_command(scoot, op_env, args)
+
+def main():
+    """Main entry point for the CLI application."""
+    scoot = ScootCLI()
+
+    define_connection(scoot)
+    define_context(scoot)
+    define_db(scoot)
+    define_schema(scoot)
+    define_table(scoot)
+    define_query(scoot)
+
+    args, command, requires_conn = scoot.parse()
+
+    op_env = make_operation_env(scoot, args, requires_conn)
+
+    if command:
+        command(op_env, args)
 
 
 if __name__ == "__main__":

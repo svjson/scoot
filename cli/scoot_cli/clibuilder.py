@@ -1,4 +1,14 @@
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
+from typing import Callable, Tuple, Type
+
+from scoot_core.openv import OperationEnv
+
+CommandHandler = Callable[[OperationEnv | None, Namespace], None]
+
+
+def require(op_env: OperationEnv | None) -> OperationEnv:
+    assert op_env
+    return op_env
 
 
 def _make_connection_args_parser():
@@ -10,7 +20,7 @@ def _make_connection_args_parser():
     return connarg_parser
 
 
-class CommandBuilder:
+class VerbBuilder:
 
     def __init__(self, verb: str, **kwargs):
         self._verb = verb
@@ -18,6 +28,7 @@ class CommandBuilder:
         self.arguments = []
         self._require_conn = kwargs.get("require_connection", False)
         self._conn_arg: ArgumentParser | None = kwargs.get("conn_arg", None)
+        self._command: CommandHandler | None = None
 
     def require_connection(self):
         self._require_conn = True
@@ -45,6 +56,9 @@ class CommandBuilder:
         self.arguments.append({"name": name, "def": {}})
         return self
 
+    def command(self, cmd: CommandHandler):
+        self._command = cmd
+
     def build(self, subparsers):
         props = {}
         if self._description:
@@ -61,12 +75,13 @@ class ResourceBuilder:
     def __init__(self, name: str, **kwargs):
         self._name = name
         self._description: str | None = None
-        self._verbs: dict[str, CommandBuilder] = {}
+        self._verbs: dict[str, VerbBuilder] = {}
         self._require_conn = False
         self._conn_arg: ArgumentParser | None = kwargs.get("conn_arg", None)
+        self._command: CommandHandler | None = None
 
     def verb(self, verb):
-        builder = CommandBuilder(
+        builder = VerbBuilder(
             verb, require_connection=self._require_conn, conn_arg=self._conn_arg
         )
         self._verbs[verb] = builder
@@ -106,7 +121,7 @@ class ScootCLI:
             parents=[self.connarg_parser], add_help=False
         )
         self._resources: dict[str, ResourceBuilder] = {}
-        self._verbs: dict[str, CommandBuilder] = {}
+        self._verbs: dict[str, VerbBuilder] = {}
 
     def resource(self, name):
         builder = ResourceBuilder(name, conn_arg=self.connarg_parser)
@@ -114,7 +129,7 @@ class ScootCLI:
         return builder
 
     def verb(self, name, description: str | None = None):
-        builder = CommandBuilder(
+        builder = VerbBuilder(
             name, description=description, conn_arg=self.connarg_parser
         )
         self._verbs[name] = builder
@@ -157,7 +172,7 @@ class ScootCLI:
 
         return ctx
 
-    def parse(self):
+    def parse(self) -> Tuple[Namespace, CommandHandler | None, bool]:
         preparser_sub = self.preparser.add_subparsers(
             dest="resource", required=True
         )
@@ -165,11 +180,14 @@ class ScootCLI:
         verb = self._resolve_verb(self.preparser.parse_known_args())
         glob_args, remaining = self.connarg_parser.parse_known_args()
 
+        assert not isinstance(verb, ScootCLI)
+        assert verb is not None
+
         if verb and verb.requires_connection():
             parsed = self.preparser.parse_args(remaining)
             setattr(parsed, "c", glob_args.c)
             setattr(parsed, "url", glob_args.url)
-            return parsed
+            return (parsed, verb._command, True)
 
         self._build_parser(self.subparsers)
-        return self.parser.parse_args()
+        return (self.parser.parse_args(), verb._command, False)
