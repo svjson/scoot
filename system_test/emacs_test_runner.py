@@ -138,7 +138,7 @@ def run_test(
     emacs_daemon: EmacsDaemon,
     test_file,
     test_name,
-    root_path=["system_test", "emacs", "test"],
+    root_path=["system_test", "emacs", "tests"],
     context_name=None,
 ):
     """
