@@ -4,6 +4,3 @@
      (lsp-pylsp-plugins-autopep8-enabled . nil)
      (python-shell-extra-pythonpaths . ("core" "cli" "server"))
      (lsp-pyright-extra-paths . ("core cli" "server")))))
-
-;; (("system_test" . ((python-ts-mode
-;;                     (eval . (setq lsp-pyright-extra-paths (list "../core")))))))

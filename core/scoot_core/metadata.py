@@ -289,11 +289,15 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
         columns = [
             (
                 (
-                    (c | col.to_dict() if isinstance(col, ColumnModel) else c)
-                    if (col := table_model.get_column(c.get("column")))
+                    (
+                        (c | col.to_dict() if isinstance(col, ColumnModel) else c)
+                        if (col := table_model.get_column(c.get("column")))
+                        else c
+                    )
+                    if (table_model := known_tables.get(tbl_name.casefold()))
                     else c
                 )
-                if (table_model := known_tables.get(c.get("table").casefold()))
+                if (tbl_name := c.get("table"))
                 else c
             )
             for c in columns
