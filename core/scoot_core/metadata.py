@@ -240,12 +240,12 @@ def is_anonymous(e) -> bool:
 
 
 def resolve_column_metadata(
-    ctx: OperationEnv,
+    op_env: OperationEnv,
     e: exp.Expression,
     known_tables: dict[str, TableModel],
     tbl_exprs,
 ) -> list[dict]:
-    with ctx.operation("inspect expression"):
+    with op_env.operation("inspect expression"):
 
         colmeta = ColumnMeta(e)
         if colmeta.table:
@@ -303,15 +303,15 @@ def resolve_column_metadata(
         return [colmeta.to_dict()]
 
 
-def resolve_query_metadata(ctx: OperationEnv, sql: str):
-    with ctx.operation("resolve_query_metadata"):
+def resolve_query_metadata(op_env: OperationEnv, sql: str):
+    with op_env.operation("resolve_query_metadata"):
         expr = sqlglot.parse_one(sql)
 
-        with ctx.operation("Enumerating known tables"):
+        with op_env.operation("Enumerating known tables"):
             expr_tables = list(expr.find_all(sge.Table))
             known_tables: dict[str, TableModel] = {}
             for tbl in expr_tables:
-                tbl_meta = try_describe_table(ctx, tbl.name)
+                tbl_meta = try_describe_table(op_env, tbl.name)
                 if tbl_meta:
                     known_tables[tbl_meta.name] = tbl_meta
 
@@ -320,7 +320,7 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
         for e in expr.expressions:
 
             columns_meta = resolve_column_metadata(
-                ctx, e, known_tables=known_tables, tbl_exprs=expr_tables
+                op_env, e, known_tables=known_tables, tbl_exprs=expr_tables
             )
 
             columns.extend(columns_meta)
