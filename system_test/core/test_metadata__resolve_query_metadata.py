@@ -19,6 +19,18 @@ def test__SELECT_star_FROM_users(db_backend: BackendService):
 
 
 @pytest.mark.core
+def test__SELECT_star_FROM_users_u(db_backend: BackendService):
+    # Given
+    op_env = OperationEnv(db_backend.connection)
+
+    # When
+    resolved = metadata.resolve_query_metadata(op_env, "SELECT * FROM users u")
+
+    # Then
+    assert resolved == {"columns": nexartrade__users_columns(db_backend.get_name())}
+
+
+@pytest.mark.core
 def test__SELECT_id_username_FROM_users(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)

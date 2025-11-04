@@ -14,6 +14,7 @@ from sqlalchemy.schema import CreateTable
 from sqlalchemy.exc import NoSuchTableError
 import sqlglot
 from sqlglot import expressions as sge
+import sqlglot.expressions as exp
 
 from .openv import OperationEnv
 
@@ -213,6 +214,24 @@ def try_describe_table(
         return None
 
 
+class ColumnMeta:
+    def __init__(self, e):
+        self.expr = e
+        self.name = e.alias_or_name
+        self.table: str | None = getattr(e, "table", None)
+        self.column: str | None = getattr(e, "name", None)
+        self.constraints = []
+        self.table_model: TableModel | None = None
+
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "table": self.table,
+            "column": self.column,
+            "constraints": self.constraints,
+        }
+
+
 def resolve_query_metadata(ctx: OperationEnv, sql: str):
     with ctx.operation("resolve_query_metadata"):
         expr = sqlglot.parse_one(sql)
@@ -236,32 +255,29 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
         for e in expr.expressions:
 
             with ctx.operation("inspect expression"):
-                name = e.alias_or_name
-                table: str | None = getattr(e, "table", None)
-                column: str | None = getattr(e, "name", None)
-                constraints = []
-                table_model: TableModel | None = (
-                    known_tables.get(table.casefold(), None)
-                    if table is not None
-                    else None
-                )
+
+                colmeta = ColumnMeta(e)
+                if colmeta.table:
+                    colmeta.table_model = known_tables.get(
+                        colmeta.table.casefold(), None
+                    )
 
                 if e.alias:
                     if e.this:
                         if e.this.__class__.__name__ == "Column":
-                            column = str(e.this.name)
+                            colmeta.column = str(e.this.name)
 
                 if isinstance(e, sge.Star):
-                    if table is None and len(expr_tables) == 1:
+                    if colmeta.table is None and len(expr_tables) == 1:
                         for tbl in expr_tables:
                             tbl_name = tbl.name
-                            table_model = known_tables.get(tbl.sql())
+                            table_model = known_tables.get(tbl.name)
                             if table_model:
                                 for c in table_model.columns:
                                     columns.append(
                                         {
                                             "name": c.name,
-                                            "table": tbl.sql(),
+                                            "table": tbl.name,
                                             "column": c.name,
                                             "constraints": table_model.get_constraints_for_column(
                                                 c.name
@@ -280,28 +296,27 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
                     )
                     continue
 
-                if column is not None and (table is None or table == ""):
+                if colmeta.column is not None and (
+                    colmeta.table is None or colmeta.table == ""
+                ):
                     for tbl_name, tbl_model in known_tables.items():
                         if tbl_model:
                             for c in tbl_model.columns:
-                                if c.name.lower() == column.lower():
-                                    table = tbl_name
-                                    table_model = tbl_model
+                                if c.name.lower() == colmeta.column.lower():
+                                    colmeta.table = tbl_name
+                                    colmeta.table_model = tbl_model
                                     break
-                        if table:
+                        if colmeta.table:
                             break
 
-                if table_model and column:
-                    constraints = table_model.get_constraints_for_column(column)
+                if colmeta.table_model and colmeta.column:
+                    colmeta.constraints = (
+                        colmeta.table_model.get_constraints_for_column(
+                            colmeta.column
+                        )
+                    )
 
-                columns.append(
-                    {
-                        "name": name,
-                        "table": table,
-                        "column": column,
-                        "constraints": constraints,
-                    }
-                )
+                columns.append(colmeta.to_dict())
 
         columns = [
             (
