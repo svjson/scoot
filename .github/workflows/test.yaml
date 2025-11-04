@@ -5,6 +5,9 @@ on:
   push:
   pull_request:
 
+env:
+  SCOOT_WAIT_TIMEOUT: 300
+
 jobs:
 
   # Core tests

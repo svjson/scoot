@@ -6,7 +6,10 @@ from functools import wraps
 from system_test.db.log import log
 
 
-def wait_and_retry(max_attempts=30, wait_interval: float = 0.5):
+def wait_and_retry(
+    max_attempts=int(os.getenv("SCOOT_WAIT_TIMEOUT", 30)),
+    wait_interval: float = 0.5,
+):
 
     def func_wrapper(func):
         @wraps(func)
