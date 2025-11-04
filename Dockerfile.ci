@@ -3,9 +3,21 @@ FROM ubuntu:24.04
 # Install core tools
 RUN apt-get update && \
     apt-get install -y \
-    python3 python3-venv python3-pip make bash emacs-nox docker-cli git && \
+    python3 python3-venv python3-pip python3-dev libpq-dev gcc make bash \
+    emacs-nox docker-cli git wget unzip && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     rm -rf /var/lib/apt/lists/*
+
+# Install Oracle Instant Client
+RUN wget http://ftp.us.debian.org/debian/pool/main/liba/libaio/libaio1_0.3.113-4_amd64.deb && \
+    apt-get install -y ./libaio1_0.3.113-4_amd64.deb && \
+    rm libaio1_0.3.113-4_amd64.deb && \
+    wget https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linuxx64.zip -O /tmp/instantclient.zip && \
+    mkdir -p /opt/oracle && \
+    unzip /tmp/instantclient.zip -d /opt/oracle && \
+    rm /tmp/instantclient.zip && \
+    echo "/opt/oracle/$(ls /opt/oracle/ | grep inst)" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
+    ldconfig
 
 # Set up workdir
 WORKDIR /workspace
