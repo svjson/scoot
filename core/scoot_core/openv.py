@@ -9,7 +9,7 @@ class OperationEnv:
         self, connection: Connection, cache: dict[str, Cache] | None = None
     ):
         self.connection = connection
-        self.cache = cache or {}
+        self.cache = cache if cache is not None else {}
         pass
 
     def get_dialect(self) -> str:

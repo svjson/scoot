@@ -93,6 +93,7 @@ def get_cache(ctx, conn) -> dict[str, Cache]:
     if not conn_cache:
         conn_cache = {}
         ctx_cache[conn] = conn_cache
+
     return conn_cache
 
 
@@ -118,17 +119,16 @@ def get_connection(ctx, conn):
 
 def with_op_env(func):
     @wraps(func)
-    def wrapper(ctx, conn, *args, **kwargs):
+    def wrapper(ctx: str, conn: str, *args, **kwargs):
         connection = get_connection(ctx, conn)
         req_env = RequestContext(request.path)
         cache = get_cache(ctx, conn)
-        g.reqctx = ctx
         op_env = ServerOperation(req_env, connection, cache)
         try:
             result = func(op_env=op_env, *args, **kwargs)
         finally:
-            op_env.ctx.root_span.stop()
-            lines = op_env.ctx.format_tree()
+            op_env.end_operations()
+            lines = op_env.reqenv.format_tree()
             current_app.logger.info("\n".join(lines))
         return result
 

@@ -77,10 +77,19 @@ class _Span(Operation):
 class ServerOperation(OperationEnv):
 
     def __init__(
-        self, ctx: RequestContext, connection: Connection, cache: dict[str, Cache]
+        self,
+        reqenv: RequestContext,
+        connection: Connection,
+        cache: dict[str, Cache],
     ):
         super().__init__(connection, cache)
-        self.ctx = ctx
+        self.reqenv = reqenv
 
     def operation(self, name):
-        return self.ctx.span(name)
+        return self.reqenv.span(name)
+
+    def end_operations(self):
+        self.reqenv.root_span.stop()
+
+    def format_operation_metrics(self) -> list[str]:
+        return self.reqenv.format_tree()

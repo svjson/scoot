@@ -12,7 +12,7 @@ test: test-system
 
 test-core:
 	@echo "Running Core Tests..."
-	@.venv/bin/pytest core || exit 1
+	@.venv/bin/pytest core --core || exit 1
 
 test-emacs:
 	@echo "Running Emacs Integration Tests for backend: ${BACKEND}"
