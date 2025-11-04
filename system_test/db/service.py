@@ -1,5 +1,5 @@
 from typing import Union, Optional
-
+import threading
 import docker
 from docker.models.containers import Container
 import sqlalchemy
@@ -57,7 +57,7 @@ class BackendService:
 
 def start_service(backend_name: str) -> BackendService:
     if not backend_name:
-        raise ValueError(f"No backend specified.")
+        raise ValueError("No backend specified.")
 
     backend_config = BACKENDS.get(backend_name)
     if not backend_config:
@@ -71,6 +71,11 @@ def start_service(backend_name: str) -> BackendService:
         container = start_container(backend_config, container_name)
         wait_for_container(container)
         connection = wait_for_service(backend_config)
+
+        if connection is None:
+            raise TimeoutError(
+                f"Service '{backend_name}' did not start within the time out limit."
+            )
 
         return BackendService(backend_config, container, connection)
     except Exception as e:
@@ -103,21 +108,37 @@ def cleanup_existing_container(container_name: str) -> None:
                 log.error(f"Error while removing container {container_name}: {e}")
 
 
+def stream_container_logs(container, prefix=None):
+    def _stream():
+        for line in container.logs(stream=True, follow=True):
+            msg = line.decode("utf-8", errors="replace").rstrip()
+            if prefix:
+                log.info(f"[{prefix}] {msg}")
+            else:
+                log.info(msg)
+
+    thread = threading.Thread(target=_stream, daemon=True)
+    thread.start()
+    return thread
+
+
 def start_container(backend_config: dict, container_name: str):
     """Start the Docker container according to the test backend specified
     in backend_config."""
     log.info(f"Starting container: {container_name}")
-    return client.containers.run(
+    container = client.containers.run(
         image=backend_config["image"],
         name=container_name,
         ports={f"{backend_config["target_port"]}/tcp": backend_config["port"]},
         detach=True,
         environment=backend_config["env"],
     )
+    stream_container_logs(container, container_name)
+    return container
 
 
 @wait_and_retry(wait_interval=0.5)
-def wait_for_container(container) -> bool:
+def wait_for_container(container: Container) -> bool:
     """Wait for a started container to reach the "running" state."""
 
     log.info("Waiting for container to enter state 'running'...")
