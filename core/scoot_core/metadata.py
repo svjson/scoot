@@ -256,6 +256,10 @@ def resolve_column_metadata(
                 if e.this.__class__.__name__ == "Column":
                     colmeta.column = str(e.this.name)
 
+        if tbl_prefix := getattr(e, "table", None):
+            colmeta.table = tbl_prefix
+            colmeta.name = e.sql()
+
         if isinstance(e, sge.Star):
             columns = []
             if colmeta.table is None and len(tbl_exprs) == 1:
@@ -329,7 +333,7 @@ def resolve_query_metadata(op_env: OperationEnv, sql: str):
             (
                 (
                     (
-                        (c | col.to_dict() if isinstance(col, ColumnModel) else c)
+                        (col.to_dict() | c if isinstance(col, ColumnModel) else c)
                         if (col := table_model.get_column(c.get("column")))
                         else c
                     )

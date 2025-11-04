@@ -38,7 +38,7 @@ class ColumnModel:
         }
 
 
-NULL_COLUMN = ColumnModel.__new__(ColumnModel)
+NULL_COLUMN = ColumnModel("", None, True, False)
 
 
 class TableModel:
