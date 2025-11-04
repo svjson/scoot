@@ -221,13 +221,20 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
             expr_tables = list(expr.find_all(sge.Table))
             known_tables: dict[str, TableModel] = {}
             for tbl in expr_tables:
-                tbl_meta = try_describe_table(ctx, tbl.sql())
+                tbl_meta = try_describe_table(ctx, tbl.name)
                 if tbl_meta:
-                    known_tables[str(tbl.sql())] = tbl_meta
+                    known_tables[tbl_meta.name] = tbl_meta
 
         columns = []
 
+        def is_anonymous(e) -> bool:
+            """Return True if the expression is an anonymous (generic) function call,
+            e.g. COUNT(*), MAX(x), LOWER(name), etc.
+            """
+            return isinstance(e, (exp.Anonymous, exp.Func))
+
         for e in expr.expressions:
+
             with ctx.operation("inspect expression"):
                 name = e.alias_or_name
                 table: str | None = getattr(e, "table", None)
@@ -261,6 +268,16 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
                                             ),
                                         }
                                     )
+                    continue
+                elif is_anonymous(e):
+                    columns.append(
+                        {
+                            "name": str(e),
+                            "table": None,
+                            "column": None,
+                            "constraints": [],
+                        }
+                    )
                     continue
 
                 if column is not None and (table is None or table == ""):

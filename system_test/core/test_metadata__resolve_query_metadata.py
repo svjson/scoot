@@ -34,3 +34,37 @@ def test__SELECT_id_username_FROM_users(db_backend: BackendService):
             db_backend.get_name(), ["id", "username"]
         )
     }
+
+
+@pytest.mark.core
+def test__SELECT_COUNT_FROM_users(db_backend: BackendService):
+    # Given
+    op_env = OperationEnv(db_backend.connection)
+
+    # When
+    resolved = metadata.resolve_query_metadata(op_env, "SELECT COUNT(*) FROM users")
+
+    # Then
+    assert resolved == {
+        "columns": [
+            {"name": "COUNT(*)", "constraints": [], "column": None, "table": None}
+        ]
+    }
+
+
+@pytest.mark.core
+def test__SELECT_id__username_FROM_users_u(db_backend: BackendService):
+    # Given
+    op_env = OperationEnv(db_backend.connection)
+
+    # When
+    resolved = metadata.resolve_query_metadata(
+        op_env, "SELECT id, username FROM users u"
+    )
+
+    # Then
+    assert resolved == {
+        "columns": nexartrade__users_columns(
+            db_backend.get_name(), ["id", "username"]
+        )
+    }
