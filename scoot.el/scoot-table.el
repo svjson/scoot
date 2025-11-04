@@ -628,6 +628,16 @@ CELL is the cell summary of the cell under edit."
     (kill-new result)
     (message result)))
 
+(defun scoot-table--kill-ring-save-cell-value ()
+  "Save a comma-separated list of the values of column at point to kill ring."
+  (interactive)
+  (let* ((cell (scoot-table--cell-at-point))
+         (formatter (plist-get cell :formatter))
+         (result (scoot--format-literal formatter (plist-get cell :value))))
+    (kill-new result)
+    (message result)))
+
+
 
 
 ;; Row/Table mark actions
@@ -686,6 +696,7 @@ CELL is the cell summary of the cell under edit."
     (define-key map (kbd "<deletechar>") 'scoot-table--toggle-mark-delete)
     (define-key map (kbd "C-c w c") 'scoot-table--kill-ring-save-column-values)
     (define-key map (kbd "C-c w r") 'scoot-table--kill-ring-save-row-values)
+    (define-key map (kbd "C-c w .") 'scoot-table--kill-ring-save-cell-value)
     map))
 
 (define-minor-mode scoot-table-mode
