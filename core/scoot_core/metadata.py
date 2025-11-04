@@ -232,6 +232,77 @@ class ColumnMeta:
         }
 
 
+def is_anonymous(e) -> bool:
+    """Return True if the expression is an anonymous (generic) function call,
+    e.g. COUNT(*), MAX(x), LOWER(name), etc.
+    """
+    return isinstance(e, (exp.Anonymous, exp.Func))
+
+
+def resolve_column_metadata(
+    ctx: OperationEnv,
+    e: exp.Expression,
+    known_tables: dict[str, TableModel],
+    tbl_exprs,
+) -> list[dict]:
+    with ctx.operation("inspect expression"):
+
+        colmeta = ColumnMeta(e)
+        if colmeta.table:
+            colmeta.table_model = known_tables.get(colmeta.table.casefold(), None)
+
+        if e.alias:
+            if e.this:
+                if e.this.__class__.__name__ == "Column":
+                    colmeta.column = str(e.this.name)
+
+        if isinstance(e, sge.Star):
+            columns = []
+            if colmeta.table is None and len(tbl_exprs) == 1:
+                for tbl in tbl_exprs:
+                    tbl_name = tbl.name
+                    table_model = known_tables.get(tbl.name)
+                    if table_model:
+                        for c in table_model.columns:
+                            columns.append(
+                                {
+                                    "name": c.name,
+                                    "table": tbl.name,
+                                    "column": c.name,
+                                    "constraints": table_model.get_constraints_for_column(
+                                        c.name
+                                    ),
+                                }
+                            )
+            return columns
+        elif is_anonymous(e):
+            columns = []
+            columns.append(
+                {"name": str(e), "table": None, "column": None, "constraints": []}
+            )
+            return columns
+
+        if colmeta.column is not None and (
+            colmeta.table is None or colmeta.table == ""
+        ):
+            for tbl_name, tbl_model in known_tables.items():
+                if tbl_model:
+                    for c in tbl_model.columns:
+                        if c.name.lower() == colmeta.column.lower():
+                            colmeta.table = tbl_name
+                            colmeta.table_model = tbl_model
+                            break
+                if colmeta.table:
+                    break
+
+        if colmeta.table_model and colmeta.column:
+            colmeta.constraints = colmeta.table_model.get_constraints_for_column(
+                colmeta.column
+            )
+
+        return [colmeta.to_dict()]
+
+
 def resolve_query_metadata(ctx: OperationEnv, sql: str):
     with ctx.operation("resolve_query_metadata"):
         expr = sqlglot.parse_one(sql)
@@ -246,77 +317,13 @@ def resolve_query_metadata(ctx: OperationEnv, sql: str):
 
         columns = []
 
-        def is_anonymous(e) -> bool:
-            """Return True if the expression is an anonymous (generic) function call,
-            e.g. COUNT(*), MAX(x), LOWER(name), etc.
-            """
-            return isinstance(e, (exp.Anonymous, exp.Func))
-
         for e in expr.expressions:
 
-            with ctx.operation("inspect expression"):
+            columns_meta = resolve_column_metadata(
+                ctx, e, known_tables=known_tables, tbl_exprs=expr_tables
+            )
 
-                colmeta = ColumnMeta(e)
-                if colmeta.table:
-                    colmeta.table_model = known_tables.get(
-                        colmeta.table.casefold(), None
-                    )
-
-                if e.alias:
-                    if e.this:
-                        if e.this.__class__.__name__ == "Column":
-                            colmeta.column = str(e.this.name)
-
-                if isinstance(e, sge.Star):
-                    if colmeta.table is None and len(expr_tables) == 1:
-                        for tbl in expr_tables:
-                            tbl_name = tbl.name
-                            table_model = known_tables.get(tbl.name)
-                            if table_model:
-                                for c in table_model.columns:
-                                    columns.append(
-                                        {
-                                            "name": c.name,
-                                            "table": tbl.name,
-                                            "column": c.name,
-                                            "constraints": table_model.get_constraints_for_column(
-                                                c.name
-                                            ),
-                                        }
-                                    )
-                    continue
-                elif is_anonymous(e):
-                    columns.append(
-                        {
-                            "name": str(e),
-                            "table": None,
-                            "column": None,
-                            "constraints": [],
-                        }
-                    )
-                    continue
-
-                if colmeta.column is not None and (
-                    colmeta.table is None or colmeta.table == ""
-                ):
-                    for tbl_name, tbl_model in known_tables.items():
-                        if tbl_model:
-                            for c in tbl_model.columns:
-                                if c.name.lower() == colmeta.column.lower():
-                                    colmeta.table = tbl_name
-                                    colmeta.table_model = tbl_model
-                                    break
-                        if colmeta.table:
-                            break
-
-                if colmeta.table_model and colmeta.column:
-                    colmeta.constraints = (
-                        colmeta.table_model.get_constraints_for_column(
-                            colmeta.column
-                        )
-                    )
-
-                columns.append(colmeta.to_dict())
+            columns.extend(columns_meta)
 
         columns = [
             (
