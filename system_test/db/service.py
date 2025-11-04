@@ -133,7 +133,6 @@ def start_container(backend_config: dict, container_name: str):
         detach=True,
         environment=backend_config["env"],
     )
-    stream_container_logs(container, container_name)
     return container
 
 

@@ -6,7 +6,7 @@ on:
   pull_request:
 
 env:
-  SCOOT_WAIT_TIMEOUT: 300
+  SCOOT_WAIT_TIMEOUT: 80
 
 jobs:
 
