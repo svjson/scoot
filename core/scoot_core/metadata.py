@@ -138,11 +138,15 @@ def get_identifier_name(identifier):
     )
 
 
-def parse_table_name(table_name) -> tuple[Optional[str], Optional[str], str]:
+def parse_table_name(
+    table_name, dialect_name
+) -> tuple[Optional[str], Optional[str], str]:
     """
     Parses a fully qualified table name using sqlglot.
     """
-    expr = sqlglot.parse_one(f"SELECT * FROM {table_name}")
+    expr = sqlglot.parse_one(
+        f"SELECT * FROM {table_name}", read=sqlglot_dialect(dialect_name)
+    )
     table_expr = expr.find(sge.Table)
 
     if not table_expr:
@@ -172,7 +176,9 @@ def describe_table(op_env: OperationEnv, table_expression: str) -> TableModel:
         schema_name = None
 
         try:
-            _, schema_name, table_name = parse_table_name(table_expression)
+            _, schema_name, table_name = parse_table_name(
+                table_expression, dialect_name=conn.get_dialect()
+            )
 
             if not table_name:
                 raise ScootQueryException(
@@ -309,7 +315,7 @@ def resolve_column_metadata(
 
 def resolve_query_metadata(op_env: OperationEnv, sql: str):
     with op_env.operation("resolve_query_metadata"):
-        expr = sqlglot.parse_one(sql)
+        expr = sqlglot.parse_one(sql, read=sqlglot_dialect(op_env.get_dialect()))
 
         with op_env.operation("Enumerating known tables"):
             expr_tables = list(expr.find_all(sge.Table))
