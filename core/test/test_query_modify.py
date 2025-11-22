@@ -1,9 +1,11 @@
+from scoot_core.openv import OperationEnv
 from scoot_core.query import SQLQueryModifier
 from scoot_core.model import TableModel, ColumnModel
 from unittest.mock import patch
 
-from .table_model_fixture import INTEGER, VARCHAR, DATETIME, BOOLEAN
+from test.dialect import dialect_expected
 
+from .table_model_fixture import INTEGER, VARCHAR, DATETIME, BOOLEAN
 
 users_table = TableModel(
     "users",
@@ -20,12 +22,11 @@ users_table = TableModel(
 )
 
 
-def test_remove_column__single_table__no_alias():
-
+def test_remove_column__single_table__no_alias(dialect_op_env: OperationEnv):
     # Given
     query_mod = SQLQueryModifier(
         "SELECT id, email, password_hash, created_at FROM nexartrade_staging.users",
-        None,
+        dialect_op_env,
     )
 
     # When
@@ -38,29 +39,36 @@ def test_remove_column__single_table__no_alias():
     )
 
 
-def test_remove_column__single_table__aliased_table():
+def test_remove_column__single_table__aliased_table(dialect_op_env: OperationEnv):
 
     # Given
     query_mod = SQLQueryModifier(
         "SELECT u.id, u.email, u.password_hash, u.created_at FROM nexartrade_staging.users AS u",
-        None,
+        dialect_op_env,
     )
 
     # When
     query_mod.remove_from_select([{"name": "password_hash"}])
 
     # Then
-    assert (
-        query_mod.get_sql()
-        == "SELECT u.id, u.email, u.created_at FROM nexartrade_staging.users AS u"
+    expected = dialect_expected(
+        {
+            "default": "SELECT u.id, u.email, u.created_at FROM nexartrade_staging.users AS u",
+            "oracle": "SELECT u.id, u.email, u.created_at FROM nexartrade_staging.users u",
+        },
+        dialect_op_env.get_dialect(),
     )
+    assert query_mod.get_sql() == expected
 
 
 @patch("scoot_core.query.try_describe_table", return_value=users_table)
-def test_remove_column__single_table__deconstruct_star(_):
-
+def test_remove_column__single_table__deconstruct_star(
+    _, dialect_op_env: OperationEnv
+):
     # Given
-    query_mod = SQLQueryModifier("SELECT * FROM nexartrade_staging.users", None)
+    query_mod = SQLQueryModifier(
+        "SELECT * FROM nexartrade_staging.users", dialect_op_env
+    )
 
     # When
     query_mod.remove_from_select([{"name": "password_hash"}])
@@ -73,18 +81,23 @@ def test_remove_column__single_table__deconstruct_star(_):
 
 
 @patch("scoot_core.query.try_describe_table", return_value=users_table)
-def test_remove_column__single_aliased_table__deconstruct_star(_):
-
+def test_remove_column__single_aliased_table__deconstruct_star(
+    _, dialect_op_env: OperationEnv
+):
     # Given
     query_mod = SQLQueryModifier(
-        "SELECT * FROM nexartrade_staging.users AS u", None
+        "SELECT * FROM nexartrade_staging.users AS u", dialect_op_env
     )
 
     # When
     query_mod.remove_from_select([{"name": "password_hash"}])
 
     # Then
-    assert (
-        query_mod.get_sql()
-        == "SELECT u.id, u.username, u.email, u.created_at, u.last_login, u.is_active FROM nexartrade_staging.users AS u"
+    expected = dialect_expected(
+        {
+            "default": "SELECT u.id, u.username, u.email, u.created_at, u.last_login, u.is_active FROM nexartrade_staging.users AS u",
+            "oracle": "SELECT u.id, u.username, u.email, u.created_at, u.last_login, u.is_active FROM nexartrade_staging.users u",
+        },
+        dialect_op_env.get_dialect(),
     )
+    assert query_mod.get_sql() == expected
