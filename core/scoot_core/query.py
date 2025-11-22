@@ -1,3 +1,4 @@
+from scoot_core.dialect import sqlglot_dialect
 from .openv import OperationEnv
 from .metadata import try_describe_table
 from .model import ResultSet, TableModel
@@ -6,9 +7,9 @@ from sqlglot import parse_one, exp
 
 
 class SQLQueryModifier:
-    def __init__(self, sql, ctx):
-        self.ast = parse_one(sql)
-        self.ctx = ctx
+    def __init__(self, sql: str, op_env: OperationEnv):
+        self.ast = parse_one(sql, read=sqlglot_dialect(op_env.get_dialect()))
+        self.op_env = op_env
         self._tbl_expr_meta: dict[str, TableModel] = {}
         self._identify_items()
 
@@ -213,14 +214,14 @@ class SQLQueryModifier:
             tables.append(from_value)
 
         for tbl_expr in tables:
-            tbl_meta = try_describe_table(self.ctx, tbl_expr.sql())
+            tbl_meta = try_describe_table(self.op_env, tbl_expr.sql())
             if tbl_meta:
                 self._tbl_expr_meta[tbl_meta.name] = tbl_meta
 
         return self._tbl_expr_meta
 
     def get_sql(self):
-        return self.ast.sql()
+        return self.ast.sql(dialect=sqlglot_dialect(self.op_env.get_dialect()))
 
 
 def modify(ctx: OperationEnv, sql: str, action_instr: dict) -> ResultSet:
@@ -228,7 +229,7 @@ def modify(ctx: OperationEnv, sql: str, action_instr: dict) -> ResultSet:
     operation = action_instr.get("operation")
     conditions = action_instr.get("conditions", [])
 
-    query_mod = SQLQueryModifier(sql, ctx.connection)
+    query_mod = SQLQueryModifier(sql, ctx)
 
     if target == "WHERE":
         for cond in conditions:
