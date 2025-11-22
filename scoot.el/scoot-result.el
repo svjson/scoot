@@ -451,6 +451,37 @@ Additional keys for type object:
         (display-buffer buf))
       buf)))
 
+(defun scoot-result--list-objects-in-result-buffer (object-type title)
+  "Interactively list objects visible to user of the current connection.
+
+Valid object types are:
+\\='databases
+\\='schemas
+\\='tables
+
+This will open the resulting list of objects of OBJECT-TYPE in a result
+buffer with the provided TITLE.
+
+OBJECT-TYPE is the type of the object to list.
+CONNECTION (Optional)"
+  (let ((connection (scoot--interactive-resolve-connection)))
+    (scoot--list-objects object-type
+                         title
+                         connection
+                         (lambda (object-result)
+                           (scoot-result--open-result-buffer
+                            (list :type 'objects
+                                  :object-type object-type
+                                  :result
+                                  `((columns . [,title])
+                                    (rows . ,(mapcar #'vector
+                                                     (seq-into
+                                                      (alist-get object-type object-result)
+                                                      'vector)))
+                                    (metadata . ((columns . [((name . ,title)
+                                                              (type . "OBJECT-NAME"))]))))
+                                  :connection connection))))))
+
 (defun scoot-result--check-cursor-position ()
   "Check cursor position and handle query block activation/deactivation."
   (if (scoot-qb--query-block-at-point-p)

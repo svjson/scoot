@@ -44,19 +44,19 @@
 (defun scoot-list-databases ()
   "List databases visible to the user of the current connection."
   (interactive)
-  (scoot--list-objects 'databases "Database Name"))
+  (scoot-result--list-objects-in-result-buffer 'databases "Database Name"))
 
 ;;;###autoload
 (defun scoot-list-schemas ()
   "List schemas visible to the user of the current connection."
   (interactive)
-  (scoot--list-objects 'schemas "Schema Name"))
+  (scoot-result--list-objects-in-result-buffer 'schemas "Schema Name"))
 
 ;;;###autoload
 (defun scoot-list-tables ()
   "List tables visible to the user of the current connection."
   (interactive)
-  (scoot--list-objects 'tables "Table Name"))
+  (scoot-result--list-objects-in-result-buffer 'tables "Table Name"))
 
 ;;;###autoload
 (defun scoot-describe-table (&optional table-name connection)

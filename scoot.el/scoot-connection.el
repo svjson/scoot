@@ -172,18 +172,22 @@ Optionally provide a default selection with CONNECTION-NAME."
                             :sort-fn #'string<
                             :annotation-fn 'scoot-connection--connection-annotation-fn)))
 
-(cl-defun scoot-connection--table-prompt (&key table-name tables &allow-other-keys)
+(cl-defun scoot-connection--table-prompt (&key table-name tables connection &allow-other-keys)
   "Prompt the user for a table name.
 
 Optionally provide a default selection with TABLE-NAME.
 
 Provide a list of valid options in TABLES for completing read action`"
-  (if tables
-      (scoot--completing-read :name "Scoot Tables"
-                              :prompt "Table: "
-                              :candidates tables
-                              :sort-fn #'string<)
-    (read-string "Table name: " nil nil table-name)))
+  (let ((tables (or tables
+                    (seq-into (alist-get 'tables (scoot--await (lambda (callback)
+                                                                 (scoot--list-objects 'tables nil callback))))
+                              'list))))
+    (if tables
+        (scoot--completing-read :name "Scoot Tables"
+                                :prompt "Table: "
+                                :candidates tables
+                                :sort-fn #'string<)
+      (read-string "Table name: " nil nil table-name))))
 
 
 ;; Response formatting

@@ -453,29 +453,23 @@ If CONTEXT-NAME is not given an attempt will be made to resolve it using
    (list :connection-name "default"
          :interactive t)))
 
-(defun scoot--list-objects (object-type title)
-  "Interactively list objects visible to the user of the current connection.
+(defun scoot--list-objects (object-type connection callback)
+  "List objects visible to the user of CONNECTION or the
+current contextually available connection.
+
+Valid object types are:
+\\='databases
+\\='schemas
+\\='tables
 
 OBJECT-TYPE is the type of the object to list.
-TITLE is the resultset header to be used."
-  (let* ((connection (scoot--interactive-resolve-connection)))
+CONNECTION (Optional)
+CALLBACK The function to call with the object result"
+  (let* ((connection (or connection (scoot--interactive-resolve-connection))))
     (scoot-connection--list-objects
      connection
      object-type
-     (lambda (object-result)
-       (scoot-result--open-result-buffer
-        (list :type 'objects
-              :object-type object-type
-              :result
-              `((columns . [,title])
-                (rows . ,(mapcar #'vector
-                                 (seq-into
-                                  (alist-get object-type object-result)
-                                  'vector)))
-                (metadata . ((columns . [((name . ,title)
-                                          (type . "OBJECT-NAME"))]))))
-              :connection connection))))))
-
+     callback)))
 
 (provide 'scoot-common)
 
