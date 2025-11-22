@@ -59,7 +59,8 @@ RESULT-CONTEXT contains the query statement, ddl data and connection used."
                             :data (list :object-type object-type
                                         :object-name object-name))
                       (list :type 'data-table
-                            :data result)
+                            :data result
+                            :editablep nil)
                       (list :type 'ddl-outline
                             :data (alist-get 'metadata result))))
 
@@ -113,9 +114,14 @@ Additional keys for type object:
 
 ;; Scoot DDL Mode - scoot-ddl-mode
 
+(defun scoot-edit-ddl ()
+  (interactive)
+  (scoot-ddl-edit-mode 1))
+
 (defvar scoot-ddl-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map scoot-buffer-mode-map)
+    (define-key map (kbd "e") #'scoot-edit-ddl)
     (define-key map (kbd "C-c s d") #'scoot-list-databases)
     (define-key map (kbd "C-c s s") #'scoot-list-schemas)
     (define-key map (kbd "C-c s t") #'scoot-list-tables)
@@ -137,7 +143,42 @@ Additional keys for type object:
 
 
 
+;; Scoot DDL Mode - scoot-ddl-mode
+
+(defvar scoot-ddl-edit-mode-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map scoot-buffer-mode-map)
+    (define-key map (kbd "C-c s d") #'scoot-list-databases)
+    (define-key map (kbd "C-c s s") #'scoot-list-schemas)
+    (define-key map (kbd "C-c s t") #'scoot-list-tables)
+    (define-key map (kbd "C-c d t") #'scoot-describe-table)
+    map)
+  "Keymap for `scoot-ddl-mode`.")
+
+(define-minor-mode scoot-ddl-edit-mode
+  "Minor mode overlay for editing table definitions."
+  :lighter " Edit"
+  :keymap scoot-ddl-edit-mode-map
+  (setq-local scoot-local--table-name-resolvers '(scoot-rs--tables-in-result
+                                                  scoot-connection--table-prompt))
+
+  (setq-local scoot-xref-action-fn 'scoot-rs--xref-action)
+  (setq-local scoot-xref-identifier-at-point-fn 'scoot-rs--xref-id-at-point)
+  (setq-local scoot-xref-completion-provider-fn 'scoot-rs--xref-completions)
+  (add-hook 'xref-backend-functions #'scoot--xref-backend nil t)
+
+  (scoot-table--ensure-row-mark-table)
+
+  (dolist (section scoot-buffer-sections)
+    (when (eq 'data-table (plist-get section :type))
+      (setf (plist-get section :editablep) t)))
+
+  (scoot-buffer-refresh))
+
+
+
 (provide 'scoot-ddl)
+
 
 
 ;;; scoot-ddl.el ends here
