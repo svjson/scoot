@@ -21,7 +21,7 @@
 ;;; Commentary:
 
 ;; This file provides a minor mode for editing textarea-like blocks of
-;; SQL code, as used by scoot-result-modeg
+;; SQL code, as used by scoot-resultset-mode
 
 ;;; Code:
 
@@ -196,11 +196,11 @@ BEG, END and LEN detail the beginning, end and length of the change."
 
 ;; Query Block Mode
 
-(declare-function scoot-result--execute-query "scoot-result")
+(declare-function scoot-rs--execute-query "scoot-resultset")
 
 (defvar scoot-query-block-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c") #'scoot-result--execute-query)
+    (define-key map (kbd "C-c") #'scoot-rs--execute-query)
     map)
   "Keymap for `scoot-query-block-mode'.")
 

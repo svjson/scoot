@@ -32,7 +32,7 @@
 ;; executing the current SQL statement (e.g., the one before point or in a
 ;; selected region), refreshing results, and managing autosave behavior.
 ;;
-;; See also `scoot-result.el` for how result sets are rendered, and
+;; See also `scoot-resultset.el` for how result sets are rendered, and
 ;; `scoot.el` for overall Scoot integration.
 
 ;;; Code:
@@ -40,7 +40,7 @@
 (require 'treesit)
 (require 'sql)
 (require 'scoot-connection)
-(require 'scoot-result)
+(require 'scoot-resultset)
 
 (defcustom scoot-scratch-directory (expand-file-name "~/.scoot/scratches/")
   "Directory to store Scoot scratch files."
@@ -240,7 +240,7 @@ and then calls CALLBACK with the resolved information."
        (scoot-connection--execute-statement
         connection
         (scoot-statement-before-point)
-        #'scoot-result--open-result-buffer)))))
+        #'scoot--open-resultset)))))
 
 (defun scoot-eval-region (beg end)
   "Evaluate all SQL statements in the selected region.
@@ -255,7 +255,7 @@ BEG and END describe the region start and end"
          (scoot-connection--execute-statement
           connection
           stmt
-          #'scoot-result--open-result-buffer))))))
+          #'scoot--open-resultset))))))
 
 (defface scoot-scratch-comment-face
   '((t :inherit font-lock-comment-face))

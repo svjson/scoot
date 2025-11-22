@@ -26,7 +26,7 @@
 
 (require 'cl-lib)
 (require 'scoot-connection)
-(require 'scoot-result)
+(require 'scoot-resultset)
 
 
 
@@ -126,7 +126,7 @@ If CONNECTION is nil, the current connection stored in
                      (functionp target-unless)
                      (funcall target-unless result))
         (pcase target-type
-          ('result-buf (scoot-result--open-result-buffer (plist-put result :buffer-name (plist-get target :name))))))
+          ('result-buf (scoot--open-resultset (plist-put result :buffer-name (plist-get target :name))))))
       result)))
 
 

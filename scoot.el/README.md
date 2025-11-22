@@ -169,9 +169,9 @@ allows you to work with multiple databases seamlessly within the same buffer.
 | `scoot-auto-enable-scratch-mode` | t                     | boolean            | Automatically enable scoot-scratch-mode in scratch buffers.            |
 | `scoot-scratch-directory`        | "~/.scoot/scratches/" | string (directory) | Directory on disk where Scoot scratch buffers are saved and read from. |
 
-## Result Mode (scoot-result-mode)
+## ResultSet Mode (scoot-resultset-mode)
 
-Result Mode in `scoot.el` displays query results and metadata as an interactive 
+Result Mode in `scoot.el` that displays query results and metadata as an interactive 
 ASCII-style table. This mode provides keybindings for quickly adding or removing 
 WHERE-clause conditions based on the values in the table.
 
@@ -190,7 +190,7 @@ arrow keys and execute commands to adjust query conditions directly from the tab
 The available commands are organized under a for adding conditions and r for removing 
 them.
 
-### Keybindings (in `scoot-result-mode`)
+### Keybindings (in `scoot-resultset-mode`)
 
 | Binding              | Context        | Action                                                                                                    |
 |----------------------|----------------|-----------------------------------------------------------------------------------------------------------|
@@ -221,22 +221,17 @@ them.
 | `r w l`              | Table cell     | Remove an existing less than or equals(<=) expression against this column/value from the WHERE-clause.    |
 | `r s`                | Table column   | Remove column from the SELECT-clause of the current statement.                                            |
 
-### Customizable variables (in `scoot-result-mode`)
+### Customizable variables (in `scoot-resultset-mode`)
 
 You can adjust the appearance and behavior of the result table using these customizable 
 variables:
 
-| Custom Variable          | Default | Type   | Description/Purpose                                 |
-|--------------------------|---------|--------|-----------------------------------------------------|
-| `scoot-primary-key-icon` | "🔑"    | string | Icon used in table headers for primary key columns. |
-| `scoot-foreign-key-icon` | "🗝️"    | string | Icon used in table headers for foreign key columns. |
-
-### Regular variables (in `scoot-result-mode`)
-
-| Variable                                     | Default                             | Type   | Description/Purpose                                                                  |
-|----------------------------------------------|-------------------------------------|--------|--------------------------------------------------------------------------------------|
-| `scoot-generate-result-buffer-name-function` | 'scoot-result--generate-buffer-name | symbol | Can be overriden to control the naming scheme for Scoot's result buffers             |
-| `scoot-result-default-buffer-name`           | "*scoot result*                     | string | Default result buffer name to use name generation fails, is disabled or returns nil. |
+| Custom Variable                                 | Default                         | Type   | Description/Purpose                                                                  |
+|-------------------------------------------------|---------------------------------|--------|--------------------------------------------------------------------------------------|
+| `scoot-primary-key-icon`                        | "🔑"                            | string | Icon used in table headers for primary key columns.                                  |
+| `scoot-foreign-key-icon`                        | "🗝️"                             | string | Icon used in table headers for foreign key columns.                                  |
+| `scoot-resultset-buffer-default-name`           | "*scoot result*                 | string | Default result buffer name to use name generation fails, is disabled or returns nil. |
+| `scoot-generate-resultset-buffer-name-function` | 'scoot-rs--generate-buffer-name | symbol | Can be overriden to control the naming scheme for Scoot's result buffers             |
 
 
 ## Commands for global use

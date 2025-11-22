@@ -65,7 +65,9 @@ active configuration of the Scoot Server."
 
 ;;;###autoload
 (defvar scoot-connections (make-hash-table :test #'equal)
-  "Table of known scoot connection names to connection strings.")
+  "Deprecated: Table of known scoot connection names to connection strings.")
+
+(make-obsolete-variable 'scoot-connections 'scoot-contexts "1.0")
 
 (defconst scoot--json-headers '(("Content-Type" . "application/json")
                                 ("Accept" . "application/json")))

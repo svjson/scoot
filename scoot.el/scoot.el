@@ -32,7 +32,7 @@
 (require 'request)
 (require 'scoot-server)
 (require 'scoot-connection)
-(require 'scoot-result)
+(require 'scoot-resultset)
 (require 'scoot-scratch)
 (require 'scoot-common)
 
@@ -44,19 +44,19 @@
 (defun scoot-list-databases ()
   "List databases visible to the user of the current connection."
   (interactive)
-  (scoot-result--list-objects-in-result-buffer 'databases "Database Name"))
+  (scoot-rs--open-object-list-resultset 'databases "Database Name"))
 
 ;;;###autoload
 (defun scoot-list-schemas ()
   "List schemas visible to the user of the current connection."
   (interactive)
-  (scoot-result--list-objects-in-result-buffer 'schemas "Schema Name"))
+  (scoot-rs--open-object-list-resultset 'schemas "Schema Name"))
 
 ;;;###autoload
 (defun scoot-list-tables ()
   "List tables visible to the user of the current connection."
   (interactive)
-  (scoot-result--list-objects-in-result-buffer 'tables "Table Name"))
+  (scoot-rs--open-object-list-resultset 'tables "Table Name"))
 
 ;;;###autoload
 (defun scoot-describe-table (&optional table-name connection)
@@ -75,7 +75,7 @@ resolved using the context of the function call, if called interactively."
                          :interactive t)))))
     (scoot-connection--describe-table conn
                                       tbl
-                                      #'scoot-result--open-result-buffer)))
+                                      #'scoot--open-resultset)))
 
 
 

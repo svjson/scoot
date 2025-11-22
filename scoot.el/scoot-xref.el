@@ -227,7 +227,7 @@ EXPRL is expected to be a list of plists."
 ;; xref backend
 
 (defun scoot--xref-backend ()
-  "Xref backend for scoot-result-mode."
+  "Xref backend for scoot."
   'scoot-modes-xref)
 
 (cl-defstruct scoot-xref-async-location

@@ -129,7 +129,7 @@ BODY is the elisp code to execute once the query buffer has been opened."
                   (scoot-connection--execute-statement
                    connection query
                    (lambda (result-context)
-                     (setq result-buf (scoot-result--open-result-buffer result-context)))))
+                     (setq result-buf (scoot--open-resultset result-context)))))
 
                 scoot-test--connection)
 

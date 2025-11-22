@@ -60,6 +60,52 @@
 
 ;; Custom faces
 
+(defface scoot-table-header-face
+  '((t :inherit bold))
+  "Face used for table headers."
+  :group 'scoot)
+
+(defface scoot-table-border-face
+  '((t :inherit shadow))
+  "Face used for resultset table borders."
+  :group 'scoot)
+
+(defface scoot-cell-null-face
+  '((t :inherit font-lock-comment-face))
+  "Face used for null values in result set cells."
+  :group 'scoot)
+
+(defface scoot-cell-generic-face
+  '((t :inherit default))
+  "Face used for default-formatted value type cells."
+  :group 'scoot)
+
+(defface scoot-cell-string-face
+  '((t :inherit font-lock-string-face))
+  "Face used for string values in result set cells."
+  :group 'scoot)
+
+(defface scoot-cell-number-face
+  '((t :inherit font-lock-number-face))
+  "Face used for numeric values in result set cells."
+  :group 'scoot)
+
+(defface scoot-cell-boolean-true-face
+  '((t :inherit font-lock-keyword-face))
+  "Face used for string values in result set cells."
+  :group 'scoot)
+
+(defface scoot-cell-boolean-false-face
+  '((t :inherit font-lock-operator-face))
+  "Face used for string values in result set cells."
+  :group 'scoot)
+
+(defface scoot-cell-temporal-face
+  '((t :inherit font-lock-constant-face))
+  "Face used for temportal values (dates, datetime, timestamps, dateoffsets, etc)
+values in result set cells."
+  :group 'scoot)
+
 (defface scoot-table-active-cell-face
   '((t :inherit region))
   "Face used to highlight the currently active table cell."
@@ -101,7 +147,7 @@
                                 name))
         :output-cell (lambda (_ formatted-value)
                        (insert (propertize formatted-value
-                                           'face 'scoot-header-face)))))
+                                           'face 'scoot-table-header-face)))))
 
 
 
@@ -232,7 +278,7 @@ has stored an :original-value property."
   (cl-mapc (lambda (header width)
              (insert (propertize "| "
                                  'thing 'table-border
-                                 'face 'scoot-table-face))
+                                 'face 'scoot-table-border-face))
              (let* ((header-begin (1- (point)))
                     (align (plist-get scoot-formatter-header :align))
                     (name (plist-get header :name))
@@ -256,7 +302,7 @@ has stored an :original-value property."
            (plist-get scoot-table--table-model :widths))
   (insert (propertize "|"
                       'thing 'table-border
-                      'face 'scoot-table-face))
+                      'face 'scoot-table-border-face))
   (insert "\n")
 
   (scoot-table--insert-divider-row))
@@ -315,7 +361,7 @@ COLUMN-INDEX - The column index."
                  "|"
                  'thing 'table-border
                  'table-row (list :record record)
-                 'face 'scoot-table-face)))
+                 'face 'scoot-table-border-face)))
     (cl-loop for header in (plist-get scoot-table--table-model :headers)
              for cell in record
              for width in (plist-get scoot-table--table-model :widths)
@@ -340,7 +386,7 @@ COLUMN-INDEX - The column index."
                               "-+-")
                    "-+\n")
            'thing 'table-border
-           'face 'scoot-table-face)))
+           'face 'scoot-table-border-face)))
 
 (defun scoot-table--insert-table (result-data)
   "Insert the RESULT-DATA table into the buffer."

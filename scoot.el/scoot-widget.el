@@ -80,7 +80,7 @@ take the padding and property rules of the display buffer into consideration.
 
 The buffer is assigned to a presumably buffer-local variable of the
 buffer from which this function was invoked, chosen by the WIDGET-TYPE
-widget implementation, which should typically be `scoot-result-mode`
+widget implementation, which should typically be `scoot-resultset-mode`
 buffer."
   (let ((parent-buf (current-buffer))
         (shadow-buffer (scoot-widget--get-shadow-buffer widget-type widget-name)))

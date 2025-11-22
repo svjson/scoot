@@ -85,7 +85,7 @@ See `scoot-local--context-name-resolvers`")
 
 (defvar scoot-connections)
 (declare-function scoot-connection--list-objects "scoot-connection")
-(declare-function scoot-result--open-result-buffer "scoot-result")
+(declare-function scoot--open-resultet "scoot-resultset")
 (declare-function helm-build-sync-source nil)
 (declare-function helm nil)
 
