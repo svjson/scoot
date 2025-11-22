@@ -372,7 +372,8 @@ font-lock properties."
                                            _stmt
                                            type
                                            object-type
-                                           object-name)
+                                           object-name
+                                           override)
   "Generate a buffer named based on the result to show.
 
 CONNECTION is the connection used to retrieve the result.
@@ -380,15 +381,18 @@ RESULT is the result to show in the buffer.
 STMT is the SQL statement that produced the result.
 TYPE is the type of result (query/objects/object).
 OBJECT-TYPE is the type of object (table/schema/database).
-OBJECT-NAME is the name of the object described."
+OBJECT-NAME is the name of the object described.
+OVERRIDE can be used to bypass other generation rules"
   (concat (format "*scoot(%s)" (plist-get connection :name))
-          (pcase type
-            ('query ": query")
-            ('object (concat " "
-                             (scoot--object-type-name object-type)
-                             ": "
-                             object-name))
-            ('objects (concat ": " (scoot--object-type-name object-type t))))
+          (if override
+              (format ": %s" override)
+            (pcase type
+              ('query ": query")
+              ('object (concat " "
+                               (scoot--object-type-name object-type)
+                               ": "
+                               object-name))
+              ('objects (concat ": " (scoot--object-type-name object-type t)))))
           "*"))
 
 (defun scoot-result--open-result-buffer (result-context)
@@ -398,6 +402,7 @@ RESULT-CONTEXT is expected to be a plist, with the following possible keys:
 :result - contains the headers, rows and metadata of the result.
 :connection - describes the connection used to retrieve this result.
 :type - the type of result (query/objects/object).
+:buffer-name - Optional name/identity of the result buffer.
 
 Additional keys for type query:
 :statement - The SQL statement that produced the result.
@@ -412,12 +417,13 @@ Additional keys for type object:
         (stmt (plist-get result-context :statement))
         (type (plist-get result-context :type))
         (object-type (plist-get result-context :object-type))
-        (object-name (plist-get result-context :object-name)))
+        (object-name (plist-get result-context :object-name))
+        (buf-name-override (plist-get result-context :buffer-name)))
     (let* ((buf-name (cond ((null scoot-generate-result-buffer-name-function) scoot-result-buffer-default-name)
                            ((symbolp scoot-generate-result-buffer-name-function)
                             (let ((gen-fn (symbol-function scoot-generate-result-buffer-name-function)))
                               (if (functionp gen-fn)
-                                  (funcall gen-fn connection result stmt type object-type object-name)
+                                  (funcall gen-fn connection result stmt type object-type object-name buf-name-override)
                                 scoot-result-buffer-default-name)))
                            (t scoot-result-buffer-default-name)))
            (buf (get-buffer-create (or buf-name scoot-result--buffer-default-name))))
