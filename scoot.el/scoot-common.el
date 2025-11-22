@@ -280,6 +280,22 @@ unless optionally overriden by VAR-NAME."
 
 ;; Elisp function utilities
 
+(defun scoot--await (fn)
+  "Run FN, which must accept a callback argument, and wait for the callback.
+Returns the callback’s value.
+
+Example:
+  (scoot-await (lambda (cb) (my-async-op cb)))."
+  (let ((done nil)
+        (result nil))
+    (funcall fn
+             (lambda (value)
+               (setq result value
+                     done t)))
+    (while (not done)
+      (accept-process-output nil 0.05))
+    result))
+
 (cl-defun scoot--resolve-fn (&key fn-obj fallback-fn)
   "Helper-function that resolves a function reference.
 

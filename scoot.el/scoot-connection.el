@@ -145,7 +145,10 @@ Checks if CONNECTION-NAME is known within the CONTEXT-NAME context."
   "Prompt the user for a context name.
 
 Optionally provide a default selection with CONTEXT-NAME."
-  (let* ((names (hash-table-keys scoot-contexts)))
+  (let* ((names (progn
+                  (when (hash-table-empty-p scoot-contexts)
+                    (scoot--await #'scoot-connection--fetch-contexts))
+                  (hash-table-keys scoot-contexts))))
     (scoot--completing-read :name "Scoot Contexts"
                             :prompt "Context: "
                             :candidates names
