@@ -307,7 +307,7 @@ has stored an :original-value property."
 
   (scoot-table--insert-divider-row))
 
-(defun scoot-table--insert-table-cell (record cell header width fmt column-index)
+(defun scoot-table--insert-table-cell (record cell header width fmt column-index editablep)
   "Insert the table cell CELL.
 
 Requires:
@@ -315,7 +315,8 @@ RECORD - The record that the cell belongs to.
 HEADER - The table model header description for the column.
 WIDTH - The table model width for the column.
 FMT - The formatter for this cell/column.
-COLUMN-INDEX - The column index."
+COLUMN-INDEX - The column index.
+EDITABLEP - Allow the cell to be edited, t/nil."
   (let* ((cell-start (point))
          (value (plist-get cell :value))
          (dirty-p (scoot-table--cell-modified-p cell))
@@ -327,6 +328,7 @@ COLUMN-INDEX - The column index."
          (padding (- width (string-width formatted-value)))
          (header-meta (plist-get header :metadata))
          (cell-props (list 'thing 'table-cell
+                           'editablep editablep
                            'column-meta header-meta
                            'formatter formatter
                            'value value
@@ -353,9 +355,10 @@ COLUMN-INDEX - The column index."
     (insert " ")
     (add-text-properties cell-start (point) cell-props)))
 
-(defun scoot-table--insert-table-row (record)
-  "Insert a table row containing RECORD."
+(defun scoot-table--insert-table-row (record editablep)
+  "Insert a table row containing RECORD.
 
+EDITABLEP - Signal if editing of the record is allowed."
   (let ((record-identity (scoot-table--record-identity record))
         (border (propertize
                  "|"
@@ -369,7 +372,13 @@ COLUMN-INDEX - The column index."
              for index from 0
              do
              (insert border)
-             (scoot-table--insert-table-cell record cell header width fmt index))
+             (scoot-table--insert-table-cell record
+                                             cell
+                                             header
+                                             width
+                                             fmt
+                                             index
+                                             editablep))
     (insert border)
     (when-let* ((row-mark (gethash record-identity scoot-table--table-row-marks))
                 (type (and (overlayp row-mark) (overlay-get row-mark 'type))))
@@ -388,13 +397,16 @@ COLUMN-INDEX - The column index."
            'thing 'table-border
            'face 'scoot-table-border-face)))
 
-(defun scoot-table--insert-table (result-data)
-  "Insert the RESULT-DATA table into the buffer."
+(defun scoot-table--insert-table (result-data &optional editablep)
+  "Insert the RESULT-DATA table into the buffer.
+
+EDITABLEP - Signal if editing of the table data is to be allowed."
 ;  (message "RESULT-DATA:\n---------\n%s" (pp-to-string result-data))
   (scoot-table--refresh-visual-model result-data)
 ;  (message "TABLE-MODEL:\n---------\n%s" (pp-to-string scoot-table--table-model))
   (scoot-table--insert-table-header)
-  (mapc #'scoot-table--insert-table-row
+  (mapc (lambda (record)
+          (scoot-table--insert-table-row record editablep))
         (plist-get scoot-table--table-model :records))
   (scoot-table--insert-divider-row))
 
@@ -417,7 +429,8 @@ COLUMN-INDEX - The column index."
           :record-cell (alist-get 'record-cell props)
           :record (alist-get 'record props)
           :formatter (alist-get 'formatter props)
-          :cell-index (alist-get 'cell-index props))))
+          :cell-index (alist-get 'cell-index props)
+          :editablep (alist-get 'editablep props))))
 
 (defun scoot-table--row-at-point ()
   "Return the result set table row at point."
@@ -612,7 +625,8 @@ CELL is the cell summary of the cell under edit."
                                     (nth cell-index (plist-get scoot-table--table-model :headers))
                                     (nth cell-index (plist-get scoot-table--table-model :widths))
                                     formatter
-                                    cell-index)
+                                    cell-index
+                                    t)
     (goto-char (+ widget-start (length (plist-get record-cell :value))))
     (scoot-table-mode 1)
     (if (scoot-table--record-modified-p record)
@@ -624,19 +638,20 @@ CELL is the cell summary of the cell under edit."
   (interactive)
   (when (scoot--thing-at-p (point) 'table-cell)
     (let* ((cell (scoot-table--cell-at-point)))
-      (scoot-input--install-input :begin (car (scoot-table--cell-begin))
-                                  :end (car (scoot-table--cell-end))
-                                  :column (plist-get cell :column)
-                                  :type (alist-get 'typespec (plist-get cell :column))
-                                  :formatter (get-text-property (point) 'formatter)
-                                  :record-cell (plist-get cell :record-cell)
-                                  :record (plist-get cell :record)
-                                  :resize-hook (lambda (new-width)
-                                                 (scoot-table--edit-cell-resize-hook
-                                                  (plist-get cell :cell-index) new-width))
-                                  :remove-hook (lambda (widget)
-                                                 (scoot-table--remove-cell-editor widget cell)))
-      (scoot-table-mode -1))))
+      (when (plist-get cell :editablep)
+        (scoot-input--install-input :begin (car (scoot-table--cell-begin))
+                                    :end (car (scoot-table--cell-end))
+                                    :column (plist-get cell :column)
+                                    :type (alist-get 'typespec (plist-get cell :column))
+                                    :formatter (get-text-property (point) 'formatter)
+                                    :record-cell (plist-get cell :record-cell)
+                                    :record (plist-get cell :record)
+                                    :resize-hook (lambda (new-width)
+                                                   (scoot-table--edit-cell-resize-hook
+                                                    (plist-get cell :cell-index) new-width))
+                                    :remove-hook (lambda (widget)
+                                                   (scoot-table--remove-cell-editor widget cell)))
+        (scoot-table-mode -1)))))
 
 
 

@@ -184,7 +184,8 @@ INFO contains the grid information as a plist with the following properties:
 
 (defun scoot-buffer--insert-table (section-def)
   "Insert a data table into the current buffer according to SECTION-DEF."
-  (scoot-table--insert-table (plist-get section-def :data))
+  (scoot-table--insert-table (plist-get section-def :data)
+                             (plist-get section-def :editablep))
   (insert "\n"))
 
 

@@ -226,7 +226,8 @@ RESULT-CONTEXT contains the query statement, result data and connection."
                       (list :type 'query-editor
                             :current-sql stmt)
                       (list :type 'data-table
-                            :data result)))
+                            :data result
+                            :editablep t)))
 
     (unless scoot-rs--original-sql-statement
       (setq-local scoot-rs--original-sql-statement stmt))
