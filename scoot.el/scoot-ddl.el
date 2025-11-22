@@ -115,6 +115,7 @@ Additional keys for type object:
 ;; Scoot DDL Mode - scoot-ddl-mode
 
 (defun scoot-edit-ddl ()
+  "Enter DDL Edit Mode."
   (interactive)
   (scoot-ddl-edit-mode 1))
 
@@ -169,9 +170,16 @@ Additional keys for type object:
 
   (scoot-table--ensure-row-mark-table)
 
-  (dolist (section scoot-buffer-sections)
-    (when (eq 'data-table (plist-get section :type))
-      (setf (plist-get section :editablep) t)))
+  (setq-local scoot-buffer-sections
+              (mapcar (lambda (section)
+                        (pcase (plist-get section :type)
+                          ('data-table (progn (setf (plist-get section :editablep) t)
+                                              section))
+                          ('ddl-outline (list :type 'query-editor
+                                              :title "DDL:"
+                                              :current-sql (cdr (car (alist-get 'sql (plist-get section :data))))))
+                          (_ section)))
+                       scoot-buffer-sections))
 
   (scoot-buffer-refresh))
 

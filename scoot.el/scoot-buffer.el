@@ -181,7 +181,9 @@ INFO contains the grid information as a plist with the following properties:
 
 (defun scoot-buffer--insert-query-block (section-def)
   "Insert a query block section into the current buffer according to SECTION-DEF."
-  (insert (propertize "Query: " 'face 'scoot-label-face))
+  (insert (propertize (or (plist-get section-def :title) "Query: ")
+                      'face
+                      'scoot-label-face))
   (insert "\n")
   (scoot-qb--insert-query-block (format "%s" (plist-get section-def :current-sql))))
 
