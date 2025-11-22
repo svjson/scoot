@@ -63,6 +63,12 @@ Used to enable/disable `outline-minor-mode`.")
 
 ;; Outline Mode Integration
 
+(defun scoot-buffer-toggle-outline ()
+  "Invoke `outline-toggle-children` if outline mode is active."
+  (interactive)
+  (when (bound-and-true-p outline-minor-mode)
+    (outline-toggle-children)))
+
 (defun scoot-buffer--activate-outline-minor-mode ()
   "Configure and activate `outline-minor-mode`."
   (setq-local outline-level (lambda () 1)
@@ -81,6 +87,7 @@ Used to enable/disable `outline-minor-mode`.")
                  outline-minor-mode-use-buttons))
     (when (local-variable-p var)
       (kill-local-variable var)))
+  (setq scoot-buffer-outline-sections 0)
   (when (bound-and-true-p outline-minor-mode)
     (outline-minor-mode -1)))
 
@@ -308,7 +315,7 @@ falsy values will enforce `read-only-mode` and scoot invariants thereof."
     (define-key map (kbd "g") #'scoot-buffer-refresh)
     (define-key map (kbd "h") #'describe-mode)
     (define-key map (kbd "?") #'describe-mode)
-    (define-key map (kbd "TAB") #'outline-toggle-children)
+    (define-key map (kbd "TAB") #'scoot-buffer-toggle-outline)
     map)
   "Base keymap for modes dervied from `scoot-buffer-mode`.")
 
