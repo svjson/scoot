@@ -108,7 +108,7 @@ table")
    #'scoot-rs--update))
 
 
-(cl-defun scoot-result--tables-in-result (&allow-other-keys)
+(cl-defun scoot-rs--tables-in-result (&allow-other-keys)
   "Describe a table, either TABLE-NAME or tables involved in the query/result."
   (interactive)
   (let* ((result-tables (plist-get scoot-table--table-model :tables))

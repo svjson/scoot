@@ -35,6 +35,7 @@
 (require 'scoot-resultset)
 (require 'scoot-scratch)
 (require 'scoot-common)
+(require 'scoot-ddl)
 
 (defgroup scoot nil
   "Scoot-modes for SQL interaction via SQL scratch buffers and result set buffers."
@@ -75,7 +76,7 @@ resolved using the context of the function call, if called interactively."
                          :interactive t)))))
     (scoot-connection--describe-table conn
                                       tbl
-                                      #'scoot--open-resultset)))
+                                      #'scoot-ddl--open-table)))
 
 
 

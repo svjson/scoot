@@ -354,6 +354,35 @@ FALLBACK-VALUE is a value to simply return if all else fails."
      ((> (length arg-list) max)
       (cl-subseq arg-list 0 max)))))
 
+
+
+;; Rendering utilities
+
+(defun scoot--propertize-sql (sql-string)
+  "Propertize SQL-STRING with syntax highlighting via font-lock."
+  (with-temp-buffer
+    (erase-buffer)
+    (sql-mode)
+    (insert sql-string)
+    (font-lock-ensure)
+    (buffer-string)))
+
+(defun scoot--insert-propertized-string (s)
+  "Insert propertized string S into current buffer, preserving its text properties.
+
+This feels like a nasty hack, but ensures that the inserted text retains its
+font-lock properties."
+  (let ((start (point)))
+    (insert s)
+    (let ((i 0)
+          (len (length s)))
+      (while (< i len)
+        (let ((props (text-properties-at i s)))
+          (when props
+            (add-text-properties (+ start i) (+ start i 1) props)))
+        (setq i (1+ i))))))
+
+
 
 ;; Scoot context/connection resolver utilities
 

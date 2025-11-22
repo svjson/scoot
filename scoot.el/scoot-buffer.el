@@ -189,6 +189,46 @@ INFO contains the grid information as a plist with the following properties:
 
 
 
+;; Object Type Header
+
+(defun scoot-buffer--insert-object-type-header (section-def)
+  "Insert an object type header displaying type and name.
+
+These values are dervied from SECTION-DEF."
+  (let* ((data (plist-get section-def :data))
+         (type (plist-get data :object-type))
+         (name (plist-get data :object-name)))
+    (insert (propertize (concat (pcase type
+                                  ('table "Table")
+                                  ('schema "Schema")
+                                  ('database "Database"))
+                                ": ")
+                        'face 'scoot-label-face))
+    (insert (propertize name
+                        'thing (intern (concat (symbol-name type)
+                                               "-name"))))
+    (insert "\n")))
+
+
+
+;; DDL
+
+(defun scoot-buffer--insert-ddl (section-def)
+  "Insert a foldable DDL section according to SECTION-DEF."
+  (when-let ((ddl (alist-get 'sql (plist-get section-def :data))))
+    (dolist (sql-entry ddl)
+      (insert (propertize (car sql-entry)
+                          'face 'scoot-outline-header-face
+                          'outline-level 1))
+      (insert "\n")
+      (scoot--insert-propertized-string
+       (scoot--propertize-sql
+        (cdr sql-entry)))
+      (insert "\n")
+      (setq-local scoot-buffer-outline-sections (1+ scoot-buffer-outline-sections)))))
+
+
+
 ;; Render Functions
 
 (defun scoot-buffer--render-section (section-def)
@@ -197,8 +237,10 @@ INFO contains the grid information as a plist with the following properties:
          (section-type (plist-get section-def :type)))
     (pcase section-type
       ('connection-header (scoot-buffer--insert-connection-header))
+      ('object-type-header (scoot-buffer--insert-object-type-header section-def))
       ('query-editor (scoot-buffer--insert-query-block section-def))
-      ('data-table (scoot-buffer--insert-table section-def)))
+      ('data-table (scoot-buffer--insert-table section-def))
+      ('ddl-outline (scoot-buffer--insert-ddl section-def)))
     (insert "\n")))
 
 
@@ -206,7 +248,8 @@ INFO contains the grid information as a plist with the following properties:
   "Render the buffer contents as described by `scoot-buffer-sections`."
   (dolist (section-def scoot-buffer-sections)
     (scoot-buffer--render-section section-def))
-  (scoot-buffer--editable nil))
+  (scoot-buffer--editable nil)
+  (scoot--restore-cursor))
 
 
 (defun scoot-buffer--editable (editablep)
@@ -220,6 +263,7 @@ falsy values will enforce `read-only-mode` and scoot invariants thereof."
         (read-only-mode -1))
     (progn
       (unless (zerop scoot-buffer-outline-sections)
+        (scoot-buffer--activate-outline-minor-mode)
         (save-excursion
           (goto-char (point-max))
           (outline-hide-subtree)))
@@ -230,7 +274,7 @@ falsy values will enforce `read-only-mode` and scoot invariants thereof."
   (scoot--save-cursor)
   (scoot-buffer--editable t)
   (erase-buffer)
-  (setq-local scoot-buffer--outline-sections 0))
+  (setq-local scoot-buffer-outline-sections 0))
 
 (defun scoot-buffer-refresh ()
   "Redraw/Refresh the buffer contents."
