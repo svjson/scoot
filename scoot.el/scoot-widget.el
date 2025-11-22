@@ -96,6 +96,9 @@ buffer."
 
       (with-current-buffer shadow-buffer
         (setq-local scoot-widget-display-buffer parent-buf)
+        (setq-local tab-width (buffer-local-value 'tab-width parent-buf))
+        (setq-local indent-tabs-mode (buffer-local-value 'indent-tabs-mode parent-buf))
+
         (add-hook 'after-change-functions (lambda (beg end len)
                                             (funcall (scoot-widget--shadow-after-change-hook
                                                       widget-type widget-name)
