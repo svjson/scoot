@@ -131,25 +131,52 @@ CONTENT should be a single string formatted with \"\\n\" as line separators."
       (insert content))
     (scoot--restore-cursor)))
 
+
 
 ;; Shadow buffer / Widget positions
 
-(defun scoot-widget--translate-point (widget point &optional shadow-buffer)
-  "Translate POINT to its corresponding point in the WIDGET mirror buffer.
+(defun scoot-widget--point->point (widget &optional point opts)
+  "Translate POINT to point within WIDGET.
 
-If called inside the visible buffer, the point is translated to its
-corresponding point in the shadow buffer.
-
-If called inside the shadow buffer - with SHADOW-BUFFER supplied -
-the point is translated to its corresponding point in the visible buffer."
-  (let* ((shadow-buf-p (buffer-live-p scoot-widget-display-buffer))
-         (buffer-pos (scoot-widget--get-widget-pos point (not shadow-buf-p)))
-         (translated-pos (scoot-widget--translate-pos widget buffer-pos)))
-    (if shadow-buf-p
-        (with-current-buffer scoot-widget-display-buffer
-          (scoot--pos-to-point translated-pos))
-      (with-current-buffer shadow-buffer
-        (scoot--pos-to-point translated-pos)))))
+OPTS may provide properties:
+:from-absolute-p t/nil - A truthy value will make the function treat POINT
+                         as absolute within the visible buffer, otherwise
+                         relative from the widget start position.
+:to-absolute-p t/nil - A truthy value will make the function return
+                       an absolute point within the visible buffer, otherwise
+                       relative from the widget start position.
+:shadow-p t/nil - A truthy value will make the return value refer to
+                  the position within the shadow buffer."
+  (let* ((in-shadow-buf-p (buffer-live-p scoot-widget-display-buffer))
+         (from-absolute-p (plist-get opts :from-absolute-p))
+         (to-absolute-p (plist-get opts :to-absolute-p))
+         (shadow-p (plist-get opts :shadow-p))
+         (pos (scoot-widget--point->position widget point
+                                             (list :shadow-p shadow-p
+                                                   :absolute-p from-absolute-p))))
+    (with-current-buffer (if (and shadow-p (not in-shadow-buf-p))
+                             (scoot-widget--get-shadow-buffer (plist-get widget :type)
+                                                              (plist-get widget :name))
+                           (current-buffer))
+      (cond
+       (shadow-p (save-excursion
+                   (goto-char (point-min))
+                   (forward-line (1- (plist-get pos :line)))
+                   (move-to-column (plist-get pos :col))
+                   (point)))
+       ((and in-shadow-buf-p) (with-current-buffer scoot-widget-display-buffer
+                                (save-excursion
+                                  (goto-char (plist-get widget :widget-start))
+                                  (forward-line (1- (plist-get pos :line)))
+                                  (move-to-column (plist-get pos :col))
+                                  (if to-absolute-p
+                                      (point)
+                                    (1+ (- (point) (plist-get widget :widget-start)))))))
+       ((and from-absolute-p (not to-absolute-p))
+        (1+ (- point (plist-get widget :widget-start))))
+       ((and to-absolute-p (not from-absolute-p))
+        (1- (+ point (plist-get widget :widget-start))))
+       (t point)))))
 
 (defun scoot-widget--point->position (widget &optional point opts)
   "Calculate the position of POINT within WIDGET.
@@ -160,8 +187,8 @@ The term \"position\" refers to the plist format of:
 
 OPTS may provide properties:
 :absolute-p t/nil - A truthy value will make the function treat point and
-                  position treated as absolute within the visible buffer,
-                  otherwise relative from the widget start position.
+                    position as absolute within the visible buffer,
+                    otherwise relative from the widget start position.
 :shadow-p t/nil - A truthy value will make the return value refer to
                   the position within the shadow buffer."
   (save-excursion
@@ -180,41 +207,6 @@ OPTS may provide properties:
                    (t (line-number-at-pos)))
             :col (current-column)))))
 
-
-(defun scoot-widget--get-widget-pos (widget &optional point shadow-buf-p)
-  "Calculate the cursor position of POINT within the editable WIDGET.
-
-The term \"position\" refers to the plist format of:
-\(:line <line number>
- :col <column number>)
-
-Defaults to calculating the relative position in the visible widget.
-Passing non-nil value for SHADOW-BUF-P instead returns the absolute position
-in the shadow-buffer."
-  (let ((pt (or point (point))))
-    (list :line (if shadow-buf-p
-                    (line-number-at-pos pt)
-                  (- (line-number-at-pos pt) (1- (line-number-at-pos (marker-position (plist-get widget :editable-start))))))
-          :col (current-column))))
-
-(defun scoot-widget--translate-pos (widget pos)
-  "Translate POS to its corresponding pos in the WIDGET mirror buffer.
-
-If called inside the visible buffer, the position is translated to its
-corresponding position in the shadow buffer.
-
-If called inside the shadow buffer, the position is translated to its
-corresponding position in the visible buffer."
-  (let ((qb-line-offset (with-current-buffer
-                            (or scoot-widget-display-buffer
-                                (current-buffer))
-                          (line-number-at-pos (marker-position (plist-get widget :editable-start))))))
-    (if (buffer-live-p scoot-widget-display-buffer)
-        (with-current-buffer scoot-widget-display-buffer
-          (list :line (+ (plist-get pos :line) (1- qb-line-offset))
-                :col (plist-get pos :col)))
-      (list :line (- (plist-get pos :line) (1- qb-line-offset))
-            :col (plist-get pos :col)))))
 
 
 ;; Widget Config Functions
@@ -352,8 +344,12 @@ ORIG-FN is the function of the executing command, with arguments in ARGS."
                                                             widget-name)))
         (advice-remove this-command (plist-get widget :command-advice))
         (let* ((markp mark-active)
-               (region-start (when markp (scoot-widget--translate-point widget (region-beginning))))
-               (region-end (when markp (scoot-widget--translate-point widget (region-end))))
+               (shadow-region-start (when markp (scoot-widget--point->point
+                                                 widget (region-beginning)
+                                                 '(:from-absolute-p t :shadow-p t))))
+               (shadow-region-end (when markp (scoot-widget--point->point
+                                               widget (region-end)
+                                               '(:from-absolute-p t :shadow-p t))))
                (cmd (with-current-buffer shadow-buffer
                       (pcase this-command
                         (`left-char (list :shadow-p (not (bobp)) :exec 'backward-char))
@@ -381,8 +377,8 @@ ORIG-FN is the function of the executing command, with arguments in ARGS."
                         (`kill-word (list :shadow-p t))
                         (`kill-region (list :shadow-p t
                                             :exec (lambda () (funcall #'kill-region
-                                                                      region-start
-                                                                      region-end))
+                                                                      shadow-region-start
+                                                                      shadow-region-end))
                                             :post 'deactivate-mark))
                         (`indent-for-tab-command (list :shadow-p t))
                         (`newline (list :shadow-p t))

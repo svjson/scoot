@@ -253,7 +253,7 @@ The term \"position\" refers to the plist format of:
   (save-excursion
     (goto-char (point-min))
     (forward-line (1- (plist-get pos :line)))
-    (forward-char (min (plist-get pos :col) (- (line-end-position) (line-beginning-position))))
+    (move-to-column (min (plist-get pos :col) (- (line-end-position) (line-beginning-position))))
     (point)))
 
 (defun scoot--save-cursor (&optional var-name)

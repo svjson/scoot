@@ -170,9 +170,11 @@ For subsequent updates/refreshes of the query block, call
 
 (defun scoot-qb--enter-query-block ()
   "Synchronize cursor positions when entering the visible query block."
-  (let ((qb-pos (scoot-widget--get-widget-pos (scoot-widget--get-widget-config 'query-block
-                                                                               'query-block)
-                                              (point)))
+  (let ((qb-pos (scoot-widget--point->position (scoot-widget--get-widget-config 'query-block
+                                                                        'query-block)
+                                               (point)
+                                               (list :absolute-p t
+                                                     :shadow-p t)))
         (updated-pos nil))
     (with-current-buffer scoot-query-block-shadow-buffer
       (scoot-qb--move-to-qb-pos qb-pos)
