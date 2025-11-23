@@ -87,9 +87,13 @@
 
 ;; Query block display functions
 
-(defun scoot-qb--build-query-block (query)
-  "Build and propertize query block contents from QUERY into a string."
-  (let* ((width (window-body-width))
+(defun scoot-qb--build-query-block (query &optional opts)
+  "Build and propertize query block contents from QUERY into a string.
+
+This function relies on `window-body-width` to determine the
+width of the query-block unless OPTS is provided with a value
+for :width."
+  (let* ((width (or (plist-get opts :width) (window-body-width)))
          (wrapped-lines (scoot--wrap-string query width))
          (content ""))
     (dolist (line wrapped-lines)
@@ -106,26 +110,32 @@
                             "\n")))
     content))
 
-(defun scoot-qb--insert-query-block (query)
+(defun scoot-qb--insert-query-block (query &optional opts)
   "Insert QUERY string with wrapping and box-like styling.
+
+This function relies on `window-body-width` to determine the
+width of the query-block unless OPTS is provided with a value
+for :width.
 
 This should be called when initially setting up a query block.
 For subsequent updates/refreshes of the query block, call
 `scoot-qb--refresh-query-block`."
-  (let* ((width (window-body-width))
+  (let* ((width (or (plist-get opts :width) (window-body-width)))
          (wrapped-lines (scoot--wrap-string query width))
          (widget (scoot-widget--get-widget-config 'query-block
                                                   'query-block)))
     (setq-local scoot-query-block-start (point))
     (plist-put widget :editable-start (copy-marker (point)))
     (plist-put widget :widget-start (copy-marker (point)))
+    (plist-put widget :widget-start-line (line-number-at-pos (point)))
     (scoot-widget--init-shadow-buffer 'query-block
                                       'query-block
                                       (string-join wrapped-lines "\n"))
-    (insert (scoot-qb--build-query-block (scoot-qb--get-query)))
+    (insert (scoot-qb--build-query-block (scoot-qb--get-query widget) opts))
     (setq-local scoot-query-block-end (point))
     (plist-put widget :editable-end (copy-marker (point)))
-    (plist-put widget :widget-end (copy-marker (point)))))
+    (plist-put widget :widget-end (copy-marker (point)))
+    widget))
 
 (defun scoot-qb--refresh-query-block ()
   "Redraw the query-block with the contents of the shadow buffer."

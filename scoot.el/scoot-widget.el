@@ -28,6 +28,7 @@
 (require 'cl-lib)
 (require 'scoot-common)
 
+
 
 ;; Variables
 
@@ -40,6 +41,7 @@
 (defvar-local scoot--active-widgets nil)
 
 (defvar-local scoot--pre-command-point nil)
+
 
 
 ;; Shadow buffer management methods
@@ -62,6 +64,11 @@ determine the update method.")
 
 
 ;; Shadow buffer control functions
+
+(defun scoot-widget--is-shadow-buffer-p (&optional buffer)
+  "Tests if BUFFER or the current buffer is a shadow buffer."
+  (with-current-buffer (or buffer (current-buffer))
+    (buffer-live-p scoot-widget-display-buffer)))
 
 (defun scoot-widget--init-shadow-buffer (widget-type
                                          widget-name
@@ -143,6 +150,39 @@ the point is translated to its corresponding point in the visible buffer."
           (scoot--pos-to-point translated-pos))
       (with-current-buffer shadow-buffer
         (scoot--pos-to-point translated-pos)))))
+
+(defun scoot-widget--point->position (widget &optional point opts)
+  "Calculate the position of POINT within WIDGET.
+
+The term \"position\" refers to the plist format of:
+\(:line <line number>
+ :col <column number>)
+
+OPTS may provide properties:
+:absolute-p t/nil - A truthy value will make the function treat point and
+                  position treated as absolute within the visible buffer,
+                  otherwise relative from the widget start position.
+:shadow-p t/nil - A truthy value will make the return value refer to
+                  the position within the shadow buffer."
+  (save-excursion
+    (let ((absolute-p (plist-get opts :absolute-p))
+          (shadow-p (plist-get opts :shadow-p))
+          (is-shadow-buf-p (scoot-widget--is-shadow-buffer-p)))
+      (if is-shadow-buf-p
+          (progn
+            (goto-char point)
+            (list :line (if (and (not shadow-p) absolute-p)
+                            (1- (+ (plist-get widget :widget-start-line) (line-number-at-pos)))
+                          (line-number-at-pos))
+                  :col (current-column)))
+        (progn
+          (goto-char (if absolute-p
+                         point
+                       (1- (+ point (plist-get widget :widget-start)))))
+          (list :line (if (or (not absolute-p) shadow-p)
+                          (1+ (- (line-number-at-pos) (plist-get widget :widget-start-line)))
+                        (line-number-at-pos))
+                :col (current-column)))))))
 
 (defun scoot-widget--get-widget-pos (widget &optional point shadow-buf-p)
   "Calculate the cursor position of POINT within the editable WIDGET.
