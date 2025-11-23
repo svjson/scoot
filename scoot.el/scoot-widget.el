@@ -168,21 +168,18 @@ OPTS may provide properties:
     (let ((absolute-p (plist-get opts :absolute-p))
           (shadow-p (plist-get opts :shadow-p))
           (is-shadow-buf-p (scoot-widget--is-shadow-buffer-p)))
-      (if is-shadow-buf-p
-          (progn
-            (goto-char point)
-            (list :line (if (and (not shadow-p) absolute-p)
-                            (1- (+ (plist-get widget :widget-start-line) (line-number-at-pos)))
-                          (line-number-at-pos))
-                  :col (current-column)))
-        (progn
-          (goto-char (if absolute-p
-                         point
-                       (1- (+ point (plist-get widget :widget-start)))))
-          (list :line (if (or (not absolute-p) shadow-p)
-                          (1+ (- (line-number-at-pos) (plist-get widget :widget-start-line)))
-                        (line-number-at-pos))
-                :col (current-column)))))))
+      (goto-char (cond
+                  ((and (not is-shadow-buf-p) (not absolute-p))
+                   (1- (+ point (plist-get widget :widget-start))))
+                  (t point)))
+      (list :line (cond
+                   ((and is-shadow-buf-p (not shadow-p) absolute-p)
+                    (1- (+ (plist-get widget :widget-start-line) (line-number-at-pos))))
+                   ((and (not is-shadow-buf-p) (or (not absolute-p) shadow-p))
+                    (1+ (- (line-number-at-pos) (plist-get widget :widget-start-line))))
+                   (t (line-number-at-pos)))
+            :col (current-column)))))
+
 
 (defun scoot-widget--get-widget-pos (widget &optional point shadow-buf-p)
   "Calculate the cursor position of POINT within the editable WIDGET.
