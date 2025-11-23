@@ -118,8 +118,7 @@
                              :shadow-point 8
                              :absolute-expected-pos '(:line 4 :col 0)
                              :relative-expected-pos '(:line 2 :col 0)))))
-      (with-current-buffer (scoot-widget--get-shadow-buffer (plist-get widget :type)
-                                                            (plist-get widget :name))
+      (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
             ;; Shadow buffer -> Absolute visible buffer
@@ -152,8 +151,7 @@
                        (list :case "Start of second line"
                              :shadow-point 8
                              :expected-pos '(:line 2 :col 0)))))
-      (with-current-buffer (scoot-widget--get-shadow-buffer (plist-get widget :type)
-                                                            (plist-get widget :name))
+      (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
             ;; Shadow buffer -> Shadow buffer (absolute has no effect)
@@ -282,8 +280,7 @@
                              :shadow-point 8
                              :absolute-point 53
                              :relative-point 51))))
-      (with-current-buffer (scoot-widget--get-shadow-buffer (plist-get widget :type)
-                                                            (plist-get widget :name))
+      (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
             (message "%s - %s" case-name (plist-get widget :widget-start-line))
@@ -314,8 +311,7 @@
                              :shadow-point 6)
                        (list :case "Start of second line"
                              :shadow-point 8))))
-      (with-current-buffer (scoot-widget--get-shadow-buffer (plist-get widget :type)
-                                                            (plist-get widget :name))
+      (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
             ;; Shadow buffer -> Shadow buffer (absolute has no effect)

@@ -65,6 +65,14 @@ determine the update method.")
 
 ;; Shadow buffer control functions
 
+
+(defmacro with-scoot-widget-shadow-buffer (widget &rest body)
+  "Macro that executes BODY with the shadow buffer of WIDGET as current buffer."
+  (declare (indent 1))
+  `(with-current-buffer (scoot-widget--get-shadow-buffer (plist-get ,widget :type)
+                                                         (plist-get ,widget :name))
+     ,@body))
+
 (defun scoot-widget--is-shadow-buffer-p (&optional buffer)
   "Tests if BUFFER or the current buffer is a shadow buffer."
   (with-current-buffer (or buffer (current-buffer))
@@ -335,8 +343,8 @@ BEG, END and LEN describe the change that has occured."
   "Advice around any command executing in the widget.
 
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
-widget whose has changed.
-ORIG-FN is the function of the executing command, with arguments in ARGS."
+widget whose has changed.  ORIG-FN is the function of the executing
+command, with arguments in ARGS."
   (condition-case err
       (let ((widget (scoot-widget--get-widget-config widget-type
                                                      widget-name))
