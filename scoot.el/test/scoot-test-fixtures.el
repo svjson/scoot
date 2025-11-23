@@ -21,6 +21,22 @@
 
 ;;; Code:
 
+
+
+;; Window buffer management
+
+(defmacro with-new-window-buffer (&rest body)
+  "Macro that executes BODY within a \"real\" temporary buffer.
+
+Unlike `with-temp-buffer` this buffer attaches to the window, allowing
+commands and hooks to run properly."
+  `(let ((buf (generate-new-buffer "*scoot test-buffer*")))
+    (unwind-protect
+        (progn
+          (switch-to-buffer buf)
+          ,@body)
+        (kill-buffer buf))))
+
 
 
 (defun scoot-test--to-hash-table (plist)

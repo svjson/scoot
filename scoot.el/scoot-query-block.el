@@ -100,13 +100,11 @@ for :width."
       (setq content (concat content
                             (propertize line
                                         'face 'scoot-query-block-face
-                                        'cursor-sensor-functions scoot-widget--cursor-sensor-functions
                                         'thing 'query-block)
                             (propertize (make-string
                                          (max 0 (1- (- width (length line)) ))
                                          ?\s)
                                         'face 'scoot-query-block-padding-face
-                                        'cursor-sensor-functions scoot-widget--cursor-sensor-functions
                                         'thing 'query-block
                                         'qb-padding t)
                             "\n")))
@@ -137,6 +135,11 @@ For subsequent updates/refreshes of the query block, call
     (setq-local scoot-query-block-end (point))
     (plist-put widget :editable-end (copy-marker (point)))
     (plist-put widget :widget-end (copy-marker (point)))
+    (add-text-properties (plist-get widget :widget-start)
+                         (plist-get widget :widget-end)
+                         (list 'cursor-sensor-functions
+                               scoot-widget--cursor-sensor-functions))
+
     (cursor-sensor-mode 1)
     widget))
 
@@ -156,7 +159,11 @@ For subsequent updates/refreshes of the query block, call
         (set-marker (plist-get widget :widget-start) scoot-query-block-start)
         (set-marker (plist-get widget :editable-start) scoot-query-block-start)
         (set-marker (plist-get widget :widget-end) scoot-query-block-end)
-        (set-marker (plist-get widget :editable-end) scoot-query-block-end))))
+        (set-marker (plist-get widget :editable-end) scoot-query-block-end)
+        (add-text-properties scoot-query-block-start
+                             scoot-query-block-end
+                             (list 'cursor-sensor-functions
+                                   scoot-widget--cursor-sensor-functions)))))
   (scoot--restore-cursor))
 
 
