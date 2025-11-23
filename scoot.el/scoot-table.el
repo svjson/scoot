@@ -408,7 +408,8 @@ EDITABLEP - Signal if editing of the table data is to be allowed."
   (mapc (lambda (record)
           (scoot-table--insert-table-row record editablep))
         (plist-get scoot-table--table-model :records))
-  (scoot-table--insert-divider-row))
+  (scoot-table--insert-divider-row)
+  (scoot-widget-minor-mode 1))
 
 
 

@@ -418,6 +418,35 @@ ORIG-FN is the function of the executing command, with arguments in ARGS."
   (when (and shadow-buffer (buffer-live-p shadow-buffer))
     (kill-buffer shadow-buffer)))
 
+
+
+;; Scoot Widget Minor Mode - scoot-widget-minor-mode
+(declare-function scoot-qb--query-block-at-point-p "scoot-query-block")
+(declare-function scoot-query-block-mode "scoot-query-block")
+(declare-function scoot-table--table-at-point-p "scoot-query-table")
+(declare-function scoot-table-mode "scoot-table")
+
+(defun scoot-widget--detect-widget-hook ()
+  "Check cursor position and handle query block activation/deactivation."
+  (if (scoot-qb--query-block-at-point-p)
+      (unless (bound-and-true-p scoot-query-block-mode) (scoot-query-block-mode 1))
+    (when (bound-and-true-p scoot-query-block-mode) (scoot-query-block-mode -1)))
+
+  (when (not (bound-and-true-p scoot-input-mode))
+    (if (scoot-table--table-at-point-p)
+        (unless (bound-and-true-p scoot-table-mode) (scoot-table-mode 1))
+      (when (bound-and-true-p scoot-table-mode) (scoot-table-mode -1)))))
+
+(define-minor-mode scoot-widget-minor-mode
+  "Minor mode that should be active in all buffers using Scoot Widgets.
+
+Tracks the cursor position and detects entering/exiting scoot widgets and
+applies the corresponding widget minor modes."
+  :lighter " W"
+
+  (add-hook 'post-command-hook 'scoot-widget--detect-widget-hook nil t))
+
+
 (provide 'scoot-widget)
 
 ;;; scoot-widget.el ends here

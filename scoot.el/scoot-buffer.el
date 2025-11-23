@@ -294,21 +294,6 @@ falsy values will enforce `read-only-mode` and scoot invariants thereof."
 
 
 
-;; Hooks
-
-(defun scoot-buffer--apply-cursor-position-modes ()
-  "Check cursor position and handle query block activation/deactivation."
-  (if (scoot-qb--query-block-at-point-p)
-      (unless scoot-query-block-mode (scoot-query-block-mode 1))
-    (when scoot-query-block-mode (scoot-query-block-mode -1)))
-
-  (when (not scoot-input-mode)
-    (if (scoot-table--table-at-point-p)
-        (unless scoot-table-mode (scoot-table-mode 1))
-      (when scoot-table-mode (scoot-table-mode -1)))))
-
-
-
 ;; Scoot Buffer Mode - scoot-buffer-mode
 
 (defvar scoot-buffer-mode-map
@@ -331,10 +316,7 @@ This mode provides basic interaction hooks and buffer-local variables."
   (setq-local scoot-local--table-name-resolvers '(scoot-connection--table-prompt))
 
   (setq-local truncate-lines t)
-  (setq buffer-read-only t)
-
-  (add-hook 'post-command-hook 'scoot-buffer--apply-cursor-position-modes nil t))
-
+  (setq buffer-read-only t))
 
 
 

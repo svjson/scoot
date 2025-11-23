@@ -135,6 +135,7 @@ For subsequent updates/refreshes of the query block, call
     (setq-local scoot-query-block-end (point))
     (plist-put widget :editable-end (copy-marker (point)))
     (plist-put widget :widget-end (copy-marker (point)))
+    (scoot-widget-minor-mode 1)
     widget))
 
 (defun scoot-qb--refresh-query-block ()
