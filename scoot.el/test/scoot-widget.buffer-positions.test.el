@@ -31,7 +31,7 @@
 (ert-deftest scoot-widget--point->position--visible-to-shadow ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 3
                              :relative-point 1
@@ -66,7 +66,7 @@
 (ert-deftest scoot-widget--point->position--visible-to-visible ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 3
                              :absolute-expected-pos '(:line 3 :col 0)
@@ -105,7 +105,7 @@
 (ert-deftest scoot-widget--point->position--shadow-to-visible ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
                              :absolute-expected-pos '(:line 3 :col 0)
@@ -141,7 +141,7 @@
 (ert-deftest scoot-widget--point->position--shadow-to-shadow ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
                              :expected-pos '(:line 1 :col 0))
@@ -178,7 +178,7 @@
 (ert-deftest scoot-widget--point->point--visible-to-shadow ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 3
                              :relative-point 1
@@ -213,7 +213,7 @@
 (ert-deftest scoot-widget--point->point--visible-to-visible ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 3
                              :relative-point 1)
@@ -267,7 +267,7 @@
 (ert-deftest scoot-widget--point->point--shadow-to-visible ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
                              :absolute-point 3
@@ -304,7 +304,7 @@
 (ert-deftest scoot-widget--point->point--shadow-to-shadow ()
   (with-temp-buffer
     (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1)
                        (list :case "6 chars into first line"

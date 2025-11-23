@@ -397,19 +397,19 @@ EDITABLEP - Signal if editing of the record is allowed."
            'thing 'table-border
            'face 'scoot-table-border-face)))
 
-(defun scoot-table--insert-table (result-data &optional editablep)
+(defun scoot-table--insert-table! (result-data &optional editablep)
   "Insert the RESULT-DATA table into the buffer.
 
 EDITABLEP - Signal if editing of the table data is to be allowed."
-;  (message "RESULT-DATA:\n---------\n%s" (pp-to-string result-data))
   (scoot-table--refresh-visual-model result-data)
-;  (message "TABLE-MODEL:\n---------\n%s" (pp-to-string scoot-table--table-model))
-  (scoot-table--insert-table-header)
-  (mapc (lambda (record)
-          (scoot-table--insert-table-row record editablep))
-        (plist-get scoot-table--table-model :records))
-  (scoot-table--insert-divider-row)
-  (scoot-widget-minor-mode 1))
+  (let ((tbl-start (point)))
+    (scoot-table--insert-table-header)
+    (mapc (lambda (record)
+            (scoot-table--insert-table-row record editablep))
+          (plist-get scoot-table--table-model :records))
+    (scoot-table--insert-divider-row)
+    (add-text-properties tbl-start (point) (list 'cursor-sensor-functions scoot-widget--cursor-sensor-functions))
+    (cursor-sensor-mode 1)))
 
 
 

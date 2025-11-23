@@ -100,17 +100,19 @@ for :width."
       (setq content (concat content
                             (propertize line
                                         'face 'scoot-query-block-face
+                                        'cursor-sensor-functions scoot-widget--cursor-sensor-functions
                                         'thing 'query-block)
                             (propertize (make-string
                                          (max 0 (1- (- width (length line)) ))
                                          ?\s)
                                         'face 'scoot-query-block-padding-face
+                                        'cursor-sensor-functions scoot-widget--cursor-sensor-functions
                                         'thing 'query-block
                                         'qb-padding t)
                             "\n")))
     content))
 
-(defun scoot-qb--insert-query-block (query &optional opts)
+(defun scoot-qb--insert-query-block! (query &optional opts)
   "Insert QUERY string with wrapping and box-like styling.
 
 This function relies on `window-body-width` to determine the
@@ -135,7 +137,7 @@ For subsequent updates/refreshes of the query block, call
     (setq-local scoot-query-block-end (point))
     (plist-put widget :editable-end (copy-marker (point)))
     (plist-put widget :widget-end (copy-marker (point)))
-    (scoot-widget-minor-mode 1)
+    (cursor-sensor-mode 1)
     widget))
 
 (defun scoot-qb--refresh-query-block ()

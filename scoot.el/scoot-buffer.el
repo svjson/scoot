@@ -185,7 +185,7 @@ INFO contains the grid information as a plist with the following properties:
                       'face
                       'scoot-label-face))
   (insert "\n")
-  (scoot-qb--insert-query-block (format "%s" (plist-get section-def :current-sql))))
+  (scoot-qb--insert-query-block! (format "%s" (plist-get section-def :current-sql))))
 
 
 
@@ -193,8 +193,8 @@ INFO contains the grid information as a plist with the following properties:
 
 (defun scoot-buffer--insert-table (section-def)
   "Insert a data table into the current buffer according to SECTION-DEF."
-  (scoot-table--insert-table (plist-get section-def :data)
-                             (plist-get section-def :editablep))
+  (scoot-table--insert-table! (plist-get section-def :data)
+                              (plist-get section-def :editablep))
   (insert "\n"))
 
 

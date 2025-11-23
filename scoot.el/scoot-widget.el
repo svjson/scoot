@@ -428,13 +428,20 @@ command, with arguments in ARGS."
 
 
 
-;; Scoot Widget Minor Mode - scoot-widget-minor-mode
+;; Scoot Widget detection
+
+(defun scoot-widget--cursor-sensor-fn (_win _pos _dir)
+  "Cursor sensor function delegating to scoot-widget--detect-widget."
+  (scoot-widget--detect-widget))
+
+(defconst scoot-widget--cursor-sensor-functions (list #'scoot-widget--cursor-sensor-fn))
+
 (declare-function scoot-qb--query-block-at-point-p "scoot-query-block")
 (declare-function scoot-query-block-mode "scoot-query-block")
 (declare-function scoot-table--table-at-point-p "scoot-query-table")
 (declare-function scoot-table-mode "scoot-table")
 
-(defun scoot-widget--detect-widget-hook ()
+(defun scoot-widget--detect-widget ()
   "Check cursor position and handle query block activation/deactivation."
   (if (scoot-qb--query-block-at-point-p)
       (unless (bound-and-true-p scoot-query-block-mode) (scoot-query-block-mode 1))
@@ -444,15 +451,6 @@ command, with arguments in ARGS."
     (if (scoot-table--table-at-point-p)
         (unless (bound-and-true-p scoot-table-mode) (scoot-table-mode 1))
       (when (bound-and-true-p scoot-table-mode) (scoot-table-mode -1)))))
-
-(define-minor-mode scoot-widget-minor-mode
-  "Minor mode that should be active in all buffers using Scoot Widgets.
-
-Tracks the cursor position and detects entering/exiting scoot widgets and
-applies the corresponding widget minor modes."
-  :lighter " W"
-
-  (add-hook 'post-command-hook 'scoot-widget--detect-widget-hook nil t))
 
 
 (provide 'scoot-widget)
