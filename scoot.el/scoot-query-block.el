@@ -189,9 +189,10 @@ INITIAL-POS allows overriding the default of (point-min)."
   (forward-line (1- (plist-get pos :line)))
   (forward-char (min (plist-get pos :col) (- (line-end-position) (line-beginning-position)))))
 
-(defun scoot-qb--get-query ()
-  "Return the query currently entered into the query block."
-  (with-current-buffer scoot-query-block-shadow-buffer
+(defun scoot-qb--get-query (qb-widget)
+  "Return the query currently entered into the query block QB-WIDGET."
+  (with-current-buffer (scoot-widget--get-shadow-buffer (plist-get qb-widget :type)
+                                                        (plist-get qb-widget :name))
     (buffer-substring-no-properties (point-min) (point-max))))
 
 

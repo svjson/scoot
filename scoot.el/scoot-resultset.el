@@ -101,7 +101,7 @@ table")
 (defun scoot-rs--execute-query (&optional query)
   "Execute QUERY or the current query in this result buffer."
   (interactive)
-  (setq scoot-rs--current-sql-statement (or query (scoot-qb--get-query)))
+  (setq scoot-rs--current-sql-statement (or query (scoot-qb--get-query (scoot-widget--make-identity 'query-block 'query-block))))
   (scoot-connection--execute-statement
    scoot-buffer-connection
    scoot-rs--current-sql-statement
