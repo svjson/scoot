@@ -102,7 +102,7 @@ for :width."
                                         'face 'scoot-query-block-face
                                         'thing 'query-block)
                             (propertize (make-string
-                                         (max 0 (1- (- width (length line)) ))
+                                         (max 0 (1- (- width (scoot--visible-width line)) ))
                                          ?\s)
                                         'face 'scoot-query-block-padding-face
                                         'thing 'query-block

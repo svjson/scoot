@@ -94,14 +94,46 @@ See `scoot-local--context-name-resolvers`")
 
 (defun scoot--wrap-string (str width)
   "Wrap STR to WIDTH, preserving whitespace and \n boundaries."
-  (let ((lines (split-string str "\n"))
+  (let ((width (1- width))
+        (lines (split-string str "\n"))
         (result '()))
     (dolist (line lines)
-      (while (> (length line) width)
-        (push (substring line 0 width) result)
-        (setq line (substring line width)))
+      (while (> (scoot--visible-width line) width)
+        (let ((visible-substr (scoot--visible-substring line width)))
+          (push visible-substr result)
+          (setq line (substring line (length visible-substr)))))
       (push line result))
     (apply #'list (nreverse result))))
+
+(defun scoot--visible-width (s &optional tabwidth)
+  "Return the visual width of the string S, expanding tabs.
+
+TABWIDTH may be passed in, otherwise the buffer-local `tab-width`
+will be used to compute the column-width of tabs"
+  (let ((tabwidth (or tabwidth tab-width))
+        (col 0))
+    (seq-do (lambda (ch)
+              (if (eq ch ?\t)
+                  (setq col (+ col (- tab-width (% col tabwidth))))
+                (setq col (1+ col))))
+            s)
+    col))
+
+(defun scoot--visible-substring (s width)
+  "Return the substring of S that fits in WIDTH visual columns."
+  (let ((col 0)
+        (idx 0))
+    (while (and (< idx (length s))
+                (< col width))
+      (let* ((ch (aref s idx))
+             (step (if (eq ch ?\t)
+                       (- tab-width (% col tab-width))
+                     1)))
+        (setq col (+ col step))
+        (when (<= col width)
+          (setq idx (1+ idx)))))
+    (substring s 0 idx)))
+
 
 (defun scoot--plist-merge (plist1 plist2)
   "Merge PLIST1 and PLIST2. Values from PLIST2 take precedence."

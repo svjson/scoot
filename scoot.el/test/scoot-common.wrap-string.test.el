@@ -37,15 +37,15 @@ INNER JOIN
   application_profile_housing_reference
 ON
   application_profile.id = application_profile_housing_reference.applicationProfileId;")
-  (should (equal (scoot--wrap-string test--sql 100)
-                 '("SELECT"
+  (should (equal '("SELECT"
                    "  contactCode as cc, reviewStatus"
                    "FROM"
                    "  application_profile"
                    "INNER JOIN"
                    "  application_profile_housing_reference"
                    "ON"
-                   "  application_profile.id = application_profile_housing_reference.applicationProfileId;"))))
+                   "  application_profile.id = application_profile_housing_reference.applicationProfileId;")
+                 (scoot--wrap-string test--sql 100))))
 
 (ert-deftest scoot--wrap-string--multiline-statement-with-empty-lines--no-mod ()
   (setq-local test--sql "SELECT
@@ -58,8 +58,7 @@ INNER JOIN
 
 ON
   application_profile.id = application_profile_housing_reference.applicationProfileId;")
-  (should (equal (scoot--wrap-string test--sql 100)
-                 '("SELECT"
+  (should (equal '("SELECT"
                    "  contactCode as cc, reviewStatus"
                    ""
                    "FROM"
@@ -68,7 +67,40 @@ ON
                    "  application_profile_housing_reference"
                    ""
                    "ON"
-                   "  application_profile.id = application_profile_housing_reference.applicationProfileId;"))))
+                   "  application_profile.id = application_profile_housing_reference.applicationProfileId;")
+                 (scoot--wrap-string test--sql 100))))
+
+
+(ert-deftest scoot--wrap-string--multiline-statement--requires-trimming ()
+  (setq-local test--sql "SELECT
+  contactCode as cc, reviewStatus
+FROM
+  application_profile")
+
+  (should (equal '("SELECT"
+                   "  contactCode as cc,"
+                   " reviewStatus"
+                   "FROM"
+                   "  application_profil"
+                   "e")
+                 (scoot--wrap-string test--sql 20))))
+
+(ert-deftest scoot--wrap-string--multiline-statement-with-tabs--requires-trimming ()
+  (setq-local tab-width 2)
+  (setq-local test--sql "SELECT
+	contactCode as cc, reviewStatus
+FROM
+	application_profile")
+
+  (should (equal '("SELECT"
+                   "	contactCode as cc,"
+                   " reviewStatus"
+                   "FROM"
+                   "	application_profil"
+                   "e")
+                 (scoot--wrap-string test--sql 20))))
+
+
 
 
 
