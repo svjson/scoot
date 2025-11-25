@@ -143,6 +143,11 @@ CONTENT should be a single string formatted with \"\\n\" as line separators."
 
 ;; Shadow buffer / Widget positions
 
+(defun scoot-widget--shadow-buffer-point (widget)
+  "Get the cursor/point position in shadow buffer of WIDGET."
+  (with-scoot-widget-shadow-buffer widget
+    (point)))
+
 (defun scoot-widget--point->point (widget &optional point opts)
   "Translate POINT to point within WIDGET.
 
@@ -293,7 +298,7 @@ WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget that a command is being performed on."
   (let ((widget (scoot-widget--get-widget-config widget-type widget-name)))
     (setq-local scoot--pre-command-point (point))
-    (with-current-buffer (scoot-widget--get-shadow-buffer widget-type widget-name)
+    (with-scoot-widget-shadow-buffer widget
       (setq-local scoot--pre-command-point (point)))
     (plist-put widget
                :command-advice
@@ -313,20 +318,16 @@ widget that a command has been performed on."
       (let* ((widget (alist-get (scoot-widget--make-identity widget-type
                                                              widget-name)
                                 scoot--active-widgets))
-             (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
-                                                             widget-name))
              (contain-cursor (plist-get widget :contain-cursor))
-             (sbuf-pos (with-current-buffer shadow-buffer
-                         (list :line (line-number-at-pos)
-                               :col (current-column)))))
+             (sbuf-point (scoot-widget--shadow-buffer-point widget)))
         (when scoot--pre-command-point
-          (when (or (with-current-buffer shadow-buffer
-                      (/= (point) scoot--pre-command-point))
+          (when (or (/= sbuf-point (with-scoot-widget-shadow-buffer widget
+                                     scoot--pre-command-point))
                     contain-cursor)
-            (goto-char (plist-get widget :editable-start))
-            (when (> (plist-get sbuf-pos :line) 1)
-              (forward-line (1- (plist-get sbuf-pos :line))))
-            (forward-char (plist-get sbuf-pos :col)))))
+            (goto-char (with-scoot-widget-shadow-buffer widget
+                         (scoot-widget--point->point widget
+                                                     sbuf-point
+                                                     (list :to-absolute-p t)))))))
     (error
      (message "Error in scoot-widget--post-command-hook: %s - %s" (car err) (cdr err)))))
 

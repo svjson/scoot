@@ -56,5 +56,4 @@
 
 
 
-
 ;;; scoot-query-block.navigation.test.el ends here

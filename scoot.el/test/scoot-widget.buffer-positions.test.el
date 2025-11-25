@@ -279,7 +279,11 @@
                        (list :case "Start of second line"
                              :shadow-point 8
                              :absolute-point 53
-                             :relative-point 51))))
+                             :relative-point 51)
+                       (list :case "Start of third line"
+                             :shadow-point 12
+                             :absolute-point 103
+                             :relative-point 101))))
       (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))

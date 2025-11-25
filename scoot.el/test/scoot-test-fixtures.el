@@ -37,6 +37,35 @@ commands and hooks to run properly."
           ,@body)
         (kill-buffer buf))))
 
+
+
+;; Keyboard command simulation
+
+
+(defun do-command (cmd)
+  "Call CMD interactively and run command hooks."
+  (let ((this-command cmd))
+    (run-hooks 'pre-command-hook)
+    (call-interactively cmd)
+    (run-hooks 'post-command-hook)))
+
+
+
+;; Should equal with custom fail message
+
+(defmacro should-equal (expected actual &optional msg)
+  "Equal assertion allowing a custom fail message MSG.
+
+Calls `ert-fail` unless EXPECTED passes `equal` check with
+ACTUAL."
+  `(let ((e ,expected)
+         (a ,actual))
+     (unless (equal e a)
+       (ert-fail
+        (format "%sExpected: %S   Actual: %S"
+                (or ,msg "")
+                e a)))))
+
 
 
 (defun scoot-test--to-hash-table (plist)
