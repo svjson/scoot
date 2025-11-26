@@ -628,7 +628,7 @@ CELL is the cell summary of the cell under edit."
                                     formatter
                                     cell-index
                                     t)
-    (goto-char (+ widget-start (length (plist-get record-cell :value))))
+    (goto-char (+ widget-start (length (plist-get record-cell :formatted-value))))
     (scoot-table-mode 1)
     (if (scoot-table--record-modified-p record)
         (scoot-table--mark-row identity :update)
