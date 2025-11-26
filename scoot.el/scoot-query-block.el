@@ -53,13 +53,6 @@
   "Construct the shadow buffer name for input WIDGET-NAME."
   (format " *scoot shadow-qb(%s)*" (buffer-name)))
 
-(cl-defmethod scoot-widget--get-shadow-buffer ((_widget-type (eql 'query-block))
-                                               widget-name)
-  "Get the shadow buffer for the query block with name WIDGET-NAME."
-  (plist-get (scoot-widget--get-widget :type 'query-block
-                                       :name widget-name)
-             :shadow-buffer))
-
 (cl-defmethod scoot-widget--shadow-after-change-hook ((_widget-type (eql 'query-block))
                                                       _widget-name)
   "Return the after-change-hook for query-block widgets."

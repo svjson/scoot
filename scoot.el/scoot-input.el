@@ -50,11 +50,6 @@
   "Construct the shadow buffer name for input WIDGET-NAME."
   (format " *scoot shadow-input(%s)*" (buffer-name)))
 
-(cl-defmethod scoot-widget--get-shadow-buffer ((_widget-type (eql 'input))
-                                               _widget-name)
-  "Get the shadow buffer for the active input."
-  scoot-input--input-shadow-buffer)
-
 (cl-defmethod scoot-widget--shadow-after-change-hook ((_widget-type (eql 'input))
                                                       _widget-name)
   "Get the hook to run after the shadow buffer content changes."

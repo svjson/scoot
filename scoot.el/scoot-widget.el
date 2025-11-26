@@ -49,8 +49,15 @@
 (cl-defgeneric scoot-widget--shadow-buffer-name (widget-type widget-name)
   "Construct the shadow buffer name for WIDGET-TYPE with WIDGET-NAME.")
 
-(cl-defgeneric scoot-widget--get-shadow-buffer (widget-type widget-name)
-  "Get the shadow buffer name for WIDGET-TYPE with WIDGET-NAME.")
+(cl-defun scoot-widget--get-shadow-buffer (&key type name identity widget)
+  "Get the shadow buffer of a widget.
+
+The widget can be identified by WIDGET instance, IDENTITY symbol or a
+combination of TYPE and NAME."
+  (plist-get (or widget (scoot-widget--get-widget :type type
+                                                  :name name
+                                                  :identity identity))
+             :shadow-buffer))
 
 (cl-defun scoot-widget--set-shadow-buffer! (&key type name identity widget buffer)
   "Set the shadow buffer of a widget to BUFFER.
@@ -76,12 +83,10 @@ determine the update method.")
 
 ;; Shadow buffer control functions
 
-
 (defmacro with-scoot-widget-shadow-buffer (widget &rest body)
   "Macro that executes BODY with the shadow buffer of WIDGET as current buffer."
   (declare (indent 1))
-  `(with-current-buffer (scoot-widget--get-shadow-buffer (plist-get ,widget :type)
-                                                         (plist-get ,widget :name))
+  `(with-current-buffer (scoot-widget--get-shadow-buffer :widget ,widget)
      ,@body))
 
 (defun scoot-widget--is-shadow-buffer-p (&optional buffer)
@@ -109,7 +114,8 @@ buffer from which this function was invoked, chosen by the WIDGET-TYPE
 widget implementation, which should typically be `scoot-resultset-mode`
 buffer."
   (let ((parent-buf (current-buffer))
-        (shadow-buffer (scoot-widget--get-shadow-buffer widget-type widget-name)))
+        (shadow-buffer (scoot-widget--get-shadow-buffer :type widget-type
+                                                        :name widget-name)))
     (unless (and shadow-buffer
                  (buffer-live-p shadow-buffer))
 
@@ -132,8 +138,8 @@ buffer."
                   nil t))
       (add-hook 'kill-buffer-hook (lambda ()
                                     (scoot-widget--kill-shadow-buffer
-                                     (scoot-widget--get-shadow-buffer widget-type
-                                                                      widget-name)))
+                                     (scoot-widget--get-shadow-buffer :type widget-type
+                                                                      :name widget-name)))
                 nil t))
 
     (scoot-widget--reset-shadow-buffer! shadow-buffer content)
@@ -289,6 +295,7 @@ Examples:
     (scoot-widget--destroy-widget! (cdr widget-entry)))
   (setq-local scoot--active-widgets nil))
 
+
 
 ;; Hooks
 
@@ -396,10 +403,9 @@ WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget whose has changed.  ORIG-FN is the function of the executing
 command, with arguments in ARGS."
   (condition-case err
-      (when-let ((widget (scoot-widget--get-widget :type widget-type
-                                              :name widget-name))
-            (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
-                                                            widget-name)))
+      (when-let* ((widget (scoot-widget--get-widget :type widget-type
+                                                    :name widget-name))
+                  (shadow-buffer (scoot-widget--get-shadow-buffer :widget widget)))
         (advice-remove this-command (plist-get widget :command-advice))
         (let* ((markp mark-active)
                (shadow-region-start (when markp (scoot-widget--point->point
