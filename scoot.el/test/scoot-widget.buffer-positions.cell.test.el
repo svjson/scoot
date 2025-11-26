@@ -1,4 +1,4 @@
-;;; scoot-widget.buffer-positions.test.el --- summary -*- lexical-binding: t -*-
+;;; scoot-widget.buffer-positions.cell.test.el --- summary -*- lexical-binding: t -*-
 
 ;; This file is not part of GNU Emacs
 
@@ -24,36 +24,40 @@
 (require 'ert)
 (require 'scoot-widget)
 (require 'scoot-query-block)
+(require 'scoot-test-fixtures)
 
 
 ;; scoot-widget--point->position
 
-(ert-deftest scoot-widget--point->position--visible-to-shadow ()
+(ert-deftest scoot-widget--point->position--cell-visible-to-shadow ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "test")
+                                              :type 'string))
           (cases (list (list :case "At Widget Start"
-                             :absolute-point 3
+                             :absolute-point 110
                              :relative-point 1
                              :expected-pos '(:line 1 :col 0))
-                       (list :case "6 chars into first line"
-                             :absolute-point 8
-                             :relative-point 6
-                             :expected-pos '(:line 1 :col 5))
-                       (list :case "Start of second line"
-                             :absolute-point 53
-                             :relative-point 51
-                             :expected-pos '(:line 2 :col 0)))))
+                       (list :case "2 chars into input"
+                             :absolute-point 112
+                             :relative-point 3
+                             :expected-pos '(:line 1 :col 2))
+                       (list :case "At Widget End"
+                             :absolute-point 119
+                             :relative-point 10
+                             :expected-pos '(:line 1 :col 9)))))
       (dolist (case cases)
         (let ((case-name (plist-get case :case)))
           ;; Absolute visible buffer -> Shadow buffer
-          (should (equal (list case-name "Absolute" (plist-get case :expected-pos))
-                         (list case-name "Absolute"
+          (should (equal (list case-name "Absolute"
                                (scoot-widget--point->position
                                 widget
                                 (plist-get case :absolute-point)
                                 (list :absolute-p t
-                                      :shadow-p t)))))
+                                      :shadow-p t)))
+                         (list case-name "Absolute" (plist-get case :expected-pos))))
 
           ;; Relative visible buffer -> Shadow buffer
           (should (equal (list case-name "Relative" (plist-get case :expected-pos))
@@ -63,166 +67,188 @@
                                 (plist-get case :relative-point)
                                 (list :shadow-p t))))))))))
 
-(ert-deftest scoot-widget--point->position--visible-to-visible ()
+(ert-deftest scoot-widget--point->position--cell-visible-to-visible ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "test")
+                                              :type 'string))
           (cases (list (list :case "At Widget Start"
-                             :absolute-point 3
-                             :absolute-expected-pos '(:line 3 :col 0)
+                             :absolute-point 110
+                             :absolute-expected-pos '(:line 3 :col 9)
                              :relative-point 1
                              :relative-expected-pos '(:line 1 :col 0))
-                       (list :case "6 chars into first line"
-                             :absolute-point 8
-                             :absolute-expected-pos '(:line 3 :col 5)
-                             :relative-point 6
-                             :relative-expected-pos '(:line 1 :col 5))
-                       (list :case "Start of second line"
-                             :absolute-point 53
-                             :absolute-expected-pos '(:line 4 :col 0)
-                             :relative-point 51
-                             :relative-expected-pos '(:line 2 :col 0)))))
+                       (list :case "2 chars into input"
+                             :absolute-point 112
+                             :absolute-expected-pos '(:line 3 :col 11)
+                             :relative-point 3
+                             :relative-expected-pos '(:line 1 :col 2))
+                       (list :case "At Widget End"
+                             :absolute-point 119
+                             :absolute-expected-pos '(:line 3 :col 18)
+                             :relative-point 10
+                             :relative-expected-pos '(:line 1 :col 9)))))
 
       (dolist (case cases)
         (let ((case-name (plist-get case :case)))
           ;; Absolute visible buffer -> Absolute visible buffer
-          (should (equal (list case-name "Absolute" (plist-get case :absolute-expected-pos))
-                         (list case-name "Absolute"
+          (should (equal (list case-name "Absolute"
                                (scoot-widget--point->position
                                 widget
                                 (plist-get case :absolute-point)
-                                (list :absolute-p t)))))
+                                (list :absolute-p t)))
+                         (list case-name
+                               "Absolute"
+                               (plist-get case :absolute-expected-pos))))
 
           ;; Relative visible buffer -> Relative visible buffer
-          (should (equal (list case-name "Relative" (plist-get case :relative-expected-pos))
-                         (list case-name "Relative"
+          (should (equal (list case-name "Relative"
                                (scoot-widget--point->position
                                 widget
-                                (plist-get case :relative-point))))))))))
+                                (plist-get case :relative-point)))
+                         (list case-name "Relative"
+                               (plist-get case :relative-expected-pos)))))))))
 
 
 
-(ert-deftest scoot-widget--point->position--shadow-to-visible ()
+(ert-deftest scoot-widget--point->position--cell-shadow-to-visible ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "full_input")
+                                              :type 'string))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
-                             :absolute-expected-pos '(:line 3 :col 0)
+                             :absolute-expected-pos '(:line 3 :col 9)
                              :relative-expected-pos '(:line 1 :col 0))
-                       (list :case "6 chars into first line"
-                             :shadow-point 6
-                             :absolute-expected-pos '(:line 3 :col 5)
-                             :relative-expected-pos '(:line 1 :col 5))
-                       (list :case "Start of second line"
-                             :shadow-point 8
-                             :absolute-expected-pos '(:line 4 :col 0)
-                             :relative-expected-pos '(:line 2 :col 0)))))
+                       (list :case "2 chars into input"
+                             :shadow-point 3
+                             :absolute-expected-pos '(:line 3 :col 11)
+                             :relative-expected-pos '(:line 1 :col 2))
+                       (list :case "At Content End"
+                             :shadow-point 10
+                             :absolute-expected-pos '(:line 3 :col 18)
+                             :relative-expected-pos '(:line 1 :col 9)))))
       (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
             ;; Shadow buffer -> Absolute visible buffer
             (should (equal (list case-name "Absolute"
-                                 (plist-get case :absolute-expected-pos))
-                           (list case-name "Absolute"
                                  (scoot-widget--point->position
                                   widget
                                   (plist-get case :shadow-point)
-                                  (list :absolute-p t)))))
+                                  (list :absolute-p t)))
+                           (list case-name "Absolute"
+                                 (plist-get case :absolute-expected-pos))))
 
             ;; Shadow buffer -> Relative visible buffer
             (should (equal (list case-name "Relative"
-                                 (plist-get case :relative-expected-pos))
-                           (list case-name "Relative"
                                  (scoot-widget--point->position
                                   widget
-                                  (plist-get case :shadow-point)))))))))))
+                                  (plist-get case :shadow-point)))
+                           (list case-name "Relative"
+                                 (plist-get case :relative-expected-pos))))))))))
 
-(ert-deftest scoot-widget--point->position--shadow-to-shadow ()
+(ert-deftest scoot-widget--point->position--cell-shadow-to-shadow ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "full_input")
+                                              :type 'string))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
                              :expected-pos '(:line 1 :col 0))
                        (list :case "6 chars into first line"
                              :shadow-point 6
                              :expected-pos '(:line 1 :col 5))
-                       (list :case "Start of second line"
-                             :shadow-point 8
-                             :expected-pos '(:line 2 :col 0)))))
+                       (list :case "At Content End"
+                             :shadow-point 10
+                             :expected-pos '(:line 1 :col 9)))))
       (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
             ;; Shadow buffer -> Shadow buffer (absolute has no effect)
-            (should (equal (list case-name "(Absolute*)" (plist-get case :expected-pos))
-                           (list case-name "(Absolute*)"
+            (should (equal (list case-name "(Absolute*)"
                                  (scoot-widget--point->position
                                   widget
                                   (plist-get case :shadow-point)
                                   (list :absolute-p t
-                                        :shadow-p t)))))
+                                        :shadow-p t)))
+                           (list case-name "(Absolute*)"
+                                 (plist-get case :expected-pos))))
 
             ;; Shadow buffer -> Shadow buffer
-            (should (equal (list case-name "(Relative*)" (plist-get case :expected-pos))
-                           (list case-name "(Relative*)"
+            (should (equal (list case-name "(Relative*)"
                                  (scoot-widget--point->position
                                   widget
                                   (plist-get case :shadow-point)
-                                  (list :shadow-p t)))))))))))
+                                  (list :shadow-p t)))
+                           (list case-name "(Relative*)"
+                                 (plist-get case :expected-pos))))))))))
 
 
 
 ;; scoot-widget--point->point
 
-(ert-deftest scoot-widget--point->point--visible-to-shadow ()
+(ert-deftest scoot-widget--point->point--cell-visible-to-shadow ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "full_input")
+                                              :type 'string))
           (cases (list (list :case "At Widget Start"
-                             :absolute-point 3
+                             :absolute-point 110
                              :relative-point 1
                              :expected-point 1)
-                       (list :case "6 chars into first line"
-                             :absolute-point 8
+                       (list :case "6 chars into input"
+                             :absolute-point 115
                              :relative-point 6
                              :expected-point 6)
-                       (list :case "Start of second line"
-                             :absolute-point 53
-                             :relative-point 51
-                             :expected-point 8))))
+                       (list :case "At Widget End"
+                             :absolute-point 119
+                             :relative-point 10
+                             :expected-point 10))))
       (dolist (case cases)
         (let ((case-name (plist-get case :case)))
           ;; Absolute visible buffer -> Shadow buffer
-          (should (equal (list case-name "Absolute" (plist-get case :expected-point))
-                         (list case-name "Absolute"
+          (should (equal (list case-name "Absolute"
                                (scoot-widget--point->point
                                 widget
                                 (plist-get case :absolute-point)
                                 (list :from-absolute-p t
-                                      :shadow-p t)))))
+                                      :shadow-p t)))
+                         (list case-name "Absolute"
+                               (plist-get case :expected-point))))
 
           ;; Relative visible buffer -> Shadow buffer
-          (should (equal (list case-name "Relative" (plist-get case :expected-point))
-                         (list case-name "Relative"
+          (should (equal (list case-name "Relative"
                                (scoot-widget--point->point
                                 widget
                                 (plist-get case :relative-point)
-                                (list :shadow-p t))))))))))
+                                (list :shadow-p t)))
+                         (list case-name "Relative"
+                               (plist-get case :expected-point)))))))))
 
-(ert-deftest scoot-widget--point->point--visible-to-visible ()
+(ert-deftest scoot-widget--point->point--cell-visible-to-visible ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "full_input")
+                                              :type 'string))
           (cases (list (list :case "At Widget Start"
-                             :absolute-point 3
+                             :absolute-point 110
                              :relative-point 1)
                        (list :case "6 chars into first line"
-                             :absolute-point 8
+                             :absolute-point 115
                              :relative-point 6)
-                       (list :case "Start of second line"
-                             :absolute-point 53
-                             :relative-point 51))))
+                       (list :case "At Widget End"
+                             :absolute-point 119
+                             :relative-point 10))))
 
       (dolist (case cases)
         (let ((case-name (plist-get case :case)))
@@ -264,30 +290,28 @@
 
 
 
-(ert-deftest scoot-widget--point->point--shadow-to-visible ()
+(ert-deftest scoot-widget--point->point--cell-shadow-to-visible ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "full_input")
+                                              :type 'string))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
-                             :absolute-point 3
+                             :absolute-point 110
                              :relative-point 1)
-                       (list :case "6 chars into first line"
+                       (list :case "6 chars into input"
                              :shadow-point 6
-                             :absolute-point 8
+                             :absolute-point 115
                              :relative-point 6)
-                       (list :case "Start of second line"
-                             :shadow-point 8
-                             :absolute-point 53
-                             :relative-point 51)
-                       (list :case "Start of third line"
-                             :shadow-point 12
-                             :absolute-point 103
-                             :relative-point 101))))
+                       (list :case "At Content End"
+                             :shadow-point 10
+                             :absolute-point 119
+                             :relative-point 10))))
       (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
-            (message "%s - %s" case-name (plist-get widget :widget-start-line))
             ;; Shadow buffer -> Absolute visible buffer
             (should (equal (list case-name "Absolute"
                                  (plist-get case :absolute-point))
@@ -305,16 +329,19 @@
                                   widget
                                   (plist-get case :shadow-point)))))))))))
 
-(ert-deftest scoot-widget--point->point--shadow-to-shadow ()
+(ert-deftest scoot-widget--point->point--cell-shadow-to-shadow ()
   (with-temp-buffer
-    (insert "\n\n")
-    (let ((widget (scoot-qb--insert-query-block! "SELECT\n  *\nFROM\n  somewhere" '(:width 50)))
+    (insert-whitespace-block 49 10)
+    (let ((widget (scoot-input--install-input :begin 110 :end 120
+                                              :formatter scoot-formatter-string
+                                              :record-cell (list :formatted-value "full_input")
+                                              :type 'string))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1)
-                       (list :case "6 chars into first line"
-                             :shadow-point 6)
-                       (list :case "Start of second line"
-                             :shadow-point 8))))
+                       (list :case "4 chars into input"
+                             :shadow-point 4)
+                       (list :case "At Content End"
+                             :shadow-point 10))))
       (with-scoot-widget-shadow-buffer widget
         (dolist (case cases)
           (let ((case-name (plist-get case :case)))
@@ -338,4 +365,4 @@
 
 
 
-;;; scoot-widget.buffer-positions.test.el ends here
+;;; scoot-widget.buffer-positions.cell.test.el ends here

@@ -41,7 +41,6 @@ commands and hooks to run properly."
 
 ;; Keyboard command simulation
 
-
 (defun do-command (cmd)
   "Call CMD interactively and run command hooks."
   (let ((this-command cmd))
@@ -65,6 +64,16 @@ ACTUAL."
         (format "%sExpected: %S   Actual: %S"
                 (or ,msg "")
                 e a)))))
+
+
+
+;; Content insertion
+
+(defun insert-whitespace-block (columns lines)
+  "Insert a COLUMNS wide whitespace block of LINES height."
+  (dotimes (_ lines)
+    (insert (make-string columns ?\s))
+    (insert "\n")))
 
 
 

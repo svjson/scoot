@@ -109,6 +109,7 @@ removed, respectively."
     (plist-put widget :editable-start (copy-marker scoot-input--value-begin t))
     (plist-put widget :editable-end (copy-marker scoot-input--value-end t))
     (plist-put widget :widget-start (copy-marker scoot-input--input-begin t))
+    (plist-put widget :widget-start-line (line-number-at-pos scoot-input--input-begin))
     (plist-put widget :widget-end (copy-marker scoot-input--input-end t))
     (plist-put widget :widget-min-width (- scoot-input--input-end scoot-input--input-begin))
     (plist-put widget :align (plist-get formatter :align))
@@ -116,7 +117,8 @@ removed, respectively."
     (let ((shadow-buffer (scoot-widget--init-shadow-buffer 'input 'input value)))
       (with-current-buffer shadow-buffer
         (goto-char (point-max))))
-    (scoot-input-mode 1)))
+    (scoot-input-mode 1)
+    widget))
 
 (defun scoot-input--refresh-input ()
   "Refresh the active input with the contents from the shadow buffer."

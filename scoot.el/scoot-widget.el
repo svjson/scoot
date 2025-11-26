@@ -158,18 +158,30 @@ CONTENT should be a single string formatted with \"\\n\" as line separators."
 
 
 
-;; Shadow buffer / Widget positions
+;; Widget query functions
 
-(defun scoot-widget--shadow-buffer-point (widget)
-  "Get the cursor/point position in shadow buffer of WIDGET."
-  (with-scoot-widget-shadow-buffer widget
-    (point)))
+(defun scoot-widget--widget-start-column (widget)
+  "Get the column number where WIDGET begins in the visible buffer."
+  (with-current-buffer (if (bound-and-true-p scoot-widget-display-buffer)
+                           scoot-widget-display-buffer
+                         (current-buffer))
+    (save-excursion
+      (goto-char (plist-get widget :widget-start))
+      (current-column))))
 
 (defun scoot-widget--shadow-buffer-content (widget)
   "Get the cursor/point position in shadow buffer of WIDGET."
   (with-scoot-widget-shadow-buffer widget
     (buffer-string)))
 
+
+
+;; Shadow buffer / Widget positions
+
+(defun scoot-widget--shadow-buffer-point (widget)
+  "Get the cursor/point position in shadow buffer of WIDGET."
+  (with-scoot-widget-shadow-buffer widget
+    (point)))
 
 (defun scoot-widget--point->point (widget &optional point opts)
   "Translate POINT to point within WIDGET.
@@ -204,7 +216,8 @@ OPTS may provide properties:
                                 (save-excursion
                                   (goto-char (plist-get widget :widget-start))
                                   (forward-line (1- (plist-get pos :line)))
-                                  (move-to-column (plist-get pos :col))
+                                  (move-to-column (+ (plist-get pos :col)
+                                                     (scoot-widget--widget-start-column widget)))
                                   (if to-absolute-p
                                       (point)
                                     (1+ (- (point) (plist-get widget :widget-start)))))))
@@ -214,7 +227,7 @@ OPTS may provide properties:
         (1- (+ point (plist-get widget :widget-start))))
        (t point)))))
 
-(defun scoot-widget--point->position (widget &optional point opts)
+(defun scoot-widget--point->position (widget &optional pt opts)
   "Calculate the position of POINT within WIDGET.
 
 The term \"position\" refers to the plist format of:
@@ -233,15 +246,20 @@ OPTS may provide properties:
           (is-shadow-buf-p (scoot-widget--is-shadow-buffer-p)))
       (goto-char (cond
                   ((and (not is-shadow-buf-p) (not absolute-p))
-                   (1- (+ point (plist-get widget :widget-start))))
-                  (t point)))
+                   (1- (+ pt (plist-get widget :widget-start))))
+                  (t pt)))
       (list :line (cond
                    ((and is-shadow-buf-p (not shadow-p) absolute-p)
                     (1- (+ (plist-get widget :widget-start-line) (line-number-at-pos))))
                    ((and (not is-shadow-buf-p) (or (not absolute-p) shadow-p))
                     (1+ (- (line-number-at-pos) (plist-get widget :widget-start-line))))
                    (t (line-number-at-pos)))
-            :col (current-column)))))
+            :col (cond
+                  ((and is-shadow-buf-p (not shadow-p) absolute-p)
+                   (+ (current-column) (scoot-widget--widget-start-column widget)))
+                  ((and (not is-shadow-buf-p) (or (not absolute-p) shadow-p))
+                   (- (current-column) (scoot-widget--widget-start-column widget)))
+                  (t (current-column)))))))
 
 
 
