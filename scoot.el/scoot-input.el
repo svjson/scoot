@@ -123,7 +123,7 @@ removed, respectively."
   (condition-case err
       (let* ((inhibit-read-only t)
              (inhibit-modification-hooks t)
-             (widget (scoot-widget--get-widget-config 'input 'input))
+             (widget (scoot-widget--get-widget :type 'input :name 'input))
              (widget-start (plist-get widget :widget-start))
              (widget-start-pos (marker-position widget-start))
              (widget-end (plist-get widget :widget-end))
@@ -132,8 +132,7 @@ removed, respectively."
              (editable-start-pos (marker-position editable-start))
              (editable-end (plist-get widget :editable-end))
              (editable-end-pos (marker-position editable-end))
-             (new-value (with-current-buffer scoot-input--input-shadow-buffer
-                          (buffer-string))))
+             (new-value (scoot-widget--shadow-buffer-content widget)))
         (delete-region widget-start-pos
                        (1+ widget-end-pos))
         (goto-char widget-start-pos)
@@ -204,7 +203,7 @@ buffer."
 (defun scoot-input--cancel-input-mode ()
   "Exit scoot-input-mode and restore the widget area."
   (interactive)
-  (let ((widget (scoot-widget--get-widget-config 'input 'input)))
+  (let ((widget (scoot-widget--get-widget :type 'input :name 'input)))
     (when-let ((remove-hook (plist-get widget :remove-hook)))
       (funcall remove-hook widget))
     (scoot-input-mode -1)))
@@ -212,11 +211,10 @@ buffer."
 (defun scoot-input--confirm-edit ()
   "Confirm the changes made and exit the input mode."
   (interactive)
-  (let* ((widget (scoot-widget--get-widget-config 'input 'input))
+  (let* ((widget (scoot-widget--get-widget :type 'input :name 'input))
          (cell (plist-get widget :record-cell))
          (formatter (plist-get widget :formatter))
-         (new-value (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
-                  (buffer-string)))
+         (new-value (scoot-widget--shadow-buffer-content widget))
          (current-value (plist-get cell :value))
          (original-value (plist-get cell :original-value)))
 
@@ -234,13 +232,13 @@ buffer."
 
 (defun scoot-input--cycle-integer (widget n)
   "Cycle the Integer value at point of WIDGET by N."
-  (let* ((shadow-buffer (scoot-widget--get-shadow-buffer 'input 'input))
-         (pos (- (point) (marker-position (plist-get widget :editable-start))))
-         (buf-value (with-current-buffer shadow-buffer (buffer-string)))
+  (let* ((pos (- (point) (marker-position (plist-get widget :editable-start))))
+         (buf-value (scoot-widget--shadow-buffer-content widget))
          (digit (max 0 (1- (- (length buf-value) pos)))))
-    (with-current-buffer shadow-buffer
+    (with-scoot-widget-shadow-buffer widget
       (let ((offset (- (length buf-value) (point)))
-            (new-value (format "%s" (+ (string-to-number buf-value) (* n (expt 10 digit))))))
+            (new-value (format "%s" (+ (string-to-number buf-value)
+                                       (* n (expt 10 digit))))))
         (with-silent-modifications
           (erase-buffer))
         (insert new-value)
@@ -256,7 +254,7 @@ Requires an enum-like check constraint on the column."
                                                             (equal (alist-get 'type c) "chk"))
                                                           (alist-get 'constraints
                                                                      (plist-get widget :column)))))))
-    (with-current-buffer (scoot-widget--get-shadow-buffer 'input 'input)
+    (with-scoot-widget-shadow-buffer widget
       (let* ((pos (or (cl-position (buffer-string)
                                    enum-values
                                    :test #'string=)
@@ -267,7 +265,7 @@ Requires an enum-like check constraint on the column."
 
 (defun scoot-input--cycle-value (n)
   "Cycle the value of the input by N."
-  (let* ((widget (scoot-widget--get-widget-config 'input 'input))
+  (let* ((widget (scoot-widget--get-widget :type 'input :name 'input))
          (type-spec (plist-get widget :data-type)))
     (pcase (alist-get 'type type-spec)
       ("INTEGER" (scoot-input--cycle-integer widget n))
@@ -292,7 +290,10 @@ Requires an enum-like check constraint on the column."
   "Run after modification happens in shadow buffer.
 
 BEG, END and LEN detail the beginning, end and length of the change."
-  (when-let* ((type-spec (with-current-buffer scoot-widget-display-buffer (plist-get (scoot-widget--get-widget-config 'input 'input) :data-type))))
+  (when-let* ((type-spec (with-current-buffer scoot-widget-display-buffer
+                           (plist-get (scoot-widget--get-widget :type 'input
+                                                                :name 'input)
+                                      :data-type))))
     (scoot-input--validate-change type-spec beg end len))
   (with-current-buffer scoot-widget-display-buffer
     (scoot-input--refresh-input)))

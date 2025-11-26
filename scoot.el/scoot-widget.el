@@ -165,6 +165,12 @@ CONTENT should be a single string formatted with \"\\n\" as line separators."
   (with-scoot-widget-shadow-buffer widget
     (point)))
 
+(defun scoot-widget--shadow-buffer-content (widget)
+  "Get the cursor/point position in shadow buffer of WIDGET."
+  (with-scoot-widget-shadow-buffer widget
+    (buffer-string)))
+
+
 (defun scoot-widget--point->point (widget &optional point opts)
   "Translate POINT to point within WIDGET.
 
@@ -185,8 +191,8 @@ OPTS may provide properties:
                                              (list :shadow-p shadow-p
                                                    :absolute-p from-absolute-p))))
     (with-current-buffer (if (and shadow-p (not in-shadow-buf-p))
-                             (scoot-widget--get-shadow-buffer (plist-get widget :type)
-                                                              (plist-get widget :name))
+                             (scoot-widget--get-shadow-buffer :type (plist-get widget :type)
+                                                              :name (plist-get widget :name))
                            (current-buffer))
       (cond
        (shadow-p (save-excursion
@@ -371,9 +377,8 @@ widget that a command is being performed on."
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget that a command has been performed on."
   (condition-case err
-      (let* ((widget (alist-get (scoot-widget--make-identity widget-type
-                                                             widget-name)
-                                scoot--active-widgets))
+      (let* ((widget (scoot-widget--get-widget :type widget-type
+                                               :name widget-name))
              (contain-cursor (plist-get widget :contain-cursor))
              (sbuf-point (scoot-widget--shadow-buffer-point widget)))
         (when scoot--pre-command-point
@@ -384,8 +389,10 @@ widget that a command has been performed on."
                          (scoot-widget--point->point widget
                                                      sbuf-point
                                                      (list :to-absolute-p t)))))))
-    (error
-     (message "Error in scoot-widget--post-command-hook: %s - %s" (car err) (cdr err)))))
+    (progn (error
+            (message "Error in scoot-widget--post-command-hook: %s - %s" (car err) (cdr err))
+            )
+           (signal (car err) (cdr err)))))
 
 (defun scoot-widget--after-change-hook (_widget-type _widget-name _beg _end _len)
   "No operation for now.
@@ -476,8 +483,11 @@ command, with arguments in ARGS."
                   (funcall exec-post post)))
             (progn
               (apply orig-fn args)))))
-    (error
-     (message "Error while executing command advice for %s: %s - %s" this-command (car err) (cdr err)))))
+    (progn
+      (error
+       (message "Error while executing command advice for %s: %s - %s" this-command (car err) (cdr err)))
+      (signal (car err) (cdr err)))))
+
 
 (defun scoot-widget--kill-shadow-buffer (shadow-buffer)
   "Kill the SHADOW-BUFFER.  Run as a hook when killing the parent buffer."
