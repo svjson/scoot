@@ -28,6 +28,7 @@
 (require 'simple)
 (require 'scoot-common)
 (require 'scoot-widget)
+(require 'sql)
 
 
 ;; Variables
@@ -49,7 +50,7 @@
 ;; Custom faces
 
 (defface scoot-query-block-face
-  '((t :inherit highlight :background "#222222" :extend nil))
+  '((t :background "#222222" :extend nil))
   "Face used fo query blocks."
   :group 'scoot)
 
@@ -99,12 +100,10 @@ for :width."
     (dolist (line wrapped-lines)
       (setq content (concat content
                             (propertize line
-                                        'face 'scoot-query-block-face
                                         'thing 'query-block)
                             (propertize (make-string
                                          (max 0 (1- (- width (scoot--visible-width line)) ))
                                          ?\s)
-                                        'face 'scoot-query-block-padding-face
                                         'thing 'query-block
                                         'qb-padding t)
                             "\n")))
@@ -139,6 +138,12 @@ For subsequent updates/refreshes of the query block, call
                          (plist-get widget :widget-end)
                          (list 'cursor-sensor-functions
                                scoot-widget--cursor-sensor-functions))
+    (scoot-qb--fontify-query-block widget)
+    (let ((ov (make-overlay (plist-get widget :widget-start)
+                            (plist-get widget :widget-end))))
+      (overlay-put ov 'face 'scoot-query-block-face)
+      (overlay-put ov 'scoot-query-block-overlay t)
+      (overlay-put ov 'priority -50))
 
     (cursor-sensor-mode 1)
     widget))
@@ -163,9 +168,16 @@ For subsequent updates/refreshes of the query block, call
         (add-text-properties scoot-query-block-start
                              scoot-query-block-end
                              (list 'cursor-sensor-functions
-                                   scoot-widget--cursor-sensor-functions)))))
+                                   scoot-widget--cursor-sensor-functions))
+        (scoot-qb--fontify-query-block widget))))
   (scoot--restore-cursor))
 
+
+(defun scoot-qb--fontify-query-block (query-block)
+  "Fontify the contents of QUERY-BLOCK."
+  (let ((font-lock-defaults '(sql-mode-ms-font-lock-keywords nil t)))
+    (font-lock-fontify-region (plist-get query-block :widget-start)
+                              (plist-get query-block :widget-end))))
 
 
 ;; Query Block interaction functions
