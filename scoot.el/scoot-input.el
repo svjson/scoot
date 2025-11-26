@@ -55,12 +55,6 @@
   "Get the shadow buffer for the active input."
   scoot-input--input-shadow-buffer)
 
-(cl-defmethod scoot-widget--set-shadow-buffer ((_widget-type (eql 'input))
-                                               _widget-name
-                                               buffer)
-  "Set the shadow buffer for the active input to BUFFER."
-  (setq scoot-input--input-shadow-buffer buffer))
-
 (cl-defmethod scoot-widget--shadow-after-change-hook ((_widget-type (eql 'input))
                                                       _widget-name)
   "Get the hook to run after the shadow buffer content changes."
@@ -89,8 +83,9 @@ RESIZE-HOOK and REMOVE-HOOK can be provided for non-standard behavior
 editing forces a resize of the widget bounds and when the input is
 removed, respectively."
   (let ((inhibit-read-only t)
-        (widget (scoot-widget--get-widget-config 'input 'input))
+        (widget (scoot-widget--register-widget! 'input 'input))
         (value (plist-get record-cell :formatted-value)))
+
     (when resize-hook
       (plist-put widget :resize-hook resize-hook))
     (when remove-hook

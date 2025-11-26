@@ -36,7 +36,8 @@
       (should (equal 4 (marker-position (plist-get widget :widget-start))))
       (should (equal 4 (marker-position (plist-get widget :editable-start))))
       (should (equal 54 (marker-position (plist-get widget :widget-end))))
-      (should (equal 54 (marker-position (plist-get widget :editable-end)))))))
+      (should (equal 54 (marker-position (plist-get widget :editable-end))))
+      (should (equal 54 (point))))))
 
 (ert-deftest scoot-qb--insert-query-block!--multiline-at-row-8 ()
   (with-temp-buffer
@@ -46,6 +47,7 @@
       (should (equal 25 (marker-position (plist-get widget :editable-start))))
       (should (equal 150 (marker-position (plist-get widget :widget-end))))
       (should (equal 150 (marker-position (plist-get widget :editable-end))))
+      (should (equal 150 (point)))
 
       ;; Validate line positions
       (goto-char 25)

@@ -52,8 +52,19 @@
 (cl-defgeneric scoot-widget--get-shadow-buffer (widget-type widget-name)
   "Get the shadow buffer name for WIDGET-TYPE with WIDGET-NAME.")
 
-(cl-defgeneric scoot-widget--set-shadow-buffer (widget-type widget-name buffer)
-  "Set the shadow buffer name for WIDGET-TYPE with WIDGET-NAME to BUFFER.")
+(cl-defun scoot-widget--set-shadow-buffer! (&key type name identity widget buffer)
+  "Set the shadow buffer of a widget to BUFFER.
+
+The widget can be identified by instance WIDGET, IDENTITY or a combination
+of TYPE and NAME."
+  (let ((widget (or widget (scoot-widget--get-widget :type type
+                                                     :name name
+                                                     :identity identity))))
+    (if (plist-get widget :shadow-buffer)
+        (setf (plist-get widget
+                         :shadow-buffer)
+              buffer)
+      (plist-put widget :shadow-buffer buffer))))
 
 (cl-defgeneric scoot-widget--shadow-after-change-hook (widget-type widget-name)
   "Return a reference to function to  run when the shadow buffer changes.
@@ -105,9 +116,9 @@ buffer."
       (setq shadow-buffer (get-buffer-create
                            (scoot-widget--shadow-buffer-name widget-type
                                                              widget-name)))
-      (scoot-widget--set-shadow-buffer widget-type
-                                       widget-name
-                                       shadow-buffer)
+      (scoot-widget--set-shadow-buffer! :type widget-type
+                                        :name widget-name
+                                        :buffer shadow-buffer)
 
       (with-current-buffer shadow-buffer
         (setq-local scoot-widget-display-buffer parent-buf)
@@ -125,10 +136,10 @@ buffer."
                                                                       widget-name)))
                 nil t))
 
-    (scoot-widget--reset-shadow-buffer shadow-buffer content)
-    (scoot-widget--get-shadow-buffer widget-type widget-name)))
+    (scoot-widget--reset-shadow-buffer! shadow-buffer content)
+    shadow-buffer))
 
-(defun scoot-widget--reset-shadow-buffer (shadow-buffer content)
+(defun scoot-widget--reset-shadow-buffer! (shadow-buffer content)
   "Clear and reset the SHADOW-BUFFER contents.
 
 CONTENT should be a single string formatted with \"\\n\" as line separators."
@@ -222,25 +233,61 @@ OPTS may provide properties:
 
 
 
-;; Widget Config Functions
+;; Widget Management Functions
 
 (defun scoot-widget--make-identity (widget-type widget-name)
   "Combine WIDGET-TYPE and WIDGET-NAME to a unique identifier."
   (intern (format "%s--%s" widget-type widget-name)))
 
+(cl-defun scoot-widget--register-widget! (widget-type widget-name)
+  "Create and register widget entry in the current buffer.
+
+The identity of the widget is created from WIDGET-TYPE and
+WIDGET-NAME."
+  (let* ((identity (scoot-widget--make-identity widget-type widget-name))
+         (widget-entry (cons identity (list :type widget-type
+                                            :name widget-name))))
+    (when (scoot-widget--get-widget :identity identity)
+      (error (format "Buffer already contains widget with identity: '%s'" identity)))
+    (push widget-entry scoot--active-widgets)
+    (cdr widget-entry)))
+
+(cl-defun scoot-widget--get-widget (&key type name identity)
+  "Get an existing widget object in the current buffer.
+
+The widget can be identified either by IDENTITY or a combination of
+TYPE and NAME.
+
+Examples:
+    \(scoot-widget--get-widget :type `query-block :name `block-1)
+    \(scoot-widget--get-widget :identity \"query-block--block-1\")"
+  (let ((widget-identity (or identity
+                             (scoot-widget--make-identity type name))))
+    (alist-get widget-identity scoot--active-widgets)))
+
 (defun scoot-widget--get-widget-config (widget-type widget-name)
   "Get the widget config for widget identified by WIDGET-TYPE and WIDGET-NAME."
   (let ((widget-identity (scoot-widget--make-identity widget-type
                                                       widget-name)))
-    (if-let ((widget-config (alist-get widget-identity
-                                       scoot--active-widgets)))
+    (if-let ((widget-config (scoot-widget--get-widget :identity widget-identity)))
         widget-config
-      (progn (push (cons widget-identity (list :type widget-type
-                                               :name widget-name))
-                   scoot--active-widgets)
-             (alist-get widget-identity
-                        scoot--active-widgets)))))
+      (scoot-widget--register-widget! widget-type widget-name))))
 
+(make-obsolete 'scoot-widget--get-widget-config "Use scoot-widget--get-widget instead" nil)
+
+(defun scoot-widget--destroy-widget! (widget)
+  "Delete WIDGET from the current buffer."
+  (when-let ((ov (plist-get widget :widget-overlay)))
+    (delete-overlay ov))
+  (when-let ((begin (plist-get widget :widget-start))
+             (end (plist-get widget :widget-end)))
+    (delete-region begin end)))
+
+(defun scoot-widget--destroy-widgets! ()
+  "Destroy all known Scoot widgets in the current buffer."
+  (dolist (widget-entry scoot--active-widgets)
+    (scoot-widget--destroy-widget! (cdr widget-entry)))
+  (setq-local scoot--active-widgets nil))
 
 
 ;; Hooks
@@ -250,8 +297,8 @@ OPTS may provide properties:
   (setq scoot-original-local-map (current-local-map))
   (use-local-map nil)
 
-  (let ((widget (scoot-widget--get-widget-config widget-type
-                                                 widget-name)))
+  (let ((widget (scoot-widget--get-widget :type widget-type
+                                          :name widget-name)))
     (plist-put widget
                :pre-command-hook
                (lambda ()
@@ -280,7 +327,8 @@ OPTS may provide properties:
   (use-local-map scoot-original-local-map)
   (setq scoot-original-local-map nil)
 
-  (let ((widget (scoot-widget--get-widget-config widget-type widget-name)))
+  (let ((widget (scoot-widget--get-widget :type widget-type
+                                          :name widget-name)))
     (remove-hook 'pre-command-hook (plist-get widget :pre-command-hook) t)
     (remove-hook 'post-command-hook (plist-get widget :post-command-hook) t)
     (remove-hook 'after-change-function (plist-get widget :after-change-hook) t)
@@ -296,7 +344,8 @@ OPTS may provide properties:
 
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget that a command is being performed on."
-  (let ((widget (scoot-widget--get-widget-config widget-type widget-name)))
+  (let ((widget (scoot-widget--get-widget :type widget-type
+                                          :name widget-name)))
     (setq-local scoot--pre-command-point (point))
     (with-scoot-widget-shadow-buffer widget
       (setq-local scoot--pre-command-point (point)))
@@ -347,8 +396,8 @@ WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget whose has changed.  ORIG-FN is the function of the executing
 command, with arguments in ARGS."
   (condition-case err
-      (let ((widget (scoot-widget--get-widget-config widget-type
-                                                     widget-name))
+      (when-let ((widget (scoot-widget--get-widget :type widget-type
+                                              :name widget-name))
             (shadow-buffer (scoot-widget--get-shadow-buffer widget-type
                                                             widget-name)))
         (advice-remove this-command (plist-get widget :command-advice))
@@ -363,6 +412,8 @@ command, with arguments in ARGS."
                       (pcase this-command
                         (`left-char (list :shadow-p (not (bobp)) :exec 'backward-char))
                         (`right-char (list :shadow-p (not (eobp)) :exec 'forward-char))
+                        (`forward-line (list :shadow-p t :exec (lambda ()
+                                                                 (apply #'forward-line args))))
                         (`previous-line (list :shadow-p (not (= 1 (line-number-at-pos)))
                                               :exec (lambda () (forward-line -1))))
                         (`next-line (list :shadow-p (not (= (line-number-at-pos)

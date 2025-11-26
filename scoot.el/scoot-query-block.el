@@ -30,21 +30,6 @@
 (require 'scoot-widget)
 (require 'sql)
 
-
-;; Variables
-
-(defvar-local scoot-query-block-start nil
-  "The start position of the query block in the current buffer.")
-
-(defvar-local scoot-query-block-end nil
-  "The end position of the query block in the current buffer.")
-
-(defvar-local scoot-query-block-content nil
-  "Snapshot of the current contents of the query-block.")
-
-(defvar-local scoot-query-block-shadow-buffer nil
-  "Reference to the shadow buffer backing the query block.")
-
 
 
 ;; Custom faces
@@ -69,15 +54,11 @@
   (format " *scoot shadow-qb(%s)*" (buffer-name)))
 
 (cl-defmethod scoot-widget--get-shadow-buffer ((_widget-type (eql 'query-block))
-                                               _widget-name)
-  "Get the shadow buffer for the query block."
-  scoot-query-block-shadow-buffer)
-
-(cl-defmethod scoot-widget--set-shadow-buffer ((_widget-type (eql 'query-block))
-                                               _widget-name
-                                               buffer)
-  "Set the shadow buffer for the active input to BUFFER."
-  (setq scoot-query-block-shadow-buffer buffer))
+                                               widget-name)
+  "Get the shadow buffer for the query block with name WIDGET-NAME."
+  (plist-get (scoot-widget--get-widget :type 'query-block
+                                       :name widget-name)
+             :shadow-buffer))
 
 (cl-defmethod scoot-widget--shadow-after-change-hook ((_widget-type (eql 'query-block))
                                                       _widget-name)
@@ -121,63 +102,78 @@ For subsequent updates/refreshes of the query block, call
 `scoot-qb--refresh-query-block`."
   (let* ((width (or (plist-get opts :width) (window-body-width)))
          (wrapped-lines (scoot--wrap-string query width))
-         (widget (scoot-widget--get-widget-config 'query-block
-                                                  'query-block)))
-    (setq-local scoot-query-block-start (point))
-    (plist-put widget :editable-start (copy-marker (point)))
-    (plist-put widget :widget-start (copy-marker (point)))
-    (plist-put widget :widget-start-line (line-number-at-pos (point)))
+         (widget (scoot-widget--register-widget! 'query-block
+                                                 'query-block))
+         (qb-start (point)))
+    (unless widget
+      (error "Failed to create query block widget"))
+    (plist-put widget :editable-start (copy-marker qb-start))
+    (plist-put widget :widget-start (copy-marker qb-start))
+    (plist-put widget :widget-start-line (line-number-at-pos qb-start))
     (scoot-widget--init-shadow-buffer 'query-block
                                       'query-block
                                       (string-join wrapped-lines "\n"))
     (insert (scoot-qb--build-query-block (scoot-qb--get-query widget) opts))
-    (setq-local scoot-query-block-end (point))
     (plist-put widget :editable-end (copy-marker (point)))
     (plist-put widget :widget-end (copy-marker (point)))
     (add-text-properties (plist-get widget :widget-start)
                          (plist-get widget :widget-end)
                          (list 'cursor-sensor-functions
                                scoot-widget--cursor-sensor-functions))
-    (scoot-qb--fontify-query-block widget)
-    (let ((ov (make-overlay (plist-get widget :widget-start)
-                            (plist-get widget :widget-end))))
-      (overlay-put ov 'face 'scoot-query-block-face)
-      (overlay-put ov 'scoot-query-block-overlay t)
-      (overlay-put ov 'priority -50))
-
+    (scoot-qb--fontify-query-block! widget)
+    (scoot-qb--ensure-overlay! widget)
     (cursor-sensor-mode 1)
     widget))
 
 (defun scoot-qb--refresh-query-block ()
   "Redraw the query-block with the contents of the shadow buffer."
   (scoot--save-cursor)
-  (let ((inhibit-read-only t))
+  (let ((widget (scoot-widget--get-widget :type 'query-block
+                                          :name 'query-block))
+        (inhibit-read-only t))
+    (unless widget
+      (error "Refresh query block: Block doesn't exist"))
     (with-silent-modifications
-      (delete-region scoot-query-block-start
-                     scoot-query-block-end)
-      (goto-char scoot-query-block-start)
-      (insert (scoot-qb--build-query-block
-               (with-current-buffer scoot-query-block-shadow-buffer
-                 (buffer-string))))
-      (setq-local scoot-query-block-end (point))
-      (let ((widget (scoot-widget--get-widget-config 'query-block 'query-block)))
-        (set-marker (plist-get widget :widget-start) scoot-query-block-start)
-        (set-marker (plist-get widget :editable-start) scoot-query-block-start)
-        (set-marker (plist-get widget :widget-end) scoot-query-block-end)
-        (set-marker (plist-get widget :editable-end) scoot-query-block-end)
-        (add-text-properties scoot-query-block-start
-                             scoot-query-block-end
+      (delete-region (plist-get widget :widget-start)
+                     (plist-get widget :widget-end))
+      (goto-char (plist-get widget :widget-start))
+      (let ((widget-start (point))
+            (widget-end nil))
+        (insert (scoot-qb--build-query-block
+                 (with-scoot-widget-shadow-buffer widget
+                   (buffer-string))))
+        (setq widget-end (point))
+        (set-marker (plist-get widget :widget-start) widget-start)
+        (set-marker (plist-get widget :editable-start) widget-start)
+        (set-marker (plist-get widget :widget-end) widget-end)
+        (set-marker (plist-get widget :editable-end) widget-end)
+        (add-text-properties widget-start
+                             widget-end
                              (list 'cursor-sensor-functions
                                    scoot-widget--cursor-sensor-functions))
-        (scoot-qb--fontify-query-block widget))))
-  (scoot--restore-cursor))
+        (scoot-qb--fontify-query-block! widget)
+        (scoot-qb--ensure-overlay! widget)))
+    (scoot--restore-cursor)))
 
 
-(defun scoot-qb--fontify-query-block (query-block)
+(defun scoot-qb--ensure-overlay! (query-block)
+  "Ensure that QUERY-BLOCK has an overlay covering the entire widget."
+  (let ((qb-start (plist-get query-block :widget-start))
+        (qb-end (plist-get query-block :widget-end)))
+    (if-let ((overlay (plist-get query-block :widget-overlay)))
+        (move-overlay overlay qb-start qb-end)
+      (let ((ov (make-overlay qb-start qb-end)))
+        (overlay-put ov 'face 'scoot-query-block-face)
+        (overlay-put ov 'scoot-query-block-overlay t)
+        (overlay-put ov 'priority -50)
+        (plist-put query-block :widget-overlay ov)))))
+
+(defun scoot-qb--fontify-query-block! (query-block)
   "Fontify the contents of QUERY-BLOCK."
-  (let ((font-lock-defaults '(sql-mode-ms-font-lock-keywords nil t)))
-    (font-lock-fontify-region (plist-get query-block :widget-start)
-                              (plist-get query-block :widget-end))))
+  (save-excursion
+    (let ((font-lock-defaults '(sql-mode-ms-font-lock-keywords nil t)))
+      (font-lock-fontify-region (plist-get query-block :widget-start)
+                                (plist-get query-block :widget-end)))))
 
 
 ;; Query Block interaction functions
@@ -192,16 +188,17 @@ For subsequent updates/refreshes of the query block, call
 
 (defun scoot-qb--enter-query-block ()
   "Synchronize cursor positions when entering the visible query block."
-  (let ((qb-pos (scoot-widget--point->position (scoot-widget--get-widget-config 'query-block
-                                                                        'query-block)
-                                               (point)
-                                               (list :absolute-p t
-                                                     :shadow-p t)))
-        (updated-pos nil))
-    (with-current-buffer scoot-query-block-shadow-buffer
+  (let* ((widget (scoot-widget--get-widget :type 'query-block
+                                           :name 'query-block))
+         (qb-pos (scoot-widget--point->position widget
+                                                (point)
+                                                (list :absolute-p t
+                                                      :shadow-p t)))
+         (updated-pos nil))
+    (with-scoot-widget-shadow-buffer widget
       (scoot-qb--move-to-qb-pos qb-pos)
       (setq updated-pos (list :line (line-number-at-pos) :col (current-column))))
-    (scoot-qb--move-to-qb-pos updated-pos scoot-query-block-start)))
+    (scoot-qb--move-to-qb-pos updated-pos (plist-get widget :widget-start))))
 
 (defun scoot-qb--move-to-qb-pos (pos &optional initial-pos)
   "Move the cursor to POS inside the query block, if possible.
@@ -213,8 +210,7 @@ INITIAL-POS allows overriding the default of (point-min)."
 
 (defun scoot-qb--get-query (qb-widget)
   "Return the query currently entered into the query block QB-WIDGET."
-  (with-current-buffer (scoot-widget--get-shadow-buffer (plist-get qb-widget :type)
-                                                        (plist-get qb-widget :name))
+  (with-scoot-widget-shadow-buffer qb-widget
     (buffer-substring-no-properties (point-min) (point-max))))
 
 

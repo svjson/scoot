@@ -283,6 +283,7 @@ falsy values will enforce `read-only-mode` and scoot invariants thereof."
   "Clear the current buffer contents and disable any modes that may interfere."
   (scoot--save-cursor)
   (scoot-buffer--editable t)
+  (scoot-widget--destroy-widgets!)
   (erase-buffer)
   (setq-local scoot-buffer-outline-sections 0))
 
