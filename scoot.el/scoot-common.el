@@ -94,8 +94,7 @@ See `scoot-local--context-name-resolvers`")
 
 (defun scoot--wrap-string (str width)
   "Wrap STR to WIDTH, preserving whitespace and \n boundaries."
-  (let ((width (1- width))
-        (lines (split-string str "\n"))
+  (let ((lines (split-string str "\n"))
         (result '()))
     (dolist (line lines)
       (while (> (scoot--visible-width line) width)

@@ -69,7 +69,7 @@ This function relies on `window-body-width` to determine the
 width of the query-block unless OPTS is provided with a value
 for :width."
   (let* ((width (or (plist-get opts :width) (window-body-width)))
-         (wrapped-lines (scoot--wrap-string query width))
+         (wrapped-lines (scoot--wrap-string query (1- width)))
          (content ""))
     (dolist (line wrapped-lines)
       (setq content (concat content
@@ -94,7 +94,7 @@ This should be called when initially setting up a query block.
 For subsequent updates/refreshes of the query block, call
 `scoot-qb--refresh-query-block`."
   (let* ((width (or (plist-get opts :width) (window-body-width)))
-         (wrapped-lines (scoot--wrap-string query width))
+         (wrapped-lines (scoot--wrap-string query (1- width)))
          (widget (scoot-widget--register-widget! 'query-block
                                                  'query-block))
          (qb-start (point)))
