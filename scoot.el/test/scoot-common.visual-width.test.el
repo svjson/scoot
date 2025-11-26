@@ -39,13 +39,13 @@
   (should (equal 11 (scoot--visible-width "HELLO	WORLD" 2))))
 
 (ert-deftest scoot--visible-width--tab-width-4--tab-counts-as-1-space-when-just-before-tab-stop ()
-  (should (equal 11 (scoot--visible-width "HELLO	WORLD" 4))))
+  (should (equal 13 (scoot--visible-width "HELLO	WORLD" 4))))
 
 (ert-deftest scoot--visible-width--tab-width-2--tab-counts-as-2-spaces-when-aligned-with-tab-stop ()
   (should (equal 13 (scoot--visible-width " HELLO	WORLD" 2))))
 
 (ert-deftest scoot--visible-width--tab-width-4--tab-counts-as-4-spaces-when-aligned-with-tab-stop ()
-  (should (equal 15 (scoot--visible-width "   HELLO	WORLD" 4))))
+  (should (equal 17 (scoot--visible-width "   HELLO	WORLD" 4))))
 
 
 

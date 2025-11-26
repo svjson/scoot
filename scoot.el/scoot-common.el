@@ -114,7 +114,7 @@ will be used to compute the column-width of tabs"
         (col 0))
     (seq-do (lambda (ch)
               (if (eq ch ?\t)
-                  (setq col (+ col (- tab-width (% col tabwidth))))
+                  (setq col (+ col (- tabwidth (% col tabwidth))))
                 (setq col (1+ col))))
             s)
     col))
