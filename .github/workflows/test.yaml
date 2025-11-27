@@ -35,7 +35,6 @@ jobs:
                  -w "$PWD" \
                  -v /var/run/docker.sock:/var/run/docker.sock \
                  -e SCOOT_CI \
-                 -e SCOOT_WAIT_TIMEOUT \
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && make test-core"
 
@@ -80,7 +79,9 @@ jobs:
                  -e SCOOT_WAIT_TIMEOUT \
                  --network=host \
                  ghcr.io/svjson/scoot-ci:latest \
-                 bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-backend"
+                 bash -lc "make dev-setup && \
+                           source .venv/bin/activate && \
+                           BACKEND=${{ matrix.backend }} make test-backend"
 
 
   # Big monolithic run (leak detector)
@@ -102,5 +103,8 @@ jobs:
                  -v /var/run/docker.sock:/var/run/docker.sock \
                  -e SCOOT_CI \
                  -e SCOOT_WAIT_TIMEOUT \
+                 --network=host \
                  ghcr.io/svjson/scoot-ci:latest \
-                 bash -lc "make dev-setup && make test"
+                 bash -lc "make dev-setup && \
+                           source .venv/bin/activate && \
+                           make test"
