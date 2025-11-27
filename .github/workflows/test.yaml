@@ -6,6 +6,7 @@ on:
   pull_request:
 
 env:
+  SCOOT_CI: true
   SCOOT_WAIT_TIMEOUT: 180
 
 jobs:
@@ -33,6 +34,8 @@ jobs:
                  -v "$PWD:$PWD" \
                  -w "$PWD" \
                  -v /var/run/docker.sock:/var/run/docker.sock \
+                 -e SCOOT_CI
+                 -e SCOOT_WAIT_TIMEOUT
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && make test-core"
 
@@ -73,6 +76,8 @@ jobs:
           docker run --rm -v "$PWD:/workspace" \
                  -w /workspace \
                  -v /var/run/docker.sock:/var/run/docker.sock \
+                 -e SCOOT_CI
+                 -e SCOOT_WAIT_TIMEOUT
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-backend"
 
@@ -80,17 +85,21 @@ jobs:
   # Big monolithic run (leak detector)
   full-suite:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/svjson/scoot-ci:latest
-      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
     strategy:
       fail-fast: false
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up environment
-        run: make dev-setup
+      - name: Pull CI image
+        run: docker pull ghcr.io/svjson/scoot-ci:latest
 
-      - name: Full Test Suite
-        run: make test
+      - name: Run tests inside container and map docker socket
+        run: |
+          docker run --rm -v "$PWD:/workspace" \
+                 -w /workspace \
+                 -v /var/run/docker.sock:/var/run/docker.sock \
+                 -e SCOOT_CI
+                 -e SCOOT_WAIT_TIMEOUT
+                 ghcr.io/svjson/scoot-ci:latest \
+                 bash -lc "make dev-setup && make test"
