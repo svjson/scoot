@@ -30,6 +30,38 @@
 (require 'scoot-server)
 (setq scoot-show-server-buffer t)
 
+
+
+;; Conditionally enable network debugging
+
+(require 'cl-lib)
+
+(defun scoot-test--log-network (orig-fun &rest args)
+  "Advice function for wrapping `make-network-process`.
+
+ORIG-FUN and ARGS should corresponed to `make-network-process`."
+  (let* ((plist   (nthcdr 2 args))
+         (host    (plist-get plist :host))
+         (service (plist-get plist :service)))
+    (when (and host service
+               (or (equal host "localhost")
+                   (equal host "127.0.0.1")
+                   (equal host "0.0.0.0"))
+               (equal (format "%s" service) "8224"))
+      (message "SCOOT-NET: make-network-process host=%S service=%S ARGS=%S"
+               host service args)
+      (message "SCOOT-NET backtrace:\n%s"
+               (with-temp-buffer
+                 (let ((standard-output (current-buffer)))
+                   (backtrace))
+                 (buffer-string))))
+    (apply orig-fun args)))
+
+(when (getenv "SCOOT_CI")
+  (message "Enabling network debugging...")
+  (advice-add 'make-network-process :around #'scoot-test--log-network))
+
+
 
 ;; Test runner functions used to trigger tests and format result
 
