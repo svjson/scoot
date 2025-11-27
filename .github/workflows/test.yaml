@@ -13,9 +13,6 @@ jobs:
   # Core tests
   core:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/svjson/scoot-ci:latest
-      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
     steps:
       - name: Authenticate to GHCR
         uses: docker/login-action@v3
@@ -27,13 +24,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up environment
-        run: make dev-setup
+      - name: Pull CI image
+        run: docker pull ghcr.io/svjson/scoot-ci:latest
 
-      - name: Run core tests
-        run: make test-core
-
-
+      - name: Run tests inside container and map docker socket
+        run: |
+          docker run --rm -v "$PWD:/workspace" \
+                 -w /workspace \
+                 -v /var/run/docker.sock:/var/run/docker.sock \
+                 ghcr.io/svjson/scoot-ci:latest \
+                 bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-core"
 
   # Emacs unit tests
   emacs-unit:
@@ -56,9 +56,6 @@ jobs:
   # System / integration tests per backend
   system:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/svjson/scoot-ci:latest
-      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
     strategy:
       fail-fast: false
       matrix:
@@ -67,12 +64,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up environment
-        run: make dev-setup
+      - name: Pull CI image
+        run: docker pull ghcr.io/svjson/scoot-ci:latest
 
-      - name: Run system tests for ${{ matrix.backend }}
-        run: make test-backend BACKEND=${{ matrix.backend }}
-
+      - name: Run tests inside container and map docker socket
+        run: |
+          docker run --rm -v "$PWD:/workspace" \
+                 -w /workspace \
+                 -v /var/run/docker.sock:/var/run/docker.sock \
+                 ghcr.io/svjson/scoot-ci:latest \
+                 bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-backend"
 
 
   # Big monolithic run (leak detector)
