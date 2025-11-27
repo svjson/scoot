@@ -1,5 +1,4 @@
 import pytest
-import pprint
 from system_test.emacs_test_runner import EmacsDaemon, run_test
 
 

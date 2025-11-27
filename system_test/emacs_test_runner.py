@@ -129,7 +129,7 @@ def is_emacs_initialized(daemon: EmacsDaemon):
     Check for the Scoot test-runner function.
     """
 
-    return daemon.eval_lisp("(fboundp 'scoot-test--run-test)", True, True)
+    return daemon.eval_lisp("(fboundp 'scoot-test--run-test)", True, True) == "t"
 
 
 def parse_test_result(result: str):
