@@ -186,15 +186,30 @@ def run_test(
         log.info(f"Passed: '{test_name}")
     else:
         log.error(f"Failed: '{test_name}'")
-        log.error(f"Output:\n{result.get('Messages', '').replace('\\n', '\n')}")
-        log.error("----------------------------------------------------------")
-        log.error(
-            f"Assertions:\n{result.get('Assertions', '').replace('\\n', '\n')}"
-        )
-        log.error("----------------------------------------------------------")
-        log.error(
-            f"ServerOutput:\n{result.get('ServerOutput', '').replace('\\n', '\n')}"
-        )
-        log.error("----------------------------------------------------------")
+        for section in [
+            "Result",
+            "Duration",
+            "Messages",
+            "Assertions",
+            "Infos",
+            "Backtrace",
+            "ServerOutput",
+        ]:
+            log.error("==========================================================")
+            content = result.get(section, "")
+            if content and type(content) is str and content.strip():
+                lines = content.strip().replace("\\n", "\n").split("\n")
+                if len(lines) == 1:
+                    log.error(f"{section}: {lines[0]}")
+                else:
+                    log.error(f"{section}:")
+                    log.error(
+                        "----------------------------------------------------------"
+                    )
+                    for line in lines:
+                        log.error(line)
+            else:
+                log.error(f"{section}: N/A")
+        log.error("==========================================================")
 
     assert success
