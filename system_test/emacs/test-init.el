@@ -110,19 +110,36 @@ ORIG-FUN and ARGS should corresponed to `make-network-process`."
                       (string-join frames "\n")))
             (format "[Infos]\n%s\n[Infos]\n" (mapconcat #'identity infos "\n")))))
 
+(defun scoot-test--report-server-output ()
+  "Generate [ServerOutput] section if server log buffer exists."
+  (if-let ((server-buf (get-buffer scoot-server-buffer-name))
+           (live-p (buffer-live-p server-buf)))
+      (format "[ServerOutput]\n%s\n[/ServerOutput]\n"
+              (with-current-buffer scoot-server-buffer-name
+                (buffer-string)))
+    ""))
+
 (defun scoot-test--run-test (test-name)
   "Run ert test TEST-NAME and return the test output."
-  (let* ((result (ert-run-test (ert-get-test test-name))))
-    (concat (cond
-             ((ert-test-result-type-p result (or :passed :skipped))
-              (scoot-test--format-result result))
-             (t (scoot-test--format-result-with-cond result)))
-            (if-let ((server-buf (get-buffer scoot-server-buffer-name))
-                     (live-p (buffer-live-p server-buf)))
-                (format "[ServerOutput]\n%s\n[/ServerOutput]\n"
-                        (with-current-buffer scoot-server-buffer-name
-                          (buffer-string)))
-              ""))))
+  (condition-case err
+      (let* ((result (ert-run-test (ert-get-test test-name))))
+        (concat (cond
+                 ((ert-test-result-type-p result (or :passed :skipped))
+                  (scoot-test--format-result result))
+                 (t (scoot-test--format-result-with-cond result)))
+                (scoot-test--report-server-output)))
+    (error
+     (let ((bt (with-temp-buffer
+                 (let ((standard-output (current-buffer)))
+                   (backtrace))
+                 (buffer-string))))
+       (format "[Result]\nerror\n[/Result]\n\
+[Messages]\n%s\n[/Messages]\n\
+[Backtrace]\n%s[/Backtrace]\n\
+%s"
+               (error-message-string err)
+               bt
+               (scoot-test--report-server-output))))))
 
 
 
