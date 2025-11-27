@@ -59,11 +59,16 @@ def start_emacs_daemon(db_backend: BackendService):
     )
 
     pid = get_emacs_pid(tmp_emacs_home)
+    daemon = EmacsDaemon(instance_name, pid)
 
     log.info(
         f"Emacs daemon with pid {pid} running from user-emacs-directory {tmp_emacs_home}"
     )
-    return EmacsDaemon(instance_name, pid)
+
+    if is_emacs_initialized(daemon):
+        log.info("Emacs test fixtures initialized.")
+
+    return daemon
 
 
 def start_emacs_unit_test_daemon():
@@ -91,11 +96,15 @@ def start_emacs_unit_test_daemon():
     )
 
     pid = get_emacs_pid(tmp_emacs_home)
-
+    daemon = EmacsDaemon(instance_name, pid)
     log.info(
         f"Emacs daemon with pid {pid} running from user-emacs-directory {tmp_emacs_home}"
     )
-    return EmacsDaemon(instance_name, pid)
+
+    if is_emacs_initialized(daemon):
+        log.info("Emacs test fixtures initialized.")
+
+    return daemon
 
 
 @wait_and_retry(wait_interval=0.1)
@@ -112,6 +121,15 @@ def get_emacs_pid(emacs_home: str):
             return int(f.read().strip())
     except FileNotFoundError:
         return False
+
+
+@wait_and_retry(wait_interval=0.1)
+def is_emacs_initialized(daemon: EmacsDaemon):
+    """
+    Check for the Scoot test-runner function.
+    """
+
+    return daemon.eval_lisp("(fboundp 'scoot-test--run-test)", True, True)
 
 
 def parse_test_result(result: str):
