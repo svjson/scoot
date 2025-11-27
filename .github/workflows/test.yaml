@@ -29,11 +29,12 @@ jobs:
 
       - name: Run tests inside container and map docker socket
         run: |
-          docker run --rm -v "$PWD:/workspace" \
-                 -w /workspace \
+          docker run --rm \
+                 -v "$PWD:$PWD" \
+                 -w "$PWD" \
                  -v /var/run/docker.sock:/var/run/docker.sock \
                  ghcr.io/svjson/scoot-ci:latest \
-                 bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-core"
+                 bash -lc "make dev-setup && make test-core"
 
   # Emacs unit tests
   emacs-unit:
