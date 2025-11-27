@@ -1,3 +1,4 @@
+import os
 from typing import Union, Optional
 import threading
 import docker
@@ -64,11 +65,14 @@ def start_service(backend_name: str) -> BackendService:
         raise KeyError(f"Unrecognized backend: {backend_name}")
 
     container_name = f"scoot_{backend_config['name']}_{backend_config['port']}"
+    log_thread = None
     container = None
 
     try:
         cleanup_existing_container(container_name)
         container = start_container(backend_config, container_name)
+        if os.getenv("SCOOT_CI"):
+            log_thread = stream_container_logs(container, prefix=container_name)
         wait_for_container(container)
         connection = wait_for_service(backend_config)
 
@@ -81,6 +85,8 @@ def start_service(backend_name: str) -> BackendService:
     except Exception as e:
         if container:
             kill_container(backend_name, container)
+        if log_thread and log_thread.is_alive():
+            log_thread.join()
         raise e
 
 
@@ -110,7 +116,9 @@ def cleanup_existing_container(container_name: str) -> None:
 
 def stream_container_logs(container, prefix=None):
     def _stream():
-        for line in container.logs(stream=True, follow=True):
+        for line in container.logs(
+            stream=True, follow=True, stdout=True, stderr=True
+        ):
             msg = line.decode("utf-8", errors="replace").rstrip()
             if prefix:
                 log.info(f"[{prefix}] {msg}")
