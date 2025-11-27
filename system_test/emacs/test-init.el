@@ -57,7 +57,7 @@ ORIG-FUN and ARGS should corresponed to `make-network-process`."
                  (buffer-string))))
     (apply orig-fun args)))
 
-(when (getenv "SCOOT_CI")
+(when (getenv "SCOOT_DEBUG_NETWORK")
   (message "Enabling network debugging...")
   (advice-add 'make-network-process :around #'scoot-test--log-network))
 
