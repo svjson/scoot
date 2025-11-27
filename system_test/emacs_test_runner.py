@@ -28,7 +28,7 @@ class EmacsDaemon:
         try:
             os.kill(self.pid, 15)
         except ProcessLookupError:
-            log.info(f"Emacs exited nicely.")
+            log.info("Emacs exited nicely.")
 
 
 def start_emacs_daemon(db_backend: BackendService):
@@ -44,7 +44,7 @@ def start_emacs_daemon(db_backend: BackendService):
     shutil.copyfile(os.path.join("system_test", "emacs", "test-init.el"), init_dest)
 
     log.info("Starting emacs daemon...")
-    backend_name = db_backend.config.get('name')
+    backend_name = db_backend.config.get("name")
     instance_name = f"dmn_{backend_name}"
 
     conn_url = db_backend.get_active_connection_url()
@@ -54,7 +54,7 @@ def start_emacs_daemon(db_backend: BackendService):
         {
             "SCOOT_TEMP_EMACS_DIR": tmp_emacs_home,
             "SCOOT_EMACS_INSTANCE_NAME": instance_name,
-            "SCOOT_TEST_CONNECTION": f"(list :context \"{backend_name}\" :name \"{backend_name}\" :url \"{conn_url}\")",
+            "SCOOT_TEST_CONNECTION": f'(list :context "{backend_name}" :name "{backend_name}" :url "{conn_url}")',
         },
     )
 
@@ -120,7 +120,7 @@ def parse_test_result(result: str):
     function defined in `test-init.el`
     """
 
-    if result[0] == "\"":
+    if result[0] == '"':
         result = ast.literal_eval(result)
 
     sections = {}
@@ -158,7 +158,7 @@ def run_test(
 
     relative_test_file = os.path.join(*root_path, test_file)
 
-    emacs_daemon.eval_lisp(f"(load-file \"{relative_test_file}\")", True, True)
+    emacs_daemon.eval_lisp(f'(load-file "{relative_test_file}")', True, True)
 
     test_result = emacs_daemon.eval_lisp(f"(scoot-test--run-test '{test_name})")
     result = parse_test_result(test_result)
