@@ -78,6 +78,7 @@ jobs:
                  -v /var/run/docker.sock:/var/run/docker.sock \
                  -e SCOOT_CI \
                  -e SCOOT_WAIT_TIMEOUT \
+                 --network=host \
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-backend"
 
