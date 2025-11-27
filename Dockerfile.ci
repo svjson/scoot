@@ -1,26 +1,66 @@
 FROM ubuntu:25.10
 
+# -----------------------------------------------------------------------------
 # Install core tools
-RUN apt-get update && \
-    apt-get install -y \
-    python3 python3-venv python3-pip python3-dev libpq-dev gcc make bash \
+# -----------------------------------------------------------------------------
+
+RUN apt update && \
+    apt install -y \
+    curl gnupg python3 python3-venv python3-pip python3-dev libpq-dev gcc make bash \
     emacs-nox docker-cli git wget unzip && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     rm -rf /var/lib/apt/lists/*
 
+# Force IPv4
+RUN echo "precedence ::ffff:0:0/96  100" >> /etc/gai.conf
+
+# -----------------------------------------------------------------------------
 # Install Oracle Instant Client
+# -----------------------------------------------------------------------------
+
 RUN wget http://ftp.us.debian.org/debian/pool/main/liba/libaio/libaio1_0.3.113-4_amd64.deb && \
-    apt-get install -y ./libaio1_0.3.113-4_amd64.deb && \
+    apt install -y ./libaio1_0.3.113-4_amd64.deb && \
     rm libaio1_0.3.113-4_amd64.deb && \
-    wget https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linuxx64.zip -O /tmp/instantclient.zip && \
+    curl https://download.oracle.com/otn_software/linux/instantclient/instantclient-basiclite-linuxx64.zip -o /tmp/instantclient.zip && \
     mkdir -p /opt/oracle && \
     unzip /tmp/instantclient.zip -d /opt/oracle && \
     rm /tmp/instantclient.zip && \
     echo "/opt/oracle/$(ls /opt/oracle/ | grep inst)" > /etc/ld.so.conf.d/oracle-instantclient.conf && \
     ldconfig
 
+
+# -----------------------------------------------------------------------------
+# Install dependencies for msodbcsql
+# -----------------------------------------------------------------------------
+
+
+# Download Microsoft repo package ( 22.04 because 22.10 stalls )
+#RUN curl https://packages.microsoft.com/config/ubuntu/22.10/packages-microsoft-prod.deb -o /tmp/msprod.deb
+
+# Requires manual download of packages-microsoft-prod.deb because Microsoft can't even
+# run a working https server
+COPY packages-microsoft-prod.deb /tmp/msprod.deb
+RUN dpkg -i /tmp/msprod.deb && \
+    rm /tmp/msprod.deb
+
+# Place gpg keys and fix signed-by entry
+#RUN mkdir -p /etc/apt/keyrings && \
+#    mv /etc/apt/trusted.gpg.d/microsoft-prod.gpg /etc/apt/keyrings/microsoft.gpg && \
+#    sed -i 's#deb \[arch=amd64#deb [arch=amd64 signed-by=/etc/apt/keyrings/microsoft.gpg]#' /etc/apt/sources.list.d/microsoft-prod.list
+
+# Install ODBC driver
+RUN apt update && \
+    ACCEPT_EULA=Y apt-get install -y unixodbc unixodbc-dev msodbcsql18 mssql-tools18
+
+# -----------------------------------------------------------------------------
+# Finalize
+# -----------------------------------------------------------------------------
+
 # Set up workdir
 WORKDIR /workspace
 
+# -----------------------------------------------------------------------------
 # Run
+# -----------------------------------------------------------------------------
+
 CMD ["bash"]
