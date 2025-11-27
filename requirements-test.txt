@@ -4,6 +4,7 @@ docker
 PyYAML
 SQLAlchemy
 psycopg2
+pyodbc
 PyMySQL
 cx_Oracle
 cryptography
