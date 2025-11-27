@@ -101,6 +101,9 @@ def start_emacs_unit_test_daemon():
         f"Emacs daemon with pid {pid} running from user-emacs-directory {tmp_emacs_home}"
     )
 
+    log.info("Setting 'scoot-auto-start-server to nil")
+    daemon.eval_lisp("(setq scoot-auto-start-server nil)")
+
     if is_emacs_initialized(daemon):
         log.info("Emacs test fixtures initialized.")
 
