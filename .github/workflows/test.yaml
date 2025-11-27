@@ -34,8 +34,8 @@ jobs:
                  -v "$PWD:$PWD" \
                  -w "$PWD" \
                  -v /var/run/docker.sock:/var/run/docker.sock \
-                 -e SCOOT_CI
-                 -e SCOOT_WAIT_TIMEOUT
+                 -e SCOOT_CI \
+                 -e SCOOT_WAIT_TIMEOUT \
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && make test-core"
 
@@ -76,8 +76,8 @@ jobs:
           docker run --rm -v "$PWD:/workspace" \
                  -w /workspace \
                  -v /var/run/docker.sock:/var/run/docker.sock \
-                 -e SCOOT_CI
-                 -e SCOOT_WAIT_TIMEOUT
+                 -e SCOOT_CI \
+                 -e SCOOT_WAIT_TIMEOUT \
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && BACKEND=${{ matrix.backend }} make test-backend"
 
@@ -99,7 +99,7 @@ jobs:
           docker run --rm -v "$PWD:/workspace" \
                  -w /workspace \
                  -v /var/run/docker.sock:/var/run/docker.sock \
-                 -e SCOOT_CI
-                 -e SCOOT_WAIT_TIMEOUT
+                 -e SCOOT_CI \
+                 -e SCOOT_WAIT_TIMEOUT \
                  ghcr.io/svjson/scoot-ci:latest \
                  bash -lc "make dev-setup && make test"
