@@ -186,6 +186,8 @@ def run_test(
     result = parse_test_result(test_result)
     success = "ert-test-passed" == result.get("Result", None)
 
+    log.info(test_result)
+
     if success:
         log.info(f"Passed: '{test_name}")
     else:
