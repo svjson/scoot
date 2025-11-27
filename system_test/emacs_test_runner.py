@@ -178,9 +178,9 @@ def run_test(
     log.info(f"Running test{context_label}: '{test_name}")
 
     relative_test_file = os.path.join(*root_path, test_file)
-    log.info(f"From file: '${relative_test_file}'")
+    log.info(f"From file: '{relative_test_file}'")
 
-    emacs_daemon.eval_lisp(f'(load-file "{relative_test_file}")', True, True)
+    emacs_daemon.eval_lisp(f'(load-file "{relative_test_file}")', True)
 
     test_result = emacs_daemon.eval_lisp(f"(scoot-test--run-test '{test_name})")
     result = parse_test_result(test_result)
