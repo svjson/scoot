@@ -24,6 +24,7 @@
 (require 'scoot)
 (require 'scoot-table)
 (require 'scoot-common)
+(require 'scoot-test-fixtures)
 (require 'ert)
 
 
@@ -51,15 +52,15 @@
                               (column . "Status") (constraints . []))])))))
     (should
      (equal
-      (scoot-table--build-visual-model result-model)
+      (scoot-test--normalize-struct (scoot-table--build-visual-model result-model))
       '(:headers
         ((:name "RentalObjectCode" :header-label "RentalObjectCode" :metadata ((name . "RentalObjectCode") (type . "STRING") (typespec (type . "STRING") (max-len . 255) (encoding . "utf-8") (collation (locale . "Finnish_Swedish") (case-sensitive . :json-false) (accent-sensitive . t)) (lob . :json-false)) (native_type . "nvarchar(255) COLLATE Finnish_Swedish_CI_AS") (nullable . :json-false) (primary_key . :json-false) (default) (table . "Listing") (column . "RentalObjectCode") (constraints . [])))
          (:name "Status" :header-label "Status" :metadata ((name . "Status") (type . "INTEGER") (typespec (type . "INTEGER") (bits . 64) (signed . t)) (native_type . "int") (nullable . :json-false) (primary_key . :json-false) (default) (table . "Listing") (column . "Status") (constraints . []))))
         :tables ("Listing")
         :widths (16 6)
         :formatters
-        ((:align left :format-value scoot--value-to-string :output-cell #[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-string-face))) (t)] :sql-literal #[(value) ((format "'%s'" value)) (t)])
-         (:align right :format-value scoot--value-to-string :output-cell #[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-number-face))) (t)] :sql-literal scoot--value-to-string))
+        ((:align left :format-value scoot--value-to-string :output-cell "#[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-string-face))) (t)]" :sql-literal "#[(value) ((format '%s' value)) (t)]")
+         (:align right :format-value scoot--value-to-string :output-cell "#[(_ formatted-value) ((insert (propertize formatted-value 'face 'scoot-cell-number-face))) (t)]" :sql-literal scoot--value-to-string))
         :records
         (((:value "705-021-99-0008" :formatted-value "705-021-99-0008")
           (:value 3 :formatted-value "3"))))))))

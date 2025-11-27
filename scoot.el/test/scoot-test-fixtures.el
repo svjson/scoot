@@ -21,6 +21,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 
 
 ;; Window buffer management
@@ -31,11 +32,11 @@
 Unlike `with-temp-buffer` this buffer attaches to the window, allowing
 commands and hooks to run properly."
   `(let ((buf (generate-new-buffer "*scoot test-buffer*")))
-    (unwind-protect
-        (progn
-          (switch-to-buffer buf)
-          ,@body)
-        (kill-buffer buf))))
+     (unwind-protect
+         (progn
+           (switch-to-buffer buf)
+           ,@body)
+       (kill-buffer buf))))
 
 
 
@@ -76,8 +77,34 @@ ACTUAL."
     (insert "\n")))
 
 
+;; Data structures
+
+(defun scoot-test--normalize-struct (struct)
+  "Normalize data structure STRUCT for asserts.
+
+Used to replace bytecode objects and function references to
+something more handy for comparison of results with
+inline data structures using `equals`."
+  (cond
+   ;; Remove byte-code objects
+   ((or (interpreted-function-p struct)
+        (byte-code-function-p struct))
+    (format "%s" struct))
+
+   ;; Recurse alists/plists
+   ((and (consp struct) (symbolp (car struct)))
+    (cons (car struct) (scoot-test--normalize-struct (cdr struct))))
+
+   ;; Recurse lists
+   ((listp struct) (mapcar #'scoot-test--normalize-struct struct))
+
+   ;; Vectors
+   ((vectorp struct) (cl-map 'vector #'scoot-test--normalize-struct struct))
+
+   (t struct)))
 
 (defun scoot-test--to-hash-table (plist)
+  "Convert PLIST to hash table."
   (let ((tbl (make-hash-table :test 'equal)))
     (while plist
       (puthash (pop plist) (pop plist) tbl))
