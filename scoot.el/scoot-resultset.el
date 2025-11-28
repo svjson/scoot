@@ -202,6 +202,22 @@ OVERRIDE can be used to bypass other generation rules"
               ('objects (concat ": " (scoot--object-type-name object-type t)))))
           "*"))
 
+(defun scoot-rs--do-generate-buffer-name (result-context)
+  "Generate a resultset-like buffer name from RESULT-CONTEXT."
+  (cond ((null scoot-generate-resultset-buffer-name-function) scoot-resultset-buffer-default-name)
+        ((symbolp scoot-generate-resultset-buffer-name-function)
+         (let ((gen-fn (symbol-function scoot-generate-resultset-buffer-name-function)))
+           (if (functionp gen-fn)
+               (funcall gen-fn
+                        (plist-get result-context :connection)
+                        (plist-get result-context :result)
+                        (plist-get result-context :statement)
+                        (plist-get result-context :type)
+                        (plist-get result-context :object-type)
+                        (plist-get result-context :object-name)
+                        (plist-get result-context :buffer-name))
+             scoot-resultset-buffer-default-name)))
+        (t scoot-resultset-buffer-default-name)))
 
 
 ;; ResultSet
@@ -256,26 +272,13 @@ Additional keys for type object/objects:
 
 Additional keys for type object:
 :object-name - The name of the object described."
-  (let ((result (plist-get result-context :result))
-        (connection (plist-get result-context :connection))
-        (stmt (plist-get result-context :statement))
-        (type (plist-get result-context :type))
-        (object-type (plist-get result-context :object-type))
-        (object-name (plist-get result-context :object-name))
-        (buf-name-override (plist-get result-context :buffer-name)))
-    (let* ((buf-name (cond ((null scoot-generate-resultset-buffer-name-function) scoot-resultset-buffer-default-name)
-                           ((symbolp scoot-generate-resultset-buffer-name-function)
-                            (let ((gen-fn (symbol-function scoot-generate-resultset-buffer-name-function)))
-                              (if (functionp gen-fn)
-                                  (funcall gen-fn connection result stmt type object-type object-name buf-name-override)
-                                scoot-resultset-buffer-default-name)))
-                           (t scoot-resultset-buffer-default-name)))
-           (buf (get-buffer-create (or buf-name scoot-resultset-buffer-default-name))))
-      (with-current-buffer buf
-        (scoot-resultset-mode)
-        (scoot-rs--update result-context)
-        (display-buffer buf))
-      buf)))
+  (let* ((buf-name (scoot-rs--do-generate-buffer-name result-context))
+         (buf (get-buffer-create (or buf-name scoot-resultset-buffer-default-name))))
+    (with-current-buffer buf
+      (scoot-resultset-mode)
+      (scoot-rs--update result-context)
+      (display-buffer buf))
+    buf))
 
 
 (defun scoot-rs--open-object-list-resultset (object-type title)

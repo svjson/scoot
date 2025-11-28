@@ -51,12 +51,16 @@ commands and hooks to run properly."
 
 (defun interactively-goto-char (pt)
   "Go to point PT, interactively and triggering hooks."
+  (interactively-goto-line (line-number-at-pos pt))
+  (while (not (= (point) pt))
+    (do-command #'forward-char)))
+
+(defun interactively-goto-line (line-num)
+  "Go to line LINE-NUM, interactively and triggering hooks."
   (goto-char (point-min))
-  (let ((target-line (line-number-at-pos pt)))
-    (while (not (= (line-number-at-pos) target-line))
-      (do-command #'next-line))
-    (while (not (= (point) pt))
-      (do-command #'forward-char))))
+  (while (not (= (line-number-at-pos) line-num))
+    (do-command #'next-line)))
+
 
 (defun interactively-self-insert-char (ch)
   "Simulate `self-insert-command`, inserting CH."
@@ -89,6 +93,20 @@ ACTUAL."
   (dotimes (_ lines)
     (insert (make-string columns ?\s))
     (insert "\n")))
+
+
+
+;; State fixtures
+
+(defmacro with-fake-connection (context-name connection &rest body)
+  "Execute BODY with CONTEXT-NAME containing CONNECTION registered."
+  (declare (indent 1))
+  `(let ((scoot-contexts (make-hash-table :test #'equal)))
+     (puthash ,context-name
+              (list :connections (list (cons (plist-get ,connection :name) ,connection)))
+              scoot-contexts)
+     ,@body))
+(put 'with-fake-connection 'lisp-indent-function 'defun)
 
 
 ;; Data structures

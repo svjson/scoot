@@ -32,9 +32,8 @@
 
 (ert-deftest ddl-edit--existing-table--query-block-is-present ()
   (with-alphanum-keys
-   (with-ddl-mode ((table "users")
-                   (timeout 5)
-                   (edit-mode t))
+   (with-ddl-edit-mode ((table "users")
+                        (timeout 5))
      (let ((query-block (scoot-widget--get-widget :type 'query-block
                                                   :name 'query-block)))
        (should query-block)
@@ -50,9 +49,8 @@
 
 (ert-deftest ddl-edit--existing-table--query-block-is-editable ()
   (with-alphanum-keys
-   (with-ddl-mode ((table "users")
-                   (timeout 5)
-                   (edit-mode t))
+   (with-ddl-edit-mode ((table "users")
+                        (timeout 5))
      (let* ((query-block (scoot-widget--get-widget :type 'query-block
                                                    :name 'query-block))
             (original-content (scoot-widget--shadow-buffer-content query-block)))

@@ -272,8 +272,7 @@ OPTS may provide properties:
 (cl-defun scoot-widget--register-widget! (widget-type widget-name)
   "Create and register widget entry in the current buffer.
 
-The identity of the widget is created from WIDGET-TYPE and
-WIDGET-NAME."
+The identity of the widget is created from WIDGET-TYPE and WIDGET-NAME."
   (let* ((identity (scoot-widget--make-identity widget-type widget-name))
          (widget-entry (cons identity (list :type widget-type
                                             :name widget-name))))
@@ -285,8 +284,8 @@ WIDGET-NAME."
 (cl-defun scoot-widget--get-widget (&key type name identity)
   "Get an existing widget object in the current buffer.
 
-The widget can be identified either by IDENTITY or a combination of
-TYPE and NAME.
+The widget can be identified either by IDENTITY or a combination of TYPE
+and NAME.
 
 Examples:
     \(scoot-widget--get-widget :type `query-block :name `block-1)
