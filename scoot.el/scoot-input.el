@@ -288,13 +288,12 @@ Requires an enum-like check constraint on the column."
 
 ;; Hooks
 
-(defun scoot-input--shadow-after-change-hook (beg end len)
-  "Run after modification happens in shadow buffer.
+(defun scoot-input--shadow-after-change-hook (widget beg end len)
+  "Run after modification happens in shadow buffer of WIDGET.
 
 BEG, END and LEN detail the beginning, end and length of the change."
   (when-let* ((type-spec (with-current-buffer scoot-widget-display-buffer
-                           (plist-get (scoot-widget--get-widget :type 'input
-                                                                :name 'input)
+                           (plist-get widget
                                       :data-type))))
     (scoot-input--validate-change type-spec beg end len))
   (with-current-buffer scoot-widget-display-buffer

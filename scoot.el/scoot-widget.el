@@ -74,10 +74,12 @@ of TYPE and NAME."
       (plist-put widget :shadow-buffer buffer))))
 
 (cl-defgeneric scoot-widget--shadow-after-change-hook (widget-type widget-name)
-  "Return a reference to function to  run when the shadow buffer changes.
+  "Return a reference to function to run when the shadow buffer changes.
 
-The method delegates on WIDGET-TYPE an may optionally use WIDGET-NAME to
-determine the update method.")
+The method delegates on WIDGET-TYPE and may optionally use WIDGET-NAME to
+determine the update method.
+
+The returned handler function must take arguments WIDGET, BEG, END and LEN.")
 
 
 
@@ -133,7 +135,11 @@ buffer."
 
         (add-hook 'after-change-functions (lambda (beg end len)
                                             (funcall (scoot-widget--shadow-after-change-hook
-                                                      widget-type widget-name)
+                                                      widget-type
+                                                      widget-name)
+                                                     (with-current-buffer scoot-widget-display-buffer
+                                                       (scoot-widget--get-widget :type widget-type
+                                                                                 :name widget-name))
                                                      beg end len))
                   nil t))
       (add-hook 'kill-buffer-hook (lambda ()
@@ -344,9 +350,9 @@ Examples:
     (plist-put widget
                :after-change-hook
                (lambda (beg end len)
-                 (scoot-widget--after-change-hook beg end len
-                                                  widget-type
-                                                  widget-name)))
+                 (scoot-widget--after-change-hook widget-type
+                                                  widget-name
+                                                  beg end len)))
 
     (add-hook 'pre-command-hook (plist-get widget :pre-command-hook) nil t)
     (add-hook 'post-command-hook (plist-get widget :post-command-hook) nil t)
@@ -407,8 +413,7 @@ widget that a command has been performed on."
                                                      sbuf-point
                                                      (list :to-absolute-p t)))))))
     (progn (error
-            (message "Error in scoot-widget--post-command-hook: %s - %s" (car err) (cdr err))
-            )
+            (message "Error in scoot-widget--post-command-hook: %s - %s" (car err) (cdr err)))
            (signal (car err) (cdr err)))))
 
 (defun scoot-widget--after-change-hook (_widget-type _widget-name _beg _end _len)
@@ -417,8 +422,7 @@ widget that a command has been performed on."
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget whose has changed.
 
-BEG, END and LEN describe the change that has occured."
-  nil)
+BEG, END and LEN describe the change that has occured.")
 
 (defun scoot-widget--command-args-advice (widget-type widget-name orig-fn args)
   "Advice around any command executing in the widget.

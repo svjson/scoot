@@ -115,6 +115,7 @@ For subsequent updates/refreshes of the query block, call
                                scoot-widget--cursor-sensor-functions))
     (scoot-qb--fontify-query-block! widget)
     (scoot-qb--ensure-overlay! widget)
+    (plist-put widget :on-change-hook (plist-get opts :on-change))
     (cursor-sensor-mode 1)
     widget))
 
@@ -210,12 +211,16 @@ INITIAL-POS allows overriding the default of (point-min)."
 
 ;; Hooks
 
-(defun scoot-qb--shadow-after-change-hook (_ _ _)
-  "Run after modification happens in shadow buffer.
+(defun scoot-qb--shadow-after-change-hook (widget beg end len)
+  "Run after modification happens in shadow buffer of WIDGET.
 
 BEG, END and LEN detail the beginning, end and length of the change."
   (with-current-buffer scoot-widget-display-buffer
-    (scoot-qb--refresh-query-block)))
+    (scoot-qb--refresh-query-block)
+    (when-let (on-change-hook (plist-get widget :on-change-hook))
+      (funcall on-change-hook (list :widget widget
+                                    :region (list beg end len)
+                                    :data (scoot-widget--shadow-buffer-content widget))))))
 
 
 ;; Query Block Mode
