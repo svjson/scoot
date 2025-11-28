@@ -15,7 +15,6 @@ from .mapper import (
 )
 
 from sqlalchemy.dialects.mssql import dialect as mssql_dialect
-from sqlalchemy.sql.type_api import TypeEngine
 
 from .. import types
 from ..types import SIGNED, UNSIGNED
@@ -44,6 +43,7 @@ class MSSQLTypeMapper(TypeMapper):
 
     native_translation_map = {
         "BIT": str.lower,
+        "DATETIME": str.lower,
         "DATETIMEOFFSET": str.lower,
         "DECIMAL": str.lower,
         "INTEGER": lambda _: "int",
@@ -55,18 +55,18 @@ class MSSQLTypeMapper(TypeMapper):
 
     @override
     def resolve_type(
-        self, alchemy_type: TypeEngine
+        self, type: types.TypeAdapter
     ) -> tuple[Optional[types.Type], Optional[str], Optional[str]]:
-        type_expr = str(alchemy_type)
+        type_expr = str(type)
         base_type, _, _ = self.parse_sql_type(type_expr)
 
         mapped = self.conversion_map.get(base_type, None)
         scoot_type = mapped if isinstance(mapped, types.Type) else None
 
         if isinstance(mapped, TypeConverter):
-            scoot_type = mapped.convert(alchemy_type)
+            scoot_type = mapped.convert(type)
 
-        native_type = alchemy_type.compile(self.dialect)
+        native_type = type.native_expression(self.dialect)
         n = native_type.find("(")
         native_base_type = native_type[:n] if n != -1 else native_type
         translator = self.native_translation_map.get(native_base_type, None)

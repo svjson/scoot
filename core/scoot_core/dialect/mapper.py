@@ -2,8 +2,6 @@ import re
 from abc import abstractmethod
 from typing import Optional, override, Callable
 
-from sqlalchemy.types import String
-
 from .. import types
 from sqlalchemy.sql.type_api import TypeEngine
 
@@ -18,7 +16,7 @@ class TypeConverter:
     the backend-native type name."""
 
     @abstractmethod
-    def convert(self, sqlatype: TypeEngine) -> types.Type:
+    def convert(self, type: types.TypeAdapter) -> types.Type:
         pass
 
 
@@ -35,18 +33,18 @@ class VARCHARConverter(TypeConverter):
         pass
 
     @override
-    def convert(self, sqlatype: TypeEngine):
+    def convert(self, type: types.TypeAdapter):
         collation: Optional[types.Collation] = None
         max_len = 1
         lob = False
 
-        if isinstance(sqlatype, String):
-            max_len = sqlatype.length or None
+        if type.is_type(types.Types.STRING):
+            max_len = type.max_length()
             if not max_len:
                 lob = True
 
-            if sqlatype.collation:
-                collation = self.collation_parser(sqlatype.collation)
+            if collation_str := type.get_collation():
+                collation = self.collation_parser(collation_str)
 
         return types.String(
             max_len=max_len, encoding="utf-8", collation=collation, lob=lob
@@ -61,17 +59,11 @@ class DECIMALConverter(TypeConverter):
         self.default_scale = default_scale
 
     @override
-    def convert(self, sqlatype: TypeEngine):
-        scale = self.default_scale
-        precision = self.default_precision
-
-        if hasattr(sqlatype, "precision"):
-            precision = getattr(sqlatype, "precision")
-
-        if hasattr(sqlatype, "scale"):
-            scale = getattr(sqlatype, "scale")
-
-        return types.Decimal(precision=precision, scale=scale)
+    def convert(self, type: types.TypeAdapter):
+        return types.Decimal(
+            precision=type.get_precision() or self.default_precision,
+            scale=type.get_scale() or self.default_scale,
+        )
 
 
 class TemporalConverter(TypeConverter):
@@ -81,22 +73,12 @@ class TemporalConverter(TypeConverter):
         self.default = default
 
     @override
-    def convert(self, sqlatype: TypeEngine):
+    def convert(self, type: types.TypeAdapter):
         date = self.default.date.clone() if self.default.date else None
         time = self.default.time.clone() if self.default.time else None
 
-        if (
-            time
-            and hasattr(sqlatype, "timezone")
-            and not getattr(sqlatype, "timezone")
-        ):
+        if time and not type.get_timezone():
             time.timezone = None
-
-        #        if hasattr(sqlatype, "precision"):
-        #            print(getattr(sqlatype, "precision"))
-
-        #        if hasattr(sqlatype, "fsp"):
-        #            print(getattr(sqlatype, "fsp"))
 
         return types.Temporal(date=date, time=time)
 
@@ -109,7 +91,7 @@ class TypeMapper:
 
     @abstractmethod
     def resolve_type(
-        self, alchemy_type: TypeEngine
+        self, type: types.TypeAdapter
     ) -> tuple[Optional[types.Type], Optional[str], Optional[str]]:
         pass
 

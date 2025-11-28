@@ -40,15 +40,15 @@ class PostgresTypeMapper(TypeMapper):
 
     @override
     def resolve_type(
-        self, alchemy_type: TypeEngine
+        self, type: types.TypeAdapter
     ) -> tuple[Optional[types.Type], Optional[str], Optional[str]]:
-        type_expr = str(alchemy_type)
+        type_expr = str(type)
         base_type, _, _ = self.parse_sql_type(type_expr)
 
         if (
             type_expr == "TIMESTAMP WITH TIME ZONE"
             or type_expr == "TIMESTAMP"
-            and getattr(alchemy_type, "timezone")
+            and type.get_timezone()
         ):
             base_type = "TIMESTAMPTZ"
 
@@ -56,9 +56,9 @@ class PostgresTypeMapper(TypeMapper):
         scoot_type = mapped if isinstance(mapped, types.Type) else None
 
         if isinstance(mapped, TypeConverter):
-            scoot_type = mapped.convert(alchemy_type)
+            scoot_type = mapped.convert(type)
 
-        native_type = alchemy_type.compile(self.dialect)
+        native_type = type.native_expression(self.dialect)
 
         return scoot_type, type_expr, native_type
 

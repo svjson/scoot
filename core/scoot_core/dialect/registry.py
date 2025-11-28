@@ -3,10 +3,12 @@ from typing import Optional
 
 import sqlalchemy
 from sqlalchemy.sql.type_api import TypeEngine
+from sqlglot import exp
 
 from . import mssql, mysql, oracle, postgres
 from .. import types
 from ..connection import Connection
+from .sqlglot import sqlglot_dialect
 
 _dialect_module: dict[str, ModuleType] = {
     "mariadb": mysql,
@@ -25,10 +27,14 @@ def _module(dialect: str) -> ModuleType:
 
 
 def resolve_type(
-    dialect: str, sqatype: TypeEngine
+    dialect: str,
+    type: types.TypeAdapter | TypeEngine | exp.DataType | exp.ColumnDef,
 ) -> tuple[Optional[types.Type], Optional[str], Optional[str]]:
+
     module = _module(dialect)
-    return module.type_mapper.resolve_type(sqatype)
+    return module.type_mapper.resolve_type(
+        types.TypeAdapter.get_instance(type, sqlglot_dialect(dialect))
+    )
 
 
 def find_and_apply_additional_constraints(
