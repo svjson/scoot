@@ -178,11 +178,12 @@ Optionally provide a default selection with CONNECTION-NAME."
   "Prompt the user for a table name.
 
 Optionally provide a default selection with TABLE-NAME.
+Optionally provide CONNECTION to provide options for `completing-read`.
 
 Provide a list of valid options in TABLES for completing read action`"
   (let ((tables (or tables
                     (seq-into (alist-get 'tables (scoot--await (lambda (callback)
-                                                                 (scoot--list-objects 'tables nil callback))))
+                                                                 (scoot--list-objects 'tables connection callback))))
                               'list))))
     (if tables
         (scoot--completing-read :name "Scoot Tables"
@@ -195,7 +196,7 @@ Provide a list of valid options in TABLES for completing read action`"
 ;; Response formatting
 
 (defun scoot-connection--to-connection-record (json-entry context-name)
-  "Transforms JSON-ENTRY to a connection plist record."
+  "Transforms JSON-ENTRY to a connection plist record for CONTEXT-NAME."
   (let* ((name (symbol-name (car json-entry)))
          (conn (cdr json-entry)))
     (cons name (scoot--plist-merge
@@ -206,7 +207,6 @@ Provide a list of valid options in TABLES for completing read action`"
 
 
 ;; HTTP functions
-
 
 (cl-defun scoot-connection--error-handler (&key op url retry-fn retry-args connection &allow-other-keys)
   "Return a general purpose error handler with retry capabilities.

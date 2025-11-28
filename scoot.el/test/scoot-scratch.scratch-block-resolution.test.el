@@ -53,7 +53,7 @@ SELECT * FROM users;
    (let ((block-props (cdr (scoot-scratch--scratch-block-at-point))))
      (should (equal (pp-to-string block-props)
                     (pp-to-string (scoot-test--to-hash-table (list "connection-name" "app-production"
-                                                       "context" "client-A"))))))))
+                                                                   "context" "client-A"))))))))
 
 
 (ert-deftest scoot-scratch--scratch-block-at-point--multiple-blocks--in-first-block ()

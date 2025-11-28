@@ -44,6 +44,33 @@
   (setq scoot-test--connection-name (plist-get conn :name))
   (setq scoot-test--connection-string (plist-get conn :url)))
 
+(defun scoot-test--use-connection (context-name connection-name)
+  "Set the connection used for system tests using a registered context.
+
+CONTEXT-NAME must exist in the scoot configuration and contain a
+connection named CONNECTION-NAME."
+  (let ((conn (scoot-context--get-connection context-name connection-name)))
+    (unless conn
+      (error "Unknown connection: %s / %s" context-name connection-name))
+    (setq scoot-test--connection conn)
+    (setq scoot-test--connection-name connection-name)))
+
+(defun scoot-test--ensure-connection (callback)
+  "Ensures that the `scoot-test--connection` is available.
+
+Registers or confirms the configured connection, making sure that it
+is available for use with a running `scoot-server`.
+
+Invokes CALLBACK with the connection when done, if successful."
+  (cond
+   (scoot-test--connection-string
+    (scoot-connection--register-connection callback scoot-test--connection))
+
+   (scoot-test--connection
+    (funcall callback scoot-test--connection))
+
+   (t (error "No test connection configured"))))
+
 (defun scoot-get-buffer-lines (from-point lines)
   "Get the buffer contents from FROM-POINT and n LINES onwards."
   (save-excursion
@@ -124,14 +151,12 @@ BODY is the elisp code to execute once the query buffer has been opened."
        (let ((result-buf nil))
          (unwind-protect
              (progn
-               (scoot-connection--register-connection
+               (scoot-test--ensure-connection
                 (lambda (connection)
                   (scoot-connection--execute-statement
                    connection query
                    (lambda (result-context)
-                     (setq result-buf (scoot--open-resultset result-context)))))
-
-                scoot-test--connection)
+                     (setq result-buf (scoot--open-resultset result-context))))))
 
                (with-timeout (timeout (error "Query timed out (timeout: %s)" timeout))
                  (while (null result-buf)
