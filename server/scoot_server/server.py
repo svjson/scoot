@@ -4,8 +4,8 @@ from decimal import Decimal
 from functools import wraps
 
 import orjson
-from flask import Flask, Response, current_app, request, g
-from scoot_core import Cache, config, metadata, query, ScootErrorType
+from flask import Flask, Response, current_app, request
+from scoot_core import Cache, config, metadata, query, ResultSet, ScootErrorType
 from .context import RequestContext, ServerOperation
 from scoot_core.exceptions import (
     ScootApplicationError,
@@ -29,7 +29,7 @@ def default_serializer(obj):
     if isinstance(obj, Decimal):
         return float(obj)
 
-    print(f"Type {type(obj)} is not serializable, defaulting to str: \"{obj}\"")
+    print(f'Type {type(obj)} is not serializable, defaulting to str: "{obj}"')
     return str(obj)
 
 
@@ -231,18 +231,19 @@ def query_operation(op_env: ServerOperation):
 
     result = query.perform_action(op_env, sql, action)
 
-    with op_env.operation("resolve_metadata"):
-        if result.metadata and (new_stmt := result.metadata.get("stmt")):
-            sql = new_stmt
+    if isinstance(result, ResultSet):
+        with op_env.operation("resolve_metadata"):
+            if result.metadata and (new_stmt := result.metadata.get("stmt")):
+                sql = new_stmt
 
-        query_metadata = (
-            metadata.resolve_query_metadata(op_env, sql)
-            if include_metadata
-            else None
-        )
+            query_metadata = (
+                metadata.resolve_query_metadata(op_env, sql)
+                if include_metadata
+                else None
+            )
 
-        if query_metadata:
-            result.metadata = (result.metadata or {}) | query_metadata
+            if query_metadata:
+                result.metadata = (result.metadata or {}) | query_metadata
 
     with op_env.operation("serialize"):
         response = json_response(result.to_dict())
