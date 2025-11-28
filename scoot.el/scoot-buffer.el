@@ -179,13 +179,14 @@ INFO contains the grid information as a plist with the following properties:
 
 ;; Query Block
 
-(defun scoot-buffer--insert-query-block (section-def)
+(defun scoot-buffer--insert-query-block! (section-def)
   "Insert a query block section into the current buffer according to SECTION-DEF."
   (insert (propertize (or (plist-get section-def :title) "Query: ")
                       'face
                       'scoot-label-face))
   (insert "\n")
-  (scoot-qb--insert-query-block! (format "%s" (plist-get section-def :current-sql))))
+  (scoot-qb--insert-query-block! (format "%s" (plist-get section-def :current-sql))
+                                 (list :on-change (plist-get section-def :on-change))))
 
 
 
@@ -248,7 +249,7 @@ These values are dervied from SECTION-DEF."
     (pcase section-type
       ('connection-header (scoot-buffer--insert-connection-header))
       ('object-type-header (scoot-buffer--insert-object-type-header section-def))
-      ('query-editor (scoot-buffer--insert-query-block section-def))
+      ('query-editor (scoot-buffer--insert-query-block! section-def))
       ('data-table (scoot-buffer--insert-table section-def))
       ('ddl-outline (scoot-buffer--insert-ddl section-def)))
     (insert "\n")))

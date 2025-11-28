@@ -115,6 +115,7 @@ CONN-STRING is the connection-string to use."
              'equal))
 
 (defun scoot-context--connection-active-p (connection-obj)
+  "Query if the connection CONNECTION-OBJ is known to be active."
   (equal "active"
          (plist-get
           (scoot-context--get-connection (plist-get connection-obj :context)
@@ -411,6 +412,23 @@ CALLBACK will be invoked with the result if the operation is successful."
                                                   (cons 'rhs (nth 2 modify-conds))))))))
    callback))
 
+(defun scoot-connection--ddl-to-model (connection ddl callback)
+  "Convert a DDL script to a result-context model.
+
+CONNECTION needs to have been resolved and verified before calling this
+function.
+
+If the request is successful, CALLBACK will be called with the formatted
+result."
+  (scoot-ensure-server)
+  (scoot-connection--statement-operation
+   connection
+   ddl
+   'ddl-to-table-model
+   '((action . "parse-ddl"))
+   callback))
+
+
 (defun scoot-connection--list-objects (connection object-type callback)
   "List objects of type OBJECT-TYPE visible to connection CONNECTION.
 
@@ -527,6 +545,7 @@ result."
      :connection connection
      :retry-fn #'scoot-connection--describe-table
      :retry-args (list connection table-name callback))))
+
 
 (provide 'scoot-connection)
 

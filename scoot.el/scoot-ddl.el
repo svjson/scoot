@@ -43,8 +43,23 @@
 (defvar-local scoot-ddl--result-context nil
   "The original describle table result-context of the current buffer.")
 
+(defvar-local scoot-ddl-edit--result-context nil
+  "The current raw result-context of the modified object.")
+
 
 ;; DDL
+
+(defun scoot-ddl--on-ddl-change (event)
+  "React to a change event from the DDL query block.
+
+Passes the updated DDL to the server to produce an updated table model
+reflecting the changes in the DDL statement.
+
+EVENT contains the change data as emitted by the widget event producer."
+  (scoot-connection--ddl-to-model scoot-buffer-connection
+                                  (plist-get event :data)
+                                  (lambda (result-context)
+                                    (setq scoot-ddl-edit--result-context result-context))))
 
 (defun scoot-ddl--update (result-context)
   "Update the current ddl buffer with a new DDL result.
@@ -66,16 +81,19 @@ RESULT-CONTEXT contains the query statement, ddl data and connection used."
                             :data (list :object-type object-type
                                         :object-name object-name))
                       (list :type 'data-table
-                            :data result
+                            :data (if (and edit-mode-p scoot-ddl-edit--result-context)
+                                      (plist-get scoot-ddl-edit--result-context :result)
+                                      result)
                             :editablep edit-mode-p)
                       (if edit-mode-p
                           (list :type 'query-editor
                                 :title "DDL:"
                                 :current-sql (alist-get "CREATE TABLE-statement"
                                                         (alist-get 'sql
-                                                                   (alist-get 'metadata result)) nil nil #'equal) )
-                          (list :type 'ddl-outline
-                                :data (alist-get 'metadata result)))))
+                                                                   (alist-get 'metadata result)) nil nil #'equal)
+                                :on-change #'scoot-ddl--on-ddl-change)
+                        (list :type 'ddl-outline
+                              :data (alist-get 'metadata result)))))
     (scoot-buffer-refresh)))
 
 
