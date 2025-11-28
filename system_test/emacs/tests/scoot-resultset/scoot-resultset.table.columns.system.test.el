@@ -1,4 +1,4 @@
-;;; name.el --- summary -*- lexical-binding: t -*-
+;;; scoot-resultset.table.columns.system.test.el --- summary -*- lexical-binding: t -*-
 
 ;; This file is not part of GNU Emacs
 
@@ -75,4 +75,4 @@
                :cell-content "2023-03-05T05:30:53"
                :face 'scoot-cell-temporal-face))))))))
 
-;;; column-tests.el ends here
+;;; scoot-resultset.table.columns.system.test.el ends here
