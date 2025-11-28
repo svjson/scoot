@@ -53,17 +53,21 @@ class TypeAdapter(ABC):
     @classmethod
     def get_instance(
         cls,
-        type: Self | TypeEngine | exp.DataType | exp.ColumnDef,
+        type_inst: Self | TypeEngine | exp.DataType | exp.ColumnDef,
         dialect: str | None = None,
     ) -> "TypeAdapter":
-        if isinstance(type, TypeEngine):
-            return SqlAlchemyType.from_alchemy_type(type)
-        if isinstance(type, exp.DataType) or isinstance(type, exp.ColumnDef):
-            return SqlGlotType.from_datatype(type, dialect)
-        if isinstance(type, cls):
-            return type
+        if isinstance(type_inst, TypeEngine):
+            return SqlAlchemyType.from_alchemy_type(type_inst)
+        if isinstance(type_inst, exp.DataType) or isinstance(
+            type_inst, exp.ColumnDef
+        ):
+            return SqlGlotType.from_datatype(type_inst, dialect)
+        if isinstance(type_inst, cls):
+            return type_inst
 
-        raise TypeError(f"Cannot create TypeAdapter instance for: {type}")
+        raise TypeError(
+            f"Cannot create TypeAdapter instance for: {type(type_inst)} / {type_inst}"
+        )
 
 
 class SqlAlchemyType(TypeAdapter):

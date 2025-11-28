@@ -2,6 +2,7 @@ from scoot_core.dialect import sqlglot_dialect
 from .openv import OperationEnv
 from .metadata import try_describe_table
 from .model import ResultSet, TableModel
+from .schema import DDLReader, TableModelEmitter, translate_table_schema
 
 from sqlglot import parse_one, exp
 
@@ -262,6 +263,15 @@ def modify(ctx: OperationEnv, sql: str, action_instr: dict) -> ResultSet:
     return result_set
 
 
+def ddl_to_table_data(
+    op_env: OperationEnv, ddl: str, action_instr: dict
+) -> TableModel:
+    table_model = translate_table_schema(
+        DDLReader(op_env, ddl), TableModelEmitter()
+    )
+    return table_model
+
+
 def execute(ctx: OperationEnv, sql: str):
     return perform_action(ctx, sql, {"action": "execute"})
 
@@ -280,5 +290,7 @@ def perform_action(ctx: OperationEnv, sql: str, action_instr: dict):
             return ctx.connection.execute(sql)
         elif action == "modify":
             return modify(ctx, sql, action_instr)
+        elif action == "parse-ddl":
+            return ddl_to_table_data(ctx, sql, action_instr)
         else:
             raise ValueError(f"Unknown action: {action}")
