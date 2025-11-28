@@ -49,6 +49,20 @@ commands and hooks to run properly."
     (call-interactively cmd)
     (run-hooks 'post-command-hook)))
 
+(defun interactively-goto-char (pt)
+  "Go to point PT, interactively and triggering hooks."
+  (goto-char (point-min))
+  (let ((target-line (line-number-at-pos pt)))
+    (while (not (= (line-number-at-pos) target-line))
+      (do-command #'next-line))
+    (while (not (= (point) pt))
+      (do-command #'forward-char))))
+
+(defun interactively-self-insert-char (ch)
+  "Simulate `self-insert-command`, inserting CH."
+  (let ((last-command-event ch))
+    (do-command #'self-insert-command)))
+
 
 
 ;; Should equal with custom fail message

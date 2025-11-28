@@ -72,22 +72,19 @@ RESULT-CONTEXT contains the query statement, ddl data and connection used."
 ;; Scoot DDL Entry Points
 
 (defun scoot-ddl--open-table (result-context)
-  "Open a Scoot ResultSet Buffer with a result described by RESULT-CONTEXT.
+  "Open a Scoot DDL Buffer with a table described by RESULT-CONTEXT.
 
 RESULT-CONTEXT is expected to be a plist, with the following possible keys:
-:result - contains the headers, rows and metadata of the result.
-:connection - describes the connection used to retrieve this result.
+:result - contains the headers, rows and metadata of the table result.
+:connection - describes the connection used to retrieve the table.
 :type - the type of result (query/objects/object).
 :buffer-name - Optional name/identity of the result buffer.
-
-Additional keys for type query:
-:statement - The SQL statement that produced the result.
 
 Additional keys for type object/objects:
 :object-type - The type of object (table/schema/database).
 
 Additional keys for type object:
-:object-name - The name of the object described."
+:object-name - The name of the object/table described."
   (let ((result (plist-get result-context :result))
         (connection (plist-get result-context :connection))
         (stmt (plist-get result-context :statement))
@@ -144,7 +141,7 @@ Additional keys for type object:
 
 
 
-;; Scoot DDL Mode - scoot-ddl-mode
+;; Scoot DDL Edit Mode - scoot-ddl-edit-mode
 
 (defvar scoot-ddl-edit-mode-map
   (let ((map (make-sparse-keymap)))

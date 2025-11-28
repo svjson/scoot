@@ -170,6 +170,42 @@ BODY is the elisp code to execute once the query buffer has been opened."
 
 (put 'with-result-buffer 'lisp-indent-function 'defun)
 
+(defmacro with-ddl-mode (args &rest body)
+  "Open the scoot-ddl-mode with optional timeout.
+
+ARGS is a bind form with the following possible keys:
+  table       - The table schema to show.  Required.
+  edit-mode   - Opens buffer in edit mode if `t`.  Default: nil
+  timeout     - The timeout in seconds.  Optional.
+  keep-buffer - Keeps the resulting buffer if given a non-nil value.
+
+BODY is the elisp code to execute once the query buffer has been opened."
+  (declare (indent 1) (debug ((&rest sexp) body)))
+  `(let ((timeout 5)
+         (edit-mode nil)
+         (keep-buffer nil))
+     (let ,args
+       (let ((ddl-buf nil))
+         (unwind-protect
+             (progn
+               (scoot-test--ensure-connection
+                (lambda (connection)
+                  (scoot-connection--describe-table
+                   connection table
+                   (lambda (result-context)
+                     (setq ddl-buf (scoot-ddl--open-table result-context))))))
+
+               (with-timeout (timeout (error "Request timed out (timeout: %s)" timeout))
+                 (while (null ddl-buf)
+                   (sit-for 0.2)))
+
+               (with-current-buffer ddl-buf
+                 (when edit-mode
+                   (scoot-edit-ddl))
+                 ,@body))
+
+           (when (and (null keep-buffer) (buffer-live-p ddl-buf))
+             (kill-buffer ddl-buf)))))))
 
 (defun scoot-resultset-cell-summary-at (point)
   "Get a description representation of the resultset table cell at POINT."
