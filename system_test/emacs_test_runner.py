@@ -68,6 +68,8 @@ def start_emacs_daemon(db_backend: BackendService):
     if is_emacs_initialized(daemon):
         log.info("Emacs test fixtures initialized.")
 
+    daemon.eval_lisp('(load-file "./scoot.el/test/scoot-test-fixtures.el")', True)
+
     return daemon
 
 

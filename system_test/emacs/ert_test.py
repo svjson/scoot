@@ -1,4 +1,5 @@
 import pytest
+from system_test.db.service import BackendService
 from system_test.emacs_test_runner import EmacsDaemon, run_test
 
 
@@ -27,10 +28,11 @@ def discover_ert_tests(test_dir: str | Path):
     return results
 
 
-ERT_DEFTESTS = discover_ert_tests("./scoot.el/test")
+ERT_UNIT_TESTS = discover_ert_tests("./scoot.el/test")
+ERT_SYSTEM_TESTS = discover_ert_tests("./system_test/emacs/tests")
 
 
-@pytest.mark.parametrize("case", ERT_DEFTESTS, ids=lambda c: c["name"])
+@pytest.mark.parametrize("case", ERT_UNIT_TESTS, ids=lambda c: c["name"])
 def test__scoot_unit_ert(case, emacs_unit_test_daemon: EmacsDaemon):
     """
     Run all pure scoot.el ERT unit tests.
@@ -40,4 +42,19 @@ def test__scoot_unit_ert(case, emacs_unit_test_daemon: EmacsDaemon):
         case.get("file"),
         case.get("name"),
         root_path=["scoot.el", "test"],
+    )
+
+
+@pytest.mark.parametrize("case", ERT_SYSTEM_TESTS, ids=lambda c: c["name"])
+def test__scoot_system_ert(
+    case, db_backend: BackendService, emacs_daemon: EmacsDaemon
+):
+    """
+    Run all scoot.el ERT system tests.
+    """
+    run_test(
+        emacs_daemon,
+        case.get("file"),
+        case.get("name"),
+        context_name=db_backend.name,
     )
