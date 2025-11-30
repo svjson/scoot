@@ -1,14 +1,22 @@
 import json
-import pytest
-import threading
 import os
+import threading
 
-from .db.service import start_service, BackendService
-from .db.bootstrap import bootstrap_database
+import pytest
+
 from .db.backends import BACKENDS
+from .db.bootstrap import bootstrap_database
+from .db.service import BackendService, start_service
 from .emacs_test_runner import start_emacs_daemon, start_emacs_unit_test_daemon
 
 lock = threading.Lock()
+
+# def pytest_sessionstart(session):
+#    """
+#    Initialize emacs daemon hooks and enumerate ERT tests if any
+#    ERT test suites are enabled in the run
+#    """
+#    if not
 
 
 @pytest.fixture(scope="session")
@@ -35,7 +43,10 @@ def db_backend(request, backend):
 
 @pytest.fixture(scope="session", name="emacs_unit_test_daemon")
 def emacs_unit_test_fixture(request):
-    if not request.config.getoption("--emacs-unit"):
+    if (
+        "emacs" not in request.config._enabled_modules
+        or "unit" not in request.config._enabled_modes
+    ):
         pytest.skip("Emacs unit tests are disabled")
     emacs_unit_daemon = start_emacs_unit_test_daemon()
     yield emacs_unit_daemon
@@ -44,7 +55,10 @@ def emacs_unit_test_fixture(request):
 
 @pytest.fixture(scope="session", name="emacs_daemon")
 def emacs_fixture(request, db_backend):
-    if not request.config.getoption("--emacs"):
+    if (
+        "emacs" not in request.config._enabled_modules
+        or "system" not in request.config._enabled_modes
+    ):
         pytest.skip("Emacs tests are disabled")
 
     emacs_daemon = start_emacs_daemon(db_backend)

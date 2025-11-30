@@ -1,20 +1,38 @@
 import ast
+import os
+import re
+import shutil
 import tempfile
 import time
-import os
-import shutil
-import re
-from system_test.db.service import BackendService
+
+from system_test.db.infra import run_cmd, run_script, wait_and_retry
 from system_test.db.log import log
-from system_test.db.infra import wait_and_retry, run_cmd, run_script
+from system_test.db.service import BackendService
 
 
 class EmacsDaemon:
+    """
+    Represents a running Emacs daemon instance.
+
+    Attributes:
+        name (str): The name of the Emacs daemon instance.
+        pid (int): The process ID of the Emacs daemon.
+    """
+
     def __init__(self, name, pid):
         self.name = name
         self.pid = pid
 
     def eval_lisp(self, elisp, silent=True, silent_error=None):
+        """
+        Evaluate the given elisp expression in the Emacs daemon.
+
+        Args:
+            elisp (str): The elisp expression to evaluate.
+            silent (bool): If True, suppress standard output.
+            silent_error (bool or None): If True, suppress error output.
+                If None, error output is not suppressed.
+        """
         return run_cmd(
             ["emacsclient", "-s", self.name, "-e", elisp],
             silent=silent,
@@ -67,8 +85,6 @@ def start_emacs_daemon(db_backend: BackendService):
 
     if is_emacs_initialized(daemon):
         log.info("Emacs test fixtures initialized.")
-
-    daemon.eval_lisp('(load-file "./scoot.el/test/scoot-test-fixtures.el")', True)
 
     return daemon
 

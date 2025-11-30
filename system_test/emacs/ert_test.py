@@ -1,10 +1,7 @@
-import pytest
-from system_test.db.service import BackendService
-from system_test.emacs_test_runner import EmacsDaemon, run_test
-
-
 import re
 from pathlib import Path
+
+import pytest
 
 ERT_DEFTEST_RE = re.compile(r"^\s*\(ert-deftest\s+([^\s)]+)")
 
@@ -26,35 +23,3 @@ def discover_ert_tests(test_dir: str | Path):
                     test_name = match.group(1)
                     results.append({"file": str(rel_path), "name": test_name})
     return results
-
-
-ERT_UNIT_TESTS = discover_ert_tests("./scoot.el/test")
-ERT_SYSTEM_TESTS = discover_ert_tests("./system_test/emacs/tests")
-
-
-@pytest.mark.parametrize("case", ERT_UNIT_TESTS, ids=lambda c: c["name"])
-def test__scoot_unit_ert(case, emacs_unit_test_daemon: EmacsDaemon):
-    """
-    Run all pure scoot.el ERT unit tests.
-    """
-    run_test(
-        emacs_unit_test_daemon,
-        case.get("file"),
-        case.get("name"),
-        root_path=["scoot.el", "test"],
-    )
-
-
-@pytest.mark.parametrize("case", ERT_SYSTEM_TESTS, ids=lambda c: c["name"])
-def test__scoot_system_ert(
-    case, db_backend: BackendService, emacs_daemon: EmacsDaemon
-):
-    """
-    Run all scoot.el ERT system tests.
-    """
-    run_test(
-        emacs_daemon,
-        case.get("file"),
-        case.get("name"),
-        context_name=db_backend.name,
-    )

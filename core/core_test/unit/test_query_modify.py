@@ -1,11 +1,12 @@
-from scoot_core.openv import OperationEnv
-from scoot_core.query import SQLQueryModifier
-from scoot_core.model import TableModel, ColumnModel
 from unittest.mock import patch
 
-from test.dialect import dialect_expected
+from scoot_core.model import ColumnModel, TableModel
+from scoot_core.openv import OperationEnv
+from scoot_core.query import SQLQueryModifier
 
-from .table_model_fixture import INTEGER, VARCHAR, DATETIME, BOOLEAN
+from core_test.unit.dialect import dialect_expected
+
+from .table_model_fixture import BOOLEAN, DATETIME, INTEGER, VARCHAR
 
 users_table = TableModel(
     "users",
@@ -40,7 +41,6 @@ def test_remove_column__single_table__no_alias(dialect_op_env: OperationEnv):
 
 
 def test_remove_column__single_table__aliased_table(dialect_op_env: OperationEnv):
-
     # Given
     query_mod = SQLQueryModifier(
         "SELECT u.id, u.email, u.password_hash, u.created_at FROM nexartrade_staging.users AS u",
@@ -62,9 +62,7 @@ def test_remove_column__single_table__aliased_table(dialect_op_env: OperationEnv
 
 
 @patch("scoot_core.query.try_describe_table", return_value=users_table)
-def test_remove_column__single_table__deconstruct_star(
-    _, dialect_op_env: OperationEnv
-):
+def test_remove_column__single_table__deconstruct_star(_, dialect_op_env: OperationEnv):
     # Given
     query_mod = SQLQueryModifier(
         "SELECT * FROM nexartrade_staging.users", dialect_op_env

@@ -25,6 +25,7 @@
 (require 'scoot-test-fixtures)
 (require 'ert)
 
+
 
 ;; Edit string/varchar cell
 

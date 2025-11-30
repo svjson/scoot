@@ -1,4 +1,4 @@
-.PHONY: dev-setup test-backend test-core test-system test-emacs test-emacs-unit test
+.PHONY: dev-setup test-backend test-core test-system test-unit test-emacs test-emacs-unit test
 BACKEND ?= all
 
 dev-setup:
@@ -10,23 +10,23 @@ dev-setup:
 
 test: test-system
 
+test-unit:
+	@echo "Running Unit Tests for all modules..."
+	@.venv/bin/pytest --core --cli --server --emacs || exit 1
+
 test-core:
 	@echo "Running Core Tests..."
-	@.venv/bin/pytest core --core || exit 1
+	@.venv/bin/pytest --core || exit 1
 
 test-emacs:
-	@echo "Running Emacs Integration Tests for backend: ${BACKEND}"
-	@.venv/bin/pytest . --backend=${BACKEND} --emacs --emacs-unit || exit 1
-
-test-emacs-unit:
 	@echo "Running Emacs Unit Tests..."
-	@.venv/bin/pytest . --emacs-unit || exit 1
+	@.venv/bin/pytest --emacs || exit 1
 
 test-backend:
 	@echo "Running System Tests for backend: ${BACKEND}"
-	@.venv/bin/pytest . --backend=${BACKEND} --core --cli --emacs || exit 1
+	@.venv/bin/pytest --backend=${BACKEND} --core --cli --server --emacs --system || exit 1
 
 test-system:
 	@echo "Running System Tests for all backends..."
-	@.venv/bin/pytest . --backend=${BACKEND} --core --cli --emacs --emacs-unit || exit 1
+	@.venv/bin/pytest --backend=all --core --cli --server --emacs --system || exit 1
 

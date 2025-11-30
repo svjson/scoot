@@ -4,11 +4,9 @@ target-version = ["py313"]
 skip-magic-trailing-comma = true
 
 [tool.pytest.ini_options]
-testpaths = ["system_test"]
-pythonpath = ["core/scoot_core"]
-markers = [
-  "backend: Database backend to test against"
-]
+addopts = ["--import-mode=importlib"]
+testpaths = []
+pythonpath = [".", "system_test", "core/scoot_core", "cli/scoot_cli"]
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s - %(levelname)s - %(message)s"

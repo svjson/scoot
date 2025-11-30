@@ -1,38 +1,64 @@
-import pytest
+from typing import TypedDict
+
+from system_test import conftest as st
 from system_test.db.backends import BACKENDS
 
 
+class ModuleConfig(TypedDict):
+    testpath: str
+
+
+MODULES: dict[str, ModuleConfig] = {
+    "cli": {"testpath": "cli/cli_test"},
+    "core": {"testpath": "core/core_test"},
+    "server": {"testpath": "server/server_test"},
+    "emacs": {"testpath": "scoot.el/test"},
+}
+
+
 def pytest_addoption(parser):
+    # Module Flags
+    parser.addoption("--emacs", action="store_true", help="Enable scoot.el tests")
+    parser.addoption("--cli", action="store_true", help="Enable scoot-cli tests")
+    parser.addoption("--core", action="store_true", help="Enable scoot-core tests")
+    parser.addoption("--server", action="store_true", help="Enable scoot-server tests")
+
+    # Mode Flags
+    parser.addoption("--unit", action="store_true", help="Enable unit tests")
+    parser.addoption("--system", action="store_true", help="Enable system tests")
+
+    # Backend Selection
     parser.addoption(
         "--backend",
         action="append",
         default=[],
         help="Specify database backends to run tests against. Options: mssql, oracle, mysql, mariadb, postgres, all.",
     )
-    parser.addoption(
-        "--emacs", action="store_true", help="Enable emacs integration tests"
-    )
-    parser.addoption(
-        "--emacs-unit", action="store_true", help="Enable emacs unit tests"
-    )
-    parser.addoption(
-        "--cli", action="store_true", help="Enable scoot-cli integration tests"
-    )
-    parser.addoption(
-        "--core", action="store_true", help="Enable scoot-core integration tests"
-    )
 
 
 def pytest_configure(config):
-    config.addinivalue_line("markers", "cli: mark test as requiring --cli to run")
-    config.addinivalue_line("markers", "core: mark test as requiring --core to run")
+    config.pluginmanager.register(st, name="system_test_fixtures")
 
+    enabled_modes = {
+        mode for mode in ["unit", "system"] if config.getoption(f"--{mode}")
+    }
 
-def pytest_runtest_setup(item):
-    if "cli" in item.keywords and not item.config.getoption("--cli"):
-        pytest.skip("need --cli option to run")
-    elif "core" in item.keywords and not item.config.getoption("--core"):
-        pytest.skip("need --core option to run")
+    if not enabled_modes:
+        enabled_modes.add("unit")
+
+    enabled_modules = {
+        module_name for module_name in MODULES if config.getoption(f"--{module_name}")
+    }
+
+    enabled_paths = [
+        f"{MODULES[module_name]['testpath']}/{mode}"
+        for mode in enabled_modes
+        for module_name in enabled_modules
+    ]
+
+    config._enabled_modules = enabled_modules
+    config._enabled_modes = enabled_modes
+    config.args = enabled_paths
 
 
 def pytest_generate_tests(metafunc):

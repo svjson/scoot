@@ -1,12 +1,10 @@
 from textwrap import dedent
-import pytest
 
+from cli_test.system.run_scoot_cli import ScootCli
 from system_test.db.service import BackendService
 from system_test.util import only_for_backend, only_for_backends
-from .run_scoot_cli import ScootCli
 
 
-@pytest.mark.cli
 @only_for_backend("mariadb")
 def test_table_describe_users__nexartrade_mariadb(
     fake_home_env, db_backend: BackendService
@@ -33,7 +31,6 @@ def test_table_describe_users__nexartrade_mariadb(
     )
 
 
-@pytest.mark.cli
 @only_for_backend("mssql")
 def test_table_describe_users__nexartrade_mssql(
     fake_home_env, db_backend: BackendService
@@ -60,7 +57,6 @@ def test_table_describe_users__nexartrade_mssql(
     )
 
 
-@pytest.mark.cli
 @only_for_backend("mysql")
 def test_table_describe_users__nexartrade_mysql(
     fake_home_env, db_backend: BackendService
@@ -87,7 +83,6 @@ def test_table_describe_users__nexartrade_mysql(
     )
 
 
-@pytest.mark.cli
 @only_for_backends("oracle_11g", "oracle_23c")
 def test_table_describe_users__nexartrade_oracle(
     fake_home_env, db_backend: BackendService
@@ -114,7 +109,6 @@ def test_table_describe_users__nexartrade_oracle(
     )
 
 
-@pytest.mark.cli
 @only_for_backend("postgres")
 def test_table_describe_users__nexartrade_postgres(
     fake_home_env, db_backend: BackendService

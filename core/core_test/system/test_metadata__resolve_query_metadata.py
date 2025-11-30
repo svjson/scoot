@@ -1,20 +1,11 @@
-import pytest
-
-from system_test.core.nexartrade__users import (
-    nexartrade__users_columns,
-    nexartrade__users_column,
-)
-from system_test.core.nexartrade__orders import (
-    nexartrade__orders_columns,
-    nexartrade__orders_column,
-)
+from scoot_core import OperationEnv, metadata
 
 from system_test.db.service import BackendService
-from scoot_core import OperationEnv
-from scoot_core import metadata
+
+from .nexartrade__orders import nexartrade__orders_column
+from .nexartrade__users import nexartrade__users_column, nexartrade__users_columns
 
 
-@pytest.mark.core
 def test__SELECT_star_FROM_users(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)
@@ -26,7 +17,6 @@ def test__SELECT_star_FROM_users(db_backend: BackendService):
     assert resolved == {"columns": nexartrade__users_columns(db_backend.get_name())}
 
 
-@pytest.mark.core
 def test__SELECT_star_FROM_users_u(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)
@@ -38,25 +28,19 @@ def test__SELECT_star_FROM_users_u(db_backend: BackendService):
     assert resolved == {"columns": nexartrade__users_columns(db_backend.get_name())}
 
 
-@pytest.mark.core
 def test__SELECT_id_username_FROM_users(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)
 
     # When
-    resolved = metadata.resolve_query_metadata(
-        op_env, "SELECT id, username FROM users"
-    )
+    resolved = metadata.resolve_query_metadata(op_env, "SELECT id, username FROM users")
 
     # Then
     assert resolved == {
-        "columns": nexartrade__users_columns(
-            db_backend.get_name(), ["id", "username"]
-        )
+        "columns": nexartrade__users_columns(db_backend.get_name(), ["id", "username"])
     }
 
 
-@pytest.mark.core
 def test__SELECT_COUNT_FROM_users(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)
@@ -72,7 +56,6 @@ def test__SELECT_COUNT_FROM_users(db_backend: BackendService):
     }
 
 
-@pytest.mark.core
 def test__SELECT_id__username_FROM_users_u(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)
@@ -84,13 +67,33 @@ def test__SELECT_id__username_FROM_users_u(db_backend: BackendService):
 
     # Then
     assert resolved == {
-        "columns": nexartrade__users_columns(
-            db_backend.get_name(), ["id", "username"]
-        )
+        "columns": nexartrade__users_columns(db_backend.get_name(), ["id", "username"])
     }
 
 
-@pytest.mark.core
+#
+# def test__SELECT_u_id__u_username_FROM_users_u(db_backend: BackendService):
+#     # Given
+#     op_env = OperationEnv(db_backend.connection)
+
+#     # When
+#     resolved = metadata.resolve_query_metadata(
+#         op_env, "SELECT u.id, u.username FROM users u"
+#     )
+
+#     # Then
+#     assert resolved == {
+#         "columns": [
+#             nexartrade__users_column(
+#                 db_backend.get_name(), "id", override={"name": "u.id"}
+#             ),
+#             nexartrade__users_column(
+#                 db_backend.get_name(), "username", override={"name": "u.username"}
+#             ),
+#         ]
+#     }
+
+
 def test__SELECT_implicit_join_FROM_users_and_orders(db_backend: BackendService):
     # Given
     op_env = OperationEnv(db_backend.connection)

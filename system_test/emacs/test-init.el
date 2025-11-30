@@ -17,6 +17,8 @@
   (use-package dash :ensure t)
   (add-to-list 'load-path (expand-file-name "scoot.el/" default-directory))
   (add-to-list 'load-path (expand-file-name "scoot.el/test" default-directory))
+  (add-to-list 'load-path (expand-file-name "scoot.el/test/unit" default-directory))
+  (add-to-list 'load-path (expand-file-name "scoot.el/test/system" default-directory))
   "Ensured packages")
 
 
@@ -25,7 +27,7 @@
 
 (require 'ert)
 
-(add-to-list 'load-path (expand-file-name "system_test/emacs/tests/" default-directory))
+(add-to-list 'load-path (expand-file-name "system_test/emacs/" default-directory))
 (require 'scoot-test-base)
 (require 'scoot-server)
 (setq scoot-show-server-buffer t)

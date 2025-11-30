@@ -1,8 +1,4 @@
-from system_test.core.nexartrade_fixtures import (
-    nexartrade__table_column,
-    nexartrade__table_columns,
-)
-
+from .nexartrade_fixtures import nexartrade__table_column, nexartrade__table_columns
 
 ORDERS__COLUMNS = {
     "baseline": [

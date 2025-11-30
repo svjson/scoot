@@ -52,7 +52,7 @@ jobs:
         run: make dev-setup
 
       - name: Run Emacs unit tests
-        run: make test-emacs-unit
+        run: make test-emacs
 
 
 
