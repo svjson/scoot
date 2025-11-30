@@ -18,4 +18,11 @@ def test__scoot_system_ert(case, db_backend: BackendService, emacs_daemon: Emacs
         case.get("name"),
         context_name=db_backend.name,
         root_path=["scoot.el", "test", "system"],
+        before_test=f"""
+        (progn
+          (setq scoot-auto-start-server t)
+          (scoot-test--set-connection (list :context "{db_backend.name}"
+                                            :name "{db_backend.name}"
+                                            :url "{db_backend.get_active_connection_url()}")))
+        """,
     )

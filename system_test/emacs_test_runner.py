@@ -49,7 +49,7 @@ class EmacsDaemon:
             log.info("Emacs exited nicely.")
 
 
-def start_emacs_daemon(db_backend: BackendService):
+def start_emacs_daemon(daemon_name: str):
     """
     Configures and starts a daemonized Emacs instance to use for
     running ert tests.
@@ -62,17 +62,13 @@ def start_emacs_daemon(db_backend: BackendService):
     shutil.copyfile(os.path.join("system_test", "emacs", "test-init.el"), init_dest)
 
     log.info("Starting emacs daemon...")
-    backend_name = db_backend.config.get("name")
-    instance_name = f"dmn_{backend_name}"
-
-    conn_url = db_backend.get_active_connection_url()
+    instance_name = f"dmn_{daemon_name}"
 
     run_script(
         "system_test/emacs/start_emacs_daemon.sh",
         {
             "SCOOT_TEMP_EMACS_DIR": tmp_emacs_home,
             "SCOOT_EMACS_INSTANCE_NAME": instance_name,
-            "SCOOT_TEST_CONNECTION": f'(list :context "{backend_name}" :name "{backend_name}" :url "{conn_url}")',
         },
     )
 
@@ -82,45 +78,6 @@ def start_emacs_daemon(db_backend: BackendService):
     log.info(
         f"Emacs daemon with pid {pid} running from user-emacs-directory {tmp_emacs_home}"
     )
-
-    if is_emacs_initialized(daemon):
-        log.info("Emacs test fixtures initialized.")
-
-    return daemon
-
-
-def start_emacs_unit_test_daemon():
-    """
-    Configures and starts a daemonized Emacs instance to use for
-    running ert tests.
-    """
-    tmp_emacs_home = tempfile.mkdtemp(prefix="emacs-test-")
-    log.info(f"Create tmp emacs home: {tmp_emacs_home}")
-
-    init_dest = os.path.join(tmp_emacs_home, "init.el")
-    log.info(f"Placing {init_dest}...")
-    shutil.copyfile(os.path.join("system_test", "emacs", "test-init.el"), init_dest)
-
-    log.info("Starting emacs daemon...")
-    instance_name = "dmn_unit_test"
-
-    run_script(
-        "system_test/emacs/start_emacs_daemon.sh",
-        {
-            "SCOOT_TEMP_EMACS_DIR": tmp_emacs_home,
-            "SCOOT_EMACS_INSTANCE_NAME": instance_name,
-            "SCOOT_TEST_CONNECTION": "nil",
-        },
-    )
-
-    pid = get_emacs_pid(tmp_emacs_home)
-    daemon = EmacsDaemon(instance_name, pid)
-    log.info(
-        f"Emacs daemon with pid {pid} running from user-emacs-directory {tmp_emacs_home}"
-    )
-
-    log.info("Setting 'scoot-auto-start-server to nil")
-    daemon.eval_lisp("(setq scoot-auto-start-server nil)")
 
     if is_emacs_initialized(daemon):
         log.info("Emacs test fixtures initialized.")
@@ -179,6 +136,7 @@ def run_test(
     test_name,
     root_path=["system_test", "emacs", "tests"],
     context_name=None,
+    before_test=None,
 ):
     """
     Run a test in `test_file` identified by the symbol `test_name`.
@@ -197,6 +155,9 @@ def run_test(
 
     relative_test_file = os.path.join(*root_path, test_file)
     log.debug(f"From file: '{relative_test_file}'")
+
+    if before_test:
+        emacs_daemon.eval_lisp(before_test)
 
     emacs_daemon.eval_lisp(f'(load-file "{relative_test_file}")', True)
 

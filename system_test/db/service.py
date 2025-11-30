@@ -1,16 +1,16 @@
 import os
-from typing import Union, Optional
 import threading
+from typing import Optional, Union
+
 import docker
-from docker.models.containers import Container
 import sqlalchemy
+from docker.models.containers import Container
+from scoot_core.connection import Connection
 from sqlalchemy import text
 
 from .backends import BACKENDS
-from .log import log
 from .infra import wait_and_retry
-
-from scoot_core.connection import Connection
+from .log import log
 
 client = docker.from_env()
 
@@ -22,9 +22,32 @@ BackendConfig = dict[str, Prop]
 
 
 class BackendService:
+    """
+    Represents a started backend service running in a Docker container.
+
+    The responsibility of starting the service falls outside of this class,
+    and it is used only wrap the state of the service once started.
+
+    Attributes:
+        config (BackendConfig): The backend configuration dictionary.
+        container (Container): The Docker container instance.
+        connection (Connection): The database connection instance.
+        container_name (str): The name of the Docker container.
+        name (str): The name of the backend service.
+    """
+
     def __init__(
         self, config: BackendConfig, container: Container, connection: Connection
     ):
+        """
+        Initialize the BackendService with the given configuration,
+        container, and connection.
+
+        Args:
+            config (BackendConfig): The backend configuration dictionary.
+            container (Container): The Docker container instance.
+            connection (Connection): The database connection instance.
+        """
         self.config = config
         self.connection = connection
         self.container = container
@@ -32,22 +55,52 @@ class BackendService:
         self.name = config.get("name")
 
     def get_name(self):
+        """
+        Get the name of the backend service.
+        """
         return str(self.name)
 
-    def connect(self) -> sqlalchemy.Connection:
-        return self.connection.connect().execution_options(
-            isolation_level="AUTOCOMMIT"
-        )
+    def get_connection_url(self):
+        """
+        Get the base connection URL of the backend service.
 
-    def disconnect(self, conn: sqlalchemy.Connection):
-        self.connection.disconnect(conn)
+        This is the connection URL used to initially connect to the database
+        and before any schemas or state is applied.
+
+        This may differ from the connection URL used to access the fully
+        bootstrapped service.
+        """
+        return self.connection.url
 
     def get_active_connection_url(self):
+        """
+        Get the "active" connection URL of the backend service.
+
+        This is the connection URL used to access the fully bootstrapped
+        service. This may differ from the base connection URL if additional
+        schemas or state have been applied to the service.
+        """
         return self.config.get(
             "active_connection_url", self.config.get("connection_url")
         )
 
+    def connect(self) -> sqlalchemy.Connection:
+        """
+        Create and return a new database connection with AUTOCOMMIT isolation level.
+        """
+        return self.connection.connect().execution_options(isolation_level="AUTOCOMMIT")
+
+    def disconnect(self, conn: sqlalchemy.Connection):
+        """
+        Disconnect the given database connection.
+        """
+        self.connection.disconnect(conn)
+
     def teardown(self):
+        """
+        Teardown the backend service by closing the connection and
+        stopping/removing the container.
+        """
         try:
             log.info("Closing connections...")
             self.connection.close()
@@ -57,6 +110,15 @@ class BackendService:
 
 
 def start_service(backend_name: str) -> BackendService:
+    """
+    Start the specified backend service in a Docker container and wait for
+    it to become responsive.
+
+    Args:
+        backend_name (str): The name of the backend service to start.
+    Returns:
+        BackendService: An instance of BackendService representing the started service.
+    """
     if not backend_name:
         raise ValueError("No backend specified.")
 
@@ -116,9 +178,7 @@ def cleanup_existing_container(container_name: str) -> None:
 
 def stream_container_logs(container, prefix=None):
     def _stream():
-        for line in container.logs(
-            stream=True, follow=True, stdout=True, stderr=True
-        ):
+        for line in container.logs(stream=True, follow=True, stdout=True, stderr=True):
             msg = line.decode("utf-8", errors="replace").rstrip()
             if prefix:
                 log.info(f"[{prefix}] {msg}")
@@ -137,7 +197,7 @@ def start_container(backend_config: dict, container_name: str):
     container = client.containers.run(
         image=backend_config["image"],
         name=container_name,
-        ports={f"{backend_config["target_port"]}/tcp": backend_config["port"]},
+        ports={f"{backend_config['target_port']}/tcp": backend_config["port"]},
         detach=True,
         environment=backend_config["env"],
     )

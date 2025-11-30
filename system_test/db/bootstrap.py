@@ -1,11 +1,12 @@
 import csv
-from datetime import datetime
 import os
+from datetime import datetime
+from typing import Type, override
+
 import sqlalchemy
 from sqlalchemy import Connection, Table, inspect, text
 from sqlalchemy.schema import CreateTable
 from sqlalchemy.sql import insert
-from typing import override, Type
 
 from .log import log
 from .schema_parser import DbSchema, SchemaParser
@@ -19,9 +20,7 @@ class DbBootstrapper:
         self.connection = backend.connection
 
     def _execute(self, statement):
-        conn = self.backend.connect().execution_options(
-            isolation_level="AUTOCOMMIT"
-        )
+        conn = self.backend.connect().execution_options(isolation_level="AUTOCOMMIT")
         try:
             result = conn.execute(text(statement))
             return result
@@ -59,7 +58,6 @@ class DbBootstrapper:
 
 
 class MariaDBBootstrapper(DbBootstrapper):
-
     @override
     def create_schema(self, schema):
         self._execute(f"CREATE DATABASE {schema.name};")
@@ -103,7 +101,6 @@ class PostgresBootstrapper(DbBootstrapper):
 
 
 class MySQLBootstrapper(DbBootstrapper):
-
     @override
     def create_schema(self, schema):
         # No direct CREATE SCHEMA equivalent in MySQL. Default to CREATE DATABASE.
@@ -112,7 +109,6 @@ class MySQLBootstrapper(DbBootstrapper):
 
 
 class Oracle11gBootstrapper(DbBootstrapper):
-
     def create_schema(self, schema):
         self._execute(f"CREATE USER {schema.name} IDENTIFIED BY password")
         self._execute(f"GRANT CONNECT, RESOURCE TO {schema.name}")
@@ -224,16 +220,13 @@ def sanitize_record(table: Table, record: dict[str, str]):
         ):
             continue
 
-        if (
-            isinstance(column.type, sqlalchemy.Boolean)
-            or str(column.type) == "TINYINT"
-        ):
+        if isinstance(column.type, sqlalchemy.Boolean) or str(column.type) == "TINYINT":
             sanitized[col_name] = raw.lower() in ["true", "1", "yes"]
         elif isinstance(column.type, sqlalchemy.types.INTEGER):
             if raw.lower() in ["true", "yes"]:
-                raw = '1'
+                raw = "1"
             elif raw.lower() in ["false", "no"]:
-                raw = '0'
+                raw = "0"
             sanitized[col_name] = int(raw)
         elif str(column.type) == "NUMBER":
             sanitized[col_name] = float(raw)
@@ -248,7 +241,7 @@ def populate_table(backend: BackendService, schema: str, table: str):
     log.info(f"Populating table '{schema}.{table}'...")
     filename = f"system_test/db/schema/{schema}.{table}.csv"
     if os.path.exists(filename):
-        with open(filename, "r", newline='') as file:
+        with open(filename, "r", newline="") as file:
             conn = backend.connect()
             try:
                 reader = csv.DictReader(file)
@@ -291,9 +284,7 @@ def get_bootstrapper(backend: BackendService, db_schema) -> DbBootstrapper:
 
 
 def bootstrap_database(backend: BackendService) -> None:
-    schema_parser = SchemaParser.from_file(
-        "system_test/db/schema/nexartrade_v1.yaml"
-    )
+    schema_parser = SchemaParser.from_file("system_test/db/schema/nexartrade_v1.yaml")
     db_schema = schema_parser.parse()
     bootstrapper = get_bootstrapper(backend, db_schema)
     bootstrapper.bootstrap()

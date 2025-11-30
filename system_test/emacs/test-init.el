@@ -97,19 +97,22 @@ ORIG-FUN and ARGS should corresponed to `make-network-process`."
                      should-forms
                      "\n")))))
 
-(defun scoot-test--format-result-with-cond (result)
-  "Format failed ert-test-result RESULT properties to an easy-to-parse formed."
+(defun scoot-test--format-result-with-cond (result no-backtrace)
+  "Format failed ert-test-result RESULT properties to an easy-to-parse format.
+
+Optionally exclude Backtrace-section with non-nil NO-BACKTRACE."
   (let ((backtrace (ert-test-result-with-condition-backtrace result))
         (infos (ert-test-result-with-condition-infos result)))
     (concat (scoot-test--format-result result)
-            (format "[Backtrace]\n%s\n[/Backtrace]\n"
-                    (let ((frames '())
-                          (rest backtrace))
-                      (while (and rest (< (length frames) 10))
-                        (setq frames (append frames
-                                             (list (scoot-test--cut-after-backtrace-frame (pp-to-string (car rest))))))
-                        (setq rest (cdr rest)))
-                      (string-join frames "\n")))
+            (scoot-test--format-report-section "Backtrace"
+                                               (let ((frames '())
+                                                     (rest backtrace))
+                                                 (while (and rest (< (length frames) 10))
+                                                   (setq frames (append frames
+                                                                        (list (scoot-test--cut-after-backtrace-frame (pp-to-string (car rest))))))
+                                                   (setq rest (cdr rest)))
+                                                 (string-join frames "\n"))
+                                               no-backtrace)
             (format "[Infos]\n%s\n[Infos]\n" (mapconcat #'identity infos "\n")))))
 
 (defun scoot-test--report-server-output ()
@@ -121,26 +124,36 @@ ORIG-FUN and ARGS should corresponed to `make-network-process`."
                 (buffer-string)))
     ""))
 
-(defun scoot-test--run-test (test-name)
-  "Run ert test TEST-NAME and return the test output."
+(defun scoot-test--format-report-section (section-name output &optional exclude)
+  "Format OUTPUT as [SECTION-NAME]output[/SECTION-NAME].
+
+Optionally return empty string if EXCLUDE is non-nil."
+  (if exclude
+      ""
+    (format "[%s]\n%s\n[/%s]\n" section-name output section-name))
+  )
+
+(cl-defun scoot-test--run-test (test-name &key no-backtrace)
+  "Run ert test TEST-NAME and return the test output.
+
+Keys:
+  NO-BACKTRACE: Exclude backtraces from report."
   (condition-case err
       (let* ((result (ert-run-test (ert-get-test test-name))))
         (concat (cond
                  ((ert-test-result-type-p result (or :passed :skipped))
                   (scoot-test--format-result result))
-                 (t (scoot-test--format-result-with-cond result)))
+                 (t (scoot-test--format-result-with-cond result no-backtrace)))
                 (scoot-test--report-server-output)))
     (error
      (let ((bt (with-temp-buffer
                  (let ((standard-output (current-buffer)))
                    (backtrace))
                  (buffer-string))))
-       (format "[Result]\nerror\n[/Result]\n\
-[Messages]\n%s\n[/Messages]\n\
-[Backtrace]\n%s[/Backtrace]\n\
-%s"
-               (error-message-string err)
-               bt
+       (format "%s%s%s%s"
+               (scoot-test--format-report-section "Result" "error")
+               (scoot-test--format-report-section "Message" (error-message-string err))
+               (scoot-test--format-report-section "Backtrace" bt no-backtrace)
                (scoot-test--report-server-output))))))
 
 

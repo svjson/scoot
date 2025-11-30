@@ -2,7 +2,6 @@
 
 INST=$SCOOT_EMACS_INSTANCE_NAME
 EMD=$SCOOT_TEMP_EMACS_DIR
-CONN=$SCOOT_TEST_CONNECTION
 
 # Activate virtualenv for subprocesses
 if [ -f ".venv/bin/activate" ]; then
@@ -16,4 +15,3 @@ emacs --daemon=$INST --init-directory "${EMD}"  2>&1 | grep -v -A 4 -B 1 "Warnin
 
 # Load init.el and set connection to use for tests.
 emacsclient -s $INST -e "(load-file \"${EMD}/init.el\")"
-emacsclient -s $INST -e "(scoot-test--set-connection ${CONN})"
