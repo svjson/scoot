@@ -1,6 +1,7 @@
-import time
 import os
+import selectors
 import subprocess
+import time
 from functools import wraps
 
 from system_test.db.log import log
@@ -10,7 +11,6 @@ def wait_and_retry(
     max_attempts=int(os.getenv("SCOOT_WAIT_TIMEOUT", 30)),
     wait_interval: float = 0.5,
 ):
-
     def func_wrapper(func):
         @wraps(func)
         def retry_wrapper(*args, **kwargs):
@@ -19,7 +19,6 @@ def wait_and_retry(
             last_result = None
 
             while not success_sem and retries < max_attempts:
-
                 last_result = func(*args, **kwargs)
                 if last_result and not isinstance(last_result, Exception):
                     return last_result
@@ -39,24 +38,60 @@ def run_cmd(cmd, env_vars={}, silent=True, silent_error=None) -> str:
     env = os.environ.copy()
     env.update(env_vars)
     output_lines = []
-
     try:
-        with subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, env=env
-        ) as proc:
-            assert proc.stdout is not None
-            assert proc.stderr is not None
-            for line in proc.stdout:
-                if not silent:
-                    log.info(line.strip())
-                output_lines.append(line.strip())
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            env=env,
+            bufsize=1,
+        )
 
-            for line in proc.stderr:
-                if not silent_error:
-                    log.error(line.strip())
-                output_lines.append(line.strip())
+        sel = selectors.DefaultSelector()
+        assert proc.stdout is not None
+        assert proc.stderr is not None
+        kout = sel.register(proc.stdout, selectors.EVENT_READ)
+        kerr = sel.register(proc.stderr, selectors.EVENT_READ)
 
-            proc.wait()
+        fd_map = {
+            kout: {
+                "stream": proc.stdout,
+                "eof": False,
+                "silent": silent,
+                "log": log.info,
+            },
+            kerr: {
+                "stream": proc.stderr,
+                "eof": False,
+                "silent": silent_error,
+                "log": log.error,
+            },
+        }
+
+        while True:
+            exited = proc.poll()
+
+            events = sel.select(timeout=0.05)
+
+            for fd, e in events:
+                fdobj = fd_map[fd]
+                instr = fdobj["stream"]
+                line = instr.readline().rstrip("\n")
+
+                if not line:
+                    if exited is not None:
+                        fdobj["eof"] = True
+                    continue
+
+                fdobj["eof"] = False
+                output_lines.append(line)
+                if not fdobj["silent"]:
+                    fdobj["log"](line)
+
+            if exited is not None:
+                if fd_map[kout]["eof"] and fd_map[kerr]["eof"]:
+                    break
 
         return "\n".join(output_lines)
     except subprocess.CalledProcessError as e:
