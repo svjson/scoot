@@ -4,6 +4,7 @@ import pytest
 
 from system_test import conftest as st
 from system_test.db.backends import BACKENDS
+from system_test.emacs_test_runner import start_emacs_daemon
 
 
 class ModuleConfig(TypedDict):
@@ -51,6 +52,22 @@ def pytest_addoption(parser):
 
 
 def expand_selected_backends(config) -> list[str]:
+    """
+    Inspect the backends selected with --backend, if any, and expand to
+    actual backend names.
+
+    Args:
+        config: Pytest configuration object.
+
+    Returns:
+        List of backend names to use for testing.
+        - empty list if no --backend arguments were provided
+        - a list of all available backends if "all" was provided
+        - otherwise a verbatim list of provided backend names
+
+    Raises:
+        ValueError: If an unknown backend name was provided.
+    """
     selected = config.getoption("--backend") or []
 
     if not selected:
@@ -92,6 +109,11 @@ def pytest_configure(config):
     config._backends = expand_selected_backends(config)
     config._enabled_modules = enabled_modules
     config._enabled_modes = enabled_modes
+
+
+def pytest_sessionstart(session):
+    if "scoot.el" in session.config._enabled_modules:
+        session.config._emacs_daemon = start_emacs_daemon("scoot_test")
 
 
 def pytest_collection_modifyitems(config, items: list[pytest.Function]):
