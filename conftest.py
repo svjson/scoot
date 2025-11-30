@@ -1,18 +1,28 @@
 from typing import TypedDict
 
+import pytest
+
 from system_test import conftest as st
 from system_test.db.backends import BACKENDS
 
 
 class ModuleConfig(TypedDict):
+    name: str
     testpath: str
 
 
+class TestItem(TypedDict):
+    test: pytest.Function
+    mode: str
+    module: str
+    backend: str | None
+
+
 MODULES: dict[str, ModuleConfig] = {
-    "cli": {"testpath": "cli/cli_test"},
-    "core": {"testpath": "core/core_test"},
-    "server": {"testpath": "server/server_test"},
-    "emacs": {"testpath": "scoot.el/test"},
+    "cli": {"name": "cli", "testpath": "cli/cli_test"},
+    "core": {"name": "core", "testpath": "core/core_test"},
+    "server": {"name": "server", "testpath": "server/server_test"},
+    "emacs": {"name": "scoot.el", "testpath": "scoot.el/test"},
 }
 
 
@@ -36,8 +46,24 @@ def pytest_addoption(parser):
         "--backend",
         action="append",
         default=[],
-        help="Specify database backends to run tests against. Options: mssql, oracle, mysql, mariadb, postgres, all.",
+        help="Specify database backends to run tests against. Options: mssql, oracle_11g, oracle_23c, mysql, mariadb, postgres, all.",
     )
+
+
+def expand_selected_backends(config) -> list[str]:
+    selected = config.getoption("--backend") or []
+
+    if not selected:
+        return []
+
+    if "all" in selected:
+        return list(BACKENDS.keys())
+
+    for b in selected:
+        if b not in BACKENDS:
+            raise ValueError(f"Unknown backend: {b}")
+
+    return list(selected)
 
 
 def pytest_configure(config):
@@ -50,29 +76,25 @@ def pytest_configure(config):
     """
     config.pluginmanager.register(st, name="system_test_fixtures")
 
-    enabled_modes = {
+    enabled_modes = [
         mode for mode in ["unit", "system"] if config.getoption(f"--{mode}")
-    }
-
-    if not enabled_modes:
-        enabled_modes.add("unit")
-
-    enabled_modules = {
-        module_name for module_name in MODULES if config.getoption(f"--{module_name}")
-    }
-
-    enabled_paths = [
-        f"{MODULES[module_name]['testpath']}/{mode}"
-        for mode in enabled_modes
-        for module_name in enabled_modules
     ]
 
+    if not enabled_modes:
+        enabled_modes.append("unit")
+
+    enabled_modules = {
+        mod["name"]
+        for module_name, mod in MODULES.items()
+        if config.getoption(f"--{module_name}")
+    }
+
+    config._backends = expand_selected_backends(config)
     config._enabled_modules = enabled_modules
     config._enabled_modes = enabled_modes
-    config.args = enabled_paths
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config, items: list[pytest.Function]):
     """
     Inspect collected tests and deselect tests marked for a specific
     backend that doesn't match the backend parameterization.
@@ -81,7 +103,7 @@ def pytest_collection_modifyitems(config, items):
         config: Pytest configuration object.
         items: List of collected test items.
     """
-    selected = []
+    selected: list[TestItem] = []
     deselected = []
 
     def is_disabled_by_mark(item):
@@ -99,27 +121,42 @@ def pytest_collection_modifyitems(config, items):
         return False
 
     for item in items:
-        if is_disabled_by_mark(item):
+        mode = next(
+            (key for key in item.keywords.keys() if key in config._enabled_modes),
+            None,
+        )
+        module_name = next(
+            (key for key in item.keywords.keys() if key in config._enabled_modules),
+            None,
+        )
+        backend = (
+            str(item.callspec.params.get("backend", None))
+            if "backend" in item.fixturenames
+            else None
+        )
+
+        if not mode or not module_name or is_disabled_by_mark(item):
             deselected.append(item)
             continue
 
-        selected.append(item)
+        selected.append(
+            {"test": item, "mode": mode, "module": module_name, "backend": backend}
+        )
+
+    selected.sort(
+        key=lambda t: (
+            config._enabled_modes.index(t["mode"]),
+            t["backend"],
+            t["module"],
+        )
+    )
 
     config.hook.pytest_deselected(items=deselected)
-    items[:] = selected
+    items[:] = (it["test"] for it in selected)
 
 
 def pytest_generate_tests(metafunc):
-    """Determines which backends to run based on the `--backend` parameter."""
-    if "db_backend" in metafunc.fixturenames:
-        backends = metafunc.config.getoption("backend")
-        if not backends:
-            print("No backend specified.")
-        elif "all" in backends:
-            backends = BACKENDS.keys()
-        else:
-            for b in backends:
-                if b not in BACKENDS.keys():
-                    raise Exception(f"Unsupported backend: {b}")
-        metafunc.config._backends = backends
-        metafunc.parametrize("backend", backends, scope="session")
+    if "db_backend" not in metafunc.fixturenames:
+        return
+
+    metafunc.parametrize("backend", metafunc.config._backends, scope="session")

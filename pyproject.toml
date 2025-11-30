@@ -5,8 +5,8 @@ skip-magic-trailing-comma = true
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
-testpaths = []
-pythonpath = [".", "system_test", "core/scoot_core", "cli/scoot_cli"]
+testpaths = ["core/core_test", "cli/cli_test", "server/server_test", "scoot.el/test"]
+pythonpath = [".", "system_test", "core/scoot_core"]
 markers = [
     "backend(name): mark test as valid for only a specific backend.",
     "backends(*names): mark test as valid for only a specific set of backends"
