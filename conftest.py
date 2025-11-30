@@ -17,6 +17,10 @@ MODULES: dict[str, ModuleConfig] = {
 
 
 def pytest_addoption(parser):
+    """
+    Add option parameters to pytest for selecting test suites.
+    """
+
     # Module Flags
     parser.addoption("--emacs", action="store_true", help="Enable scoot.el tests")
     parser.addoption("--cli", action="store_true", help="Enable scoot-cli tests")
@@ -37,6 +41,13 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
+    """
+    Inspect the provided custom options, collect enabled modules and modes
+    and store to custom fields on the pytest configuration object.
+
+    Args:
+        config: Pytest configuration object.
+    """
     config.pluginmanager.register(st, name="system_test_fixtures")
 
     enabled_modes = {
@@ -61,6 +72,43 @@ def pytest_configure(config):
     config.args = enabled_paths
 
 
+def pytest_collection_modifyitems(config, items):
+    """
+    Inspect collected tests and deselect tests marked for a specific
+    backend that doesn't match the backend parameterization.
+
+    Args:
+        config: Pytest configuration object.
+        items: List of collected test items.
+    """
+    selected = []
+    deselected = []
+
+    def is_disabled_by_mark(item):
+        for backend in {
+            *[mark.args[0] for mark in item.iter_markers("backend")],
+            *[
+                backend
+                for mark in item.iter_markers("backends")
+                for backend in mark.args
+            ],
+        }:
+            if item.callspec.params["backend"] != backend:
+                return True
+
+        return False
+
+    for item in items:
+        if is_disabled_by_mark(item):
+            deselected.append(item)
+            continue
+
+        selected.append(item)
+
+    config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
+
+
 def pytest_generate_tests(metafunc):
     """Determines which backends to run based on the `--backend` parameter."""
     if "db_backend" in metafunc.fixturenames:
@@ -73,4 +121,5 @@ def pytest_generate_tests(metafunc):
             for b in backends:
                 if b not in BACKENDS.keys():
                     raise Exception(f"Unsupported backend: {b}")
+        metafunc.config._backends = backends
         metafunc.parametrize("backend", backends, scope="session")

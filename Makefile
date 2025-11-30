@@ -8,7 +8,9 @@ dev-setup:
 	.venv/bin/pip install -e ./server
 	.venv/bin/pip install -r requirements-test.txt
 
-test: test-system
+test:
+	@echo "Running Full Test Suite"
+	@.venv/bin/pytest --unit --system --backend=all --core --cli --server --emacs || exit 1
 
 test-unit:
 	@echo "Running Unit Tests for all modules..."
@@ -24,9 +26,9 @@ test-emacs:
 
 test-backend:
 	@echo "Running System Tests for backend: ${BACKEND}"
-	@.venv/bin/pytest --backend=${BACKEND} --core --cli --server --emacs --system || exit 1
+	@.venv/bin/pytest --system --backend=${BACKEND} --core --cli --server --emacs || exit 1
 
 test-system:
 	@echo "Running System Tests for all backends..."
-	@.venv/bin/pytest --backend=all --core --cli --server --emacs --system || exit 1
+	@.venv/bin/pytest --system --backend=all --core --cli --server --emacs || exit 1
 

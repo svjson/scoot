@@ -7,6 +7,10 @@ skip-magic-trailing-comma = true
 addopts = ["--import-mode=importlib"]
 testpaths = []
 pythonpath = [".", "system_test", "core/scoot_core", "cli/scoot_cli"]
+markers = [
+    "backend(name): mark test as valid for only a specific backend.",
+    "backends(*names): mark test as valid for only a specific set of backends"
+]
 log_cli = true
 log_cli_level = "INFO"
 log_cli_format = "%(asctime)s - %(levelname)s - %(message)s"
