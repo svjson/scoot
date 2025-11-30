@@ -1,6 +1,8 @@
+import ast
 import re
 from pathlib import Path
 
+from system_test.emacs_test_runner import EmacsDaemon
 
 ERT_DEFTEST_RE = re.compile(r"^\s*\(ert-deftest\s+([^\s)]+)")
 
@@ -28,3 +30,17 @@ def discover_ert_tests(test_dir: str | Path):
                     )
     return results
 
+
+def enumerate_test_suite(emacs_daemon: EmacsDaemon, test_dir: str | Path, mode: str):
+    """
+    Load all test files for test suite of `mode` ("unit" or "system") and
+    return all defined ert test names.
+    """
+    for path in _get_test_files(test_dir):
+        emacs_daemon.load_file(path)
+
+    test_list = emacs_daemon.eval_lisp(
+        f'(scoot-test--find-tests "{mode}" \'python-list)'
+    )
+
+    return ast.literal_eval(ast.literal_eval(test_list))

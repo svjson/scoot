@@ -4,6 +4,7 @@ import pytest
 
 from system_test import conftest as st
 from system_test.db.backends import BACKENDS
+from system_test.emacs.ert_test import enumerate_test_suite
 from system_test.emacs_test_runner import start_emacs_daemon
 
 
@@ -113,7 +114,15 @@ def pytest_configure(config):
 
 def pytest_sessionstart(session):
     if "scoot.el" in session.config._enabled_modules:
-        session.config._emacs_daemon = start_emacs_daemon("scoot_test")
+        emacs = start_emacs_daemon("scoot_test")
+        session.config._emacs_daemon = emacs
+
+        session.config._ert_unit_tests = enumerate_test_suite(
+            emacs, "./scoot.el/test/unit", "unit"
+        )
+        session.config._ert_system_tests = enumerate_test_suite(
+            emacs, "./scoot.el/test/system", "system"
+        )
 
 
 def pytest_collection_modifyitems(config, items: list[pytest.Function]):
@@ -178,7 +187,15 @@ def pytest_collection_modifyitems(config, items: list[pytest.Function]):
 
 
 def pytest_generate_tests(metafunc):
-    if "db_backend" not in metafunc.fixturenames:
-        return
+    if "db_backend" in metafunc.fixturenames:
+        metafunc.parametrize("backend", metafunc.config._backends, scope="session")
 
-    metafunc.parametrize("backend", metafunc.config._backends, scope="session")
+    if "ert_unit_test" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "ert_unit_test", metafunc.config._ert_unit_tests, scope="session"
+        )
+
+    if "ert_system_test" in metafunc.fixturenames:
+        metafunc.parametrize(
+            "ert_system_test", metafunc.config._ert_system_tests, scope="session"
+        )

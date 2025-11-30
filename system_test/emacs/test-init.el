@@ -63,6 +63,35 @@ ORIG-FUN and ARGS should corresponed to `make-network-process`."
   (message "Enabling network debugging...")
   (advice-add 'make-network-process :around #'scoot-test--log-network))
 
+
+;; Test enumeration
+
+(defun scoot-test--find-tests (mode &optional fmt)
+  "Find all defined scoot ert tests for MODE.
+
+MODE is either \"unit\" or \"system\".
+FMT determines the format of the returned test list.
+
+FMT may be any of:
+'list - an Emacs Lisp list of symbols
+'python-list - A string formatted as a Python-readable list[str]."
+  (let* ((fmt (or fmt 'list))
+         (needle (concat "/test/" mode "/"))
+         (test-names (seq-filter
+                      (lambda (test)
+                        (not
+                         (null (string-search needle
+                                              (ert-test-file-name
+                                               (ert-get-test test))))))
+                      (apropos-internal "" #'ert-test-boundp))))
+    (pcase fmt
+      ('python-list (format "[%s]" (string-join (mapcar
+                                                 (lambda (tn)
+                                                   (format "\"%s\"" (symbol-name tn)))
+                                                        test-names)
+                                                ", ")))
+      (t test-names))))
+
 
 
 ;; Test runner functions used to trigger tests and format result
