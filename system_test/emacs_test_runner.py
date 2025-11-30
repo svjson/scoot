@@ -38,6 +38,18 @@ class EmacsDaemon:
             silent_error=silent_error,
         )
 
+    def load_file(self, path):
+        """
+        Load and evaluate an Emacs Lisp file at `path`.
+
+        Args:
+            path (str): The file path to load.
+
+        Returns:
+            The result of evaluating the load-file expression.
+        """
+        return self.eval_lisp(f'(load-file "{path}")')
+
     def stop(self):
         log.info(f"Stopping emacs daemon '{self.name}'")
         self.eval_lisp("(kill-emacs 0)")
@@ -131,9 +143,9 @@ def parse_test_result(result: str):
 
 def run_test(
     emacs_daemon: EmacsDaemon,
-    test_file,
     test_name,
-    root_path=["system_test", "emacs", "tests"],
+    load_files=[],
+    root_path=[],
     context_name=None,
     before_test=None,
 ):
@@ -152,13 +164,11 @@ def run_test(
     context_label = f" ({context_name})" if context_name else ""
     log.debug(f"Running test{context_label}: '{test_name}")
 
-    relative_test_file = os.path.join(*root_path, test_file)
-    log.debug(f"From file: '{relative_test_file}'")
+    for f in load_files:
+        emacs_daemon.load_file(os.path.join(*root_path, f))
 
     if before_test:
         emacs_daemon.eval_lisp(before_test)
-
-    emacs_daemon.eval_lisp(f'(load-file "{relative_test_file}")', True)
 
     test_result = emacs_daemon.eval_lisp(f"(scoot-test--run-test '{test_name})")
     result = parse_test_result(test_result)

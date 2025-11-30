@@ -14,8 +14,8 @@ def test__scoot_system_ert(case, db_backend: BackendService, emacs_daemon: Emacs
     """
     run_test(
         emacs_daemon,
-        case.get("file"),
         case.get("name"),
+        load_files=[case.get("file")],
         context_name=db_backend.name,
         root_path=["scoot.el", "test", "system"],
         before_test=f"""

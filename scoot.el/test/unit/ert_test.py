@@ -13,8 +13,8 @@ def test__scoot_unit_ert(case, emacs_daemon: EmacsDaemon):
     """
     run_test(
         emacs_daemon,
-        case.get("file"),
         case.get("name"),
+        load_files=[case.get("file")],
         root_path=["scoot.el", "test", "unit"],
         before_test="(setq scoot-auto-start-server nil)",
     )

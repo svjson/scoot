@@ -22,6 +22,7 @@
 
 ;;; Code:
 
+(require 'ert)
 (require 'scoot)
 (require 'scoot-test-base)
 
