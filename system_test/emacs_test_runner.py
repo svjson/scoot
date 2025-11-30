@@ -193,10 +193,10 @@ def run_test(
             tracing. Has no functional effect.
     """
     context_label = f" ({context_name})" if context_name else ""
-    log.info(f"Running test{context_label}: '{test_name}")
+    log.debug(f"Running test{context_label}: '{test_name}")
 
     relative_test_file = os.path.join(*root_path, test_file)
-    log.info(f"From file: '{relative_test_file}'")
+    log.debug(f"From file: '{relative_test_file}'")
 
     emacs_daemon.eval_lisp(f'(load-file "{relative_test_file}")', True)
 
@@ -204,9 +204,7 @@ def run_test(
     result = parse_test_result(test_result)
     success = "ert-test-passed" == result.get("Result", None)
 
-    if success:
-        log.info(f"Passed: '{test_name}")
-    else:
+    if not success:
         log.error(f"Failed: '{test_name}'")
         for section in [
             "Result",
