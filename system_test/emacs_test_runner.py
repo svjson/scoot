@@ -7,7 +7,6 @@ import time
 
 from system_test.db.infra import run_cmd, run_script, wait_and_retry
 from system_test.db.log import log
-from system_test.db.service import BackendService
 
 
 class EmacsDaemon:

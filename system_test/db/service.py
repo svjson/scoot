@@ -133,7 +133,7 @@ def start_service(backend_name: str) -> BackendService:
     try:
         cleanup_existing_container(container_name)
         container = start_container(backend_config, container_name)
-        if os.getenv("SCOOT_CI"):
+        if os.getenv("SCOOT_DEBUG_CONTAINERS"):
             log_thread = stream_container_logs(container, prefix=container_name)
         wait_for_container(container)
         connection = wait_for_service(backend_config)
