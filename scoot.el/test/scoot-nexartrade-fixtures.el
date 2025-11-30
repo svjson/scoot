@@ -61,6 +61,109 @@ connection."
         :object-type 'table
         :object-name "users"))
 
+
+;; Data
+
+(defvar nexartrade-table--users--result-data
+  '((columns
+     . ["id" "username" "email" "password_hash" "created_at" "last_login"
+        "is_active"])
+    (rows
+     . [[1 "tom_atojuicesson" "tom.atojuicesson@example.com"
+           "3046dc1c9cd8656bcc71d3b78dd27e30f719a0f71f7aeb531e2d656328eb65c7"
+           "2023-02-08T07:48:04+00:00" "2024-09-26T17:52:39+00:00"
+           :json-false]
+        [2 "ben_rangel" "ben.rangel@example.com"
+           "28a85c69981b4d83c15829f999b27b89bb5016736f71498c51dbeb229d9b9a2f"
+           "2023-04-28T12:45:21+00:00" "2024-05-03T11:29:59+00:00"
+           :json-false]
+        [3 "elle93" "ella.vator@example.com"
+           "6c6637f8a1b9d6844ec447e48812cf3c2fccd6baf86752644ac2f2632149d948"
+           "2023-11-28T18:31:59+00:00" "2024-11-18T17:38:17+00:00" t]
+        [4 "hugh_jass" "hugh.jass@example.com"
+           "2f91adbbfc71ba05bd467721aa21c7c2adb76b64656cbc995037872a93072c53"
+           "2023-11-04T01:26:32+00:00" "2024-03-02T07:42:07+00:00"
+           :json-false]
+        [5 "max_power" "max.power@example.com"
+           "02ce78bf481da90435320ed65b3ead8f74fa8dfe8bd5ab31dfdb59a46c8577d1"
+           "2023-03-21T00:24:41+00:00" "2024-04-28T06:24:32+00:00" t]
+        [6 "sue_permann" "sue.permann@example.com"
+           "db38d915621a01cb8ad7987bb4c01d5c94ab32b000215e46259fccaa0c5e7a2a"
+           "2023-01-30T10:11:13+00:00" "2024-03-23T08:23:49+00:00"
+           :json-false]
+        [7 "barb_dwyer" "barb.dwyer@example.com"
+           "3120c43ba79c2399e092fae856ac3689ea2ae3b1e7c4af7b7ad934cb8727f4d3"
+           "2023-11-13T03:46:01+00:00" "2024-07-05T04:45:59+00:00" t]
+        [8 "melodies" "mel.n.collie@example.com"
+           "d0856e825cec051407edaf97217cc252745153fc007bbdd7f16722248d73974d"
+           "2023-04-05T23:15:39+00:00" "2024-02-29T20:52:32+00:00" t]
+        [9 "skywalker_77" "luke_warm@example.com"
+           "abd5e566e085a363e3caec0e5330777f554fdfc87deb7e2f7931770cdb5920b3"
+           "2023-07-20T12:58:00+00:00" "2025-03-12T02:11:58+00:00" t]
+        [10 "deedeesalmon" "dee.zaster@example.com"
+            "dfd2e66828d3306a2fbf5b4a9c332bb722abb9981f52d1804e943089c49eb126"
+            "2023-01-17T20:54:53+00:00" "2025-01-03T23:10:06+00:00" t]])
+    (metadata
+     (columns
+      . [((name . "id") (type . "INTEGER")
+          (typespec (type . "INTEGER") (bits . 64) (signed . t))
+          (native_type . "int") (nullable . :json-false)
+          (primary_key . t) (default) (table . "users") (column . "id")
+          (constraints . []))
+         ((name . "username") (type . "STRING")
+          (typespec (type . "STRING") (max-len . 50) (encoding . "utf-8")
+                    (collation (locale . "Latin1_General_CP1")
+                               (case-sensitive . :json-false)
+                               (accent-sensitive . t))
+                    (lob . :json-false))
+          (native_type
+           . "varchar(50) COLLATE SQL_Latin1_General_CP1_CI_AS")
+          (nullable . t) (primary_key . :json-false) (default)
+          (table . "users") (column . "username") (constraints . []))
+         ((name . "email") (type . "STRING")
+          (typespec (type . "STRING") (max-len . 100)
+                    (encoding . "utf-8")
+                    (collation (locale . "Latin1_General_CP1")
+                               (case-sensitive . :json-false)
+                               (accent-sensitive . t))
+                    (lob . :json-false))
+          (native_type
+           . "varchar(100) COLLATE SQL_Latin1_General_CP1_CI_AS")
+          (nullable . t) (primary_key . :json-false) (default)
+          (table . "users") (column . "email") (constraints . []))
+         ((name . "password_hash") (type . "STRING")
+          (typespec (type . "STRING") (max-len . 255)
+                    (encoding . "utf-8")
+                    (collation (locale . "Latin1_General_CP1")
+                               (case-sensitive . :json-false)
+                               (accent-sensitive . t))
+                    (lob . :json-false))
+          (native_type
+           . "varchar(255) COLLATE SQL_Latin1_General_CP1_CI_AS")
+          (nullable . t) (primary_key . :json-false) (default)
+          (table . "users") (column . "password_hash") (constraints . []))
+         ((name . "created_at") (type . "TEMPORAL")
+          (typespec (type . "TEMPORAL")
+                    (date (min . [1 1 1]) (max . [9999 12 31])
+                          (calendar . "gregorian"))
+                    (time (clock . "24") (fsp) (precision) (scale) (tz)))
+          (native_type . "datetimeoffset") (nullable . t)
+          (primary_key . :json-false) (default) (table . "users")
+          (column . "created_at") (constraints . []))
+         ((name . "last_login") (type . "TEMPORAL")
+          (typespec (type . "TEMPORAL")
+                    (date (min . [1 1 1]) (max . [9999 12 31])
+                          (calendar . "gregorian"))
+                    (time (clock . "24") (fsp) (precision) (scale) (tz)))
+          (native_type . "datetimeoffset") (nullable . t)
+          (primary_key . :json-false) (default) (table . "users")
+          (column . "last_login") (constraints . []))
+         ((name . "is_active") (type . "INTEGER")
+          (typespec (type . "INTEGER") (bits . 1) (signed . :json-false))
+          (native_type . "bit") (nullable . t)
+          (primary_key . :json-false) (default) (table . "users")
+          (column . "is_active") (constraints . []))])))
+  )
 
 
 

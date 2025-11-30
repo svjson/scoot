@@ -279,6 +279,8 @@ has stored an :original-value property."
   (when (not scoot-table--table-row-marks)
     (setq-local scoot-table--table-row-marks (make-hash-table :test #'equal))))
 
+(make-obsolete 'scoot-table--ensure-row-mark-table nil "Use scoot-table--get/put-table-row-mark")
+
 
 
 ;; Table Rendering
@@ -394,7 +396,7 @@ EDITABLEP - Signal if editing of the record is allowed."
     (insert border)
     (when-let* ((row-mark (scoot-table--get-row-mark record-identity))
                 (type (and (overlayp row-mark) (overlay-get row-mark 'type))))
-      (scoot-table--mark-row record-identity type))
+      (scoot-table--mark-row! record-identity type))
     (insert "\n")))
 
 
@@ -433,17 +435,28 @@ EDITABLEP - Signal if editing of the table data is to be allowed."
                                table-header
                                table-border)))
 
+(defun scoot-table--table-start ()
+  "Return the first point of the table in the buffer."
+  (save-excursion
+    (while (and (not (bobp)) (scoot-table--table-at-point-p))
+      (forward-line -1))
+    (goto-char (line-beginning-position))
+    (when (not (scoot-table--table-at-point-p))
+      (forward-line 1))
+    (cons (point) (line-number-at-pos))))
+
 (defun scoot-table--cell-at-point ()
   "Return the result set table cell at point."
   (let* ((props (scoot--props-at-point)))
-    (list :type (alist-get 'thing props)
-          :column (alist-get 'column-meta props)
-          :value (alist-get 'value props)
-          :record-cell (alist-get 'record-cell props)
-          :record (alist-get 'record props)
-          :formatter (alist-get 'formatter props)
-          :cell-index (alist-get 'cell-index props)
-          :editablep (alist-get 'editablep props))))
+    (when (eq (alist-get 'thing props) 'table-cell)
+      (list :type (alist-get 'thing props)
+            :column (alist-get 'column-meta props)
+            :value (alist-get 'value props)
+            :record-cell (alist-get 'record-cell props)
+            :record (alist-get 'record props)
+            :formatter (alist-get 'formatter props)
+            :cell-index (alist-get 'cell-index props)
+            :editablep (alist-get 'editablep props)))))
 
 (defun scoot-table--row-at-point ()
   "Return the result set table row at point."
@@ -477,7 +490,9 @@ Returns (<point> . <line-number>)."
   "Find the location of the the next table-cell of the buffer.
 
 If POINT is not provided, the search will start from the beginning
-of the buffer."
+of the buffer.
+
+Returns a cons cell of (<point> . <line-number>)"
   (save-excursion
     (when point (goto-char point))
     (when-let (point (scoot--next-property-with-value-in
@@ -527,21 +542,27 @@ buffer."
 (defun scoot-table--move-to-first-row ()
   "Move the cursor to the first row."
   (interactive)
-  (let ((ccoll (current-column))
-        (line (+ 2 (cdr (scoot-table--next-cell (point-min))))))
-    (when (not (equal line (line-number-at-pos)))
-      (forward-line (- line (line-number-at-pos)))
-      (forward-char (1- ccoll))
+  (let ((ccol (current-column))
+        (tbl-start (scoot-table--table-start)))
+    (goto-char (car tbl-start))
+    (while (not (scoot-table--row-at-point))
+      (forward-line 1))
+    (forward-char ccol)
+    (when (scoot-table--cell-at-point)
       (scoot-table--move-to-cell-value))))
 
 (defun scoot-table--move-to-last-row ()
   "Move the cursor to the first row."
   (interactive)
-  (let ((ccoll (current-column))
-        (line (cdr (scoot-table--previous-cell (point-max)))))
-    (when (not (equal line (line-number-at-pos)))
-      (forward-line (- line (line-number-at-pos)))
-      (forward-char (1- ccoll))
+  (scoot-table--move-to-first-row)
+  (let ((ccol (current-column)))
+    (while (scoot-table--row-at-point)
+      (forward-line 1))
+    (forward-line -1)
+    (when (scoot-table--cell-at-point)
+      (scoot-table--move-to-cell-value))
+    (forward-char ccol)
+    (when (scoot-table--cell-at-point)
       (scoot-table--move-to-cell-value))))
 
 (defun scoot-table--cell-right ()
@@ -643,7 +664,7 @@ CELL is the cell summary of the cell under edit."
     (goto-char (+ widget-start (length (plist-get record-cell :formatted-value))))
     (scoot-table-mode 1)
     (if (scoot-table--record-modified-p record)
-        (scoot-table--mark-row identity :update)
+        (scoot-table--mark-row! identity :update)
       (scoot-table--unmark-row-if-type identity :update))))
 
 (defun scoot-table--edit-cell ()
@@ -720,11 +741,10 @@ CELL is the cell summary of the cell under edit."
   (when (hash-table-p scoot-table--table-row-marks)
     (gethash identity scoot-table--table-row-marks)))
 
-
 
 ;; Row/Table mark actions
 
-(defun scoot-table--mark-row (identity type)
+(defun scoot-table--mark-row! (identity type)
   "Mark overlay of type TYPE for row with identity IDENTITY."
   (when-let ((mark (scoot-table--get-row-mark identity)))
     (delete-overlay mark))
@@ -733,6 +753,8 @@ CELL is the cell summary of the cell under edit."
     (pcase type
       (:delete (overlay-put overlay 'face 'scoot-table-row-marker-delete-face))
       (:update (overlay-put overlay 'face 'scoot-table-row-marker-update-face)))
+    (unless (hash-table-p scoot-table--table-row-marks)
+      (setq-local scoot-table--table-row-marks (make-hash-table :test #'equal)))
     (puthash identity overlay scoot-table--table-row-marks)))
 
 (defun scoot-table--unmark-row-if-type (identity type)
@@ -752,8 +774,8 @@ CELL is the cell summary of the cell under edit."
         (progn (if (scoot-table--unmark-row-if-type identity :delete)
                    (when (scoot-table--record-modified-p
                           (plist-get (scoot-table--row-at-point) :record))
-                     (scoot-table--mark-row identity :update))
-                   (scoot-table--mark-row identity :delete))
+                     (scoot-table--mark-row! identity :update))
+                   (scoot-table--mark-row! identity :delete))
                (scoot-table--cell-down))
       (message "Cannot uniquely identify the row at point."))))
 
