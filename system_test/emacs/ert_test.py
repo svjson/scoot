@@ -4,6 +4,8 @@ from pathlib import Path
 
 from system_test.emacs_test_runner import EmacsDaemon
 
+from ..db.log import log
+
 ERT_DEFTEST_RE = re.compile(r"^\s*\(ert-deftest\s+([^\s)]+)")
 
 
@@ -37,7 +39,9 @@ def enumerate_test_suite(emacs_daemon: EmacsDaemon, test_dir: str | Path, mode: 
     return all defined ert test names.
     """
     for path in _get_test_files(test_dir):
-        emacs_daemon.load_file(path)
+        result = emacs_daemon.load_file(path)
+        if result != "t":
+            log.error(f"{path.name}: {result}")
 
     test_list = emacs_daemon.eval_lisp(
         f'(scoot-test--find-tests "{mode}" \'python-list)'

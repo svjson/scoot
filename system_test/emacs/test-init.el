@@ -16,9 +16,9 @@
   (use-package request :ensure t)
   (use-package dash :ensure t)
   (add-to-list 'load-path (expand-file-name "scoot.el/" default-directory))
-  (add-to-list 'load-path (expand-file-name "scoot.el/test" default-directory))
-  (add-to-list 'load-path (expand-file-name "scoot.el/test/unit" default-directory))
-  (add-to-list 'load-path (expand-file-name "scoot.el/test/system" default-directory))
+  (add-to-list 'load-path (expand-file-name "scoot.el/test/" default-directory))
+  (add-to-list 'load-path (expand-file-name "scoot.el/test/unit/" default-directory))
+  (add-to-list 'load-path (expand-file-name "scoot.el/test/system/" default-directory))
   "Ensured packages")
 
 

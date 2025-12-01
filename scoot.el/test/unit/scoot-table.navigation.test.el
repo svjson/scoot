@@ -26,113 +26,105 @@
 (require 'scoot-nexartrade-fixtures)
 (require 'ert)
 
+
 
-;; scoot-table--move-to-first-row
+;; scoot-table--move-to-first-row!
 
-(ert-deftest scoot-table--move-to-first-row--from-table-start ()
+(ert-deftest-parametrized scoot-table--move-to-first-row!
+    (move-to-initial-pos expected-pos)
+
+    (("from-table-start"
+      (:fun (goto-char (car  (scoot-table--table-start))))
+      (:literal (4 . 0)))
+
+     ("from-first-table-header"
+      (:fun (progn (forward-line 1) (forward-char 2)))
+      (:literal (4 . 5)))
+
+     ("from-table-row-3-column-1"
+      (:fun (progn (forward-line 6) (forward-char 2)))
+      (:eval (cons 4 5))))
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data)
    (goto-char (point-min))
+   (move-to-initial-pos)
 
    ;; When
-   (scoot-table--move-to-first-row)
+   (scoot-table--move-to-first-row!)
 
    ;; Then
-   (should (equal (line-number-at-pos) 4))
-   (should (equal (current-column) 0))))
-
-(ert-deftest scoot-table--move-to-first-row--from-first-table-header ()
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data)
-   (goto-char (point-min))
-   (forward-line 1)
-   (forward-char 2)
-
-   ;; When
-   (scoot-table--move-to-first-row)
-
-   ;; Then
-   (should (equal (line-number-at-pos) 4))
-   (should (equal (current-column) 5))))
-
-(ert-deftest scoot-table--move-to-first-row--from-table-row-3-column-1 ()
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data)
-   (goto-char (point-min))
-   (forward-line 6)
-   (forward-char 2)
-
-   ;; When
-   (scoot-table--move-to-first-row)
-
-   ;; Then
-   (should (equal (line-number-at-pos) 4))
-   (should (equal (current-column) 5))))
+   (should (equal (line-number-at-pos) (car expected-pos)))
+   (should (equal (current-column) (cdr expected-pos)))))
 
 
 
 
-;; scoot-table--move-to-last-row
+;; scoot-table--move-to-last-row!
 
-(ert-deftest scoot-table--move-to-last-row--from-table-start ()
+(ert-deftest-parametrized scoot-table--move-to-last-row!
+    (move-to-initial-pos! expected-line expected-column)
+    (("from-table-start"
+       (:fun (goto-char (car (scoot-table--table-start))))
+       (:literal 13)
+       (:literal 0))
+     ("from-first-table-header"
+      (:fun (progn (forward-line 1) (forward-char 2)))
+      (:literal 13)
+      (:literal 5))
+     ("from-table-row-3-column-1"
+      (:fun (progn (forward-line 6) (forward-char 2)))
+      (:literal 13)
+      (:literal 5)))
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data)
    (goto-char (point-min))
+   (move-to-initial-pos!)
 
    ;; When
-   (scoot-table--move-to-last-row)
+   (scoot-table--move-to-last-row!)
 
    ;; Then
-   (should (equal (line-number-at-pos) 13))
-   (should (equal (current-column) 0))))
-
-(ert-deftest scoot-table--move-to-last-row--from-first-table-header ()
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data)
-   (goto-char (point-min))
-   (forward-line 1)
-   (forward-char 2)
-
-   ;; When
-   (scoot-table--move-to-last-row)
-
-   ;; Then
-   (should (equal (line-number-at-pos) 13))
-   (should (equal (current-column) 5))))
-
-(ert-deftest scoot-table--move-to-last-row--from-table-row-3-column-1 ()
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data)
-   (goto-char (point-min))
-   (forward-line 6)
-   (forward-char 2)
-
-   ;; When
-   (scoot-table--move-to-last-row)
-
-   ;; Then
-   (should (equal (line-number-at-pos) 13))
-   (should (equal (current-column) 5))))
+   (should (equal (line-number-at-pos)
+                  expected-line))
+   (should (equal (current-column)
+                  expected-column))))
 
 
 
-;; scoot-table--next-cell
+;; scoot-table--cell-right!
 
-(ert-deftest scoot-table--next-cell--from-table-start ()
+(ert-deftest-parametrized scoot-table--cell-right!
+    (move-to-initial-pos! expected-next-cell-pos expected-thing)
+
+    (("from-table-start"
+      (:fun (goto-char (car (scoot-table--table-start))))
+      (:literal (187 . 2))
+      (:literal table-header))
+     ("from-first-table-header"
+      (:fun (goto-char 187))
+      (:literal (193 . 2))
+      (:literal table-header))
+     ("from-last-table-header"
+      (:fun (goto-char 357))
+      (:literal (557 . 4))
+      (:literal table-cell)))
+
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data)
    (goto-char (point-min))
+   (move-to-initial-pos!)
+
+   ;; When
+   (scoot-table--cell-right!)
 
    ;; Then
-   (should (equal (scoot-table--next-cell)
-                  (cons 186 2)))))
+   (should (equal (cons (point) (line-number-at-pos))
+                  expected-next-cell-pos))
+   (should (equal (scoot--thing-at)
+                  expected-thing))))
 
 
 

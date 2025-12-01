@@ -198,6 +198,13 @@ will be used to compute the column-width of tabs"
       (member (alist-get 'thing (scoot--props-at point)) thing)
     (equal thing (alist-get 'thing (scoot--props-at point)))))
 
+(defun scoot--thing-at (&optional point)
+  "Get the scoot-thing text-property at POINT.
+
+The value of (point) will be used if POINT is not provided."
+  (let ((p (or point (point))))
+    (alist-get 'thing (scoot--props-at p))))
+
 (defun scoot--scan-property-with-value (forward-p opt prop value limit)
   "Scan for the next position where PROP has VALUE.
 

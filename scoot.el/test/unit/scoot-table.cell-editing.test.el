@@ -67,7 +67,7 @@
         "\n")))
 
      (goto-char (point-min))
-     (scoot-table--move-to-last-row)
+     (scoot-table--move-to-last-row!)
      (scoot-table--move-to-last-column)
 
      (message "%s" (scoot--props-at-point))

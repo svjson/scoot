@@ -436,7 +436,9 @@ EDITABLEP - Signal if editing of the table data is to be allowed."
                                table-border)))
 
 (defun scoot-table--table-start ()
-  "Return the first point of the table in the buffer."
+  "Return the first point of the table in the buffer.
+
+Returns the position in the format of (<point> . <line-number>)"
   (save-excursion
     (while (and (not (bobp)) (scoot-table--table-at-point-p))
       (forward-line -1))
@@ -529,7 +531,7 @@ buffer."
   "Move the cursor to the first column of the current row."
   (interactive)
   (beginning-of-line)
-  (scoot-table--cell-right))
+  (scoot-table--cell-right!))
 
 (defun scoot-table--move-to-last-column ()
   "Move the cursor to the first column of the current row."
@@ -539,7 +541,7 @@ buffer."
     (goto-char pt)
     (scoot-table--move-to-cell-value)))
 
-(defun scoot-table--move-to-first-row ()
+(defun scoot-table--move-to-first-row! ()
   "Move the cursor to the first row."
   (interactive)
   (let ((ccol (current-column))
@@ -551,10 +553,10 @@ buffer."
     (when (scoot-table--cell-at-point)
       (scoot-table--move-to-cell-value))))
 
-(defun scoot-table--move-to-last-row ()
+(defun scoot-table--move-to-last-row! ()
   "Move the cursor to the first row."
   (interactive)
-  (scoot-table--move-to-first-row)
+  (scoot-table--move-to-first-row!)
   (let ((ccol (current-column)))
     (while (scoot-table--row-at-point)
       (forward-line 1))
@@ -565,7 +567,7 @@ buffer."
     (when (scoot-table--cell-at-point)
       (scoot-table--move-to-cell-value))))
 
-(defun scoot-table--cell-right ()
+(defun scoot-table--cell-right! ()
   "Move right to the next cell."
   (interactive)
   (when-let (cell (scoot-table--next-cell (point)))
@@ -606,10 +608,10 @@ COLUMN-INDEX is the visual index of the column that has changed.
 NEW-WIDTH is the new column width in characters."
   (condition-case err
       (save-excursion
-        (scoot-table--move-to-first-row)
+        (scoot-table--move-to-first-row!)
         (scoot-table--move-to-first-column)
         (dotimes (_ column-index)
-          (scoot-table--cell-right))
+          (scoot-table--cell-right!))
         (goto-char (1+ (car (scoot-table--cell-end))))
         (let* ((inhibit-read-only t)
                (rcol (current-column))
@@ -787,12 +789,12 @@ CELL is the cell summary of the cell under edit."
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "C-a") 'scoot-table--move-to-first-column)
     (define-key map (kbd "C-e") 'scoot-table--move-to-last-column)
-    (define-key map (kbd "M-a") 'scoot-table--move-to-first-row)
-    (define-key map (kbd "M-e") 'scoot-table--move-to-last-row)
+    (define-key map (kbd "M-a") 'scoot-table--move-to-first-row!)
+    (define-key map (kbd "M-e") 'scoot-table--move-to-last-row!)
     (define-key map (kbd "C-n") 'scoot-table--cell-down)
     (define-key map (kbd "C-p") 'scoot-table--cell-up)
-    (define-key map (kbd "C-f") 'scoot-table--cell-right)
-    (define-key map (kbd "TAB") 'scoot-table--cell-right)
+    (define-key map (kbd "C-f") 'scoot-table--cell-right!)
+    (define-key map (kbd "TAB") 'scoot-table--cell-right!)
     (define-key map (kbd "C-b") 'scoot-table--cell-left)
     (define-key map (kbd "<backtab>") 'scoot-table--cell-left)
     (define-key map (kbd "RET") 'scoot-table--edit-cell)

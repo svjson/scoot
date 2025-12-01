@@ -23,6 +23,60 @@
 
 (require 'cl-lib)
 
+
+
+;; Test generation
+
+(defmacro ert-deftest-parametrized (base-name args params &rest body)
+  "Define a group of parametrized ERT tests.
+
+BASE-NAME is a symbol or string used as the prefix.
+PARAMS is a list of rows:
+
+  ((\"case-name\"
+    (:fun     FORM)
+    (:literal FORM)
+    (:eval    FORM)
+   (...))
+
+ARGS is a list of symbols, one per parameter position in each row.
+The first parameter in a row binds to the first symbol in ARGS, etc.
+
+BODY is the test body, evaluated with:
+  - all :fun parameters bound via cl-flet
+  - all :literal/:eval parameters bound via let."
+  (declare (indent 3))
+  (let ((prefix (if (symbolp base-name)
+                    (symbol-name base-name)
+                  base-name)))
+    `(progn
+       ,@(mapcar
+          (lambda (row)
+            (let* ((case-name (car row))
+                   (test-name (intern (format "%s--%s" prefix case-name)))
+                   (items (cdr row))
+                   (funcs nil)
+                   (values nil))
+              (unless (= (length items) (length args))
+                (error "In ert-deftest-parametrized: row %S has %d parameters but ARGS has %d"
+                       (car row) (length items) (length args)))
+              (cl-loop for item in items
+                       for sym-name in args
+                       do
+                       (pcase item
+                         (`(:fun ,form)
+                          (push `(,sym-name () ,form) funcs))
+                         (`(:literal ,form)
+                          (push `(,sym-name (quote ,form)) values))
+                         (`(:eval ,form)
+                          (push `(,sym-name ,form) values))
+                         (_ (error "Unknown parameter tag in case '%s':  %S" case-name item))))
+              `(ert-deftest ,test-name ()
+                 (cl-flet ,(nreverse funcs)
+                   (let ,(nreverse values)
+                     ,@body)))))
+          params))))
+
 
 ;; Window buffer management
 
