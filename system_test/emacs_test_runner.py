@@ -170,7 +170,9 @@ def run_test(
     if before_test:
         emacs_daemon.eval_lisp(before_test)
 
-    test_result = emacs_daemon.eval_lisp(f"(scoot-test--run-test '{test_name})")
+    test_result = emacs_daemon.eval_lisp(
+        f"(scoot-test--run-test '{test_name} :backtrace 2)"
+    )
     result = parse_test_result(test_result)
     success = "ert-test-passed" == result.get("Result", None)
 

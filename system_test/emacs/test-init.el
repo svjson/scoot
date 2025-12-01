@@ -126,17 +126,20 @@ FMT may be any of:
                      should-forms
                      "\n")))))
 
-(defun scoot-test--format-result-with-cond (result no-backtrace)
+(defun scoot-test--format-result-with-cond (result &key backtrace)
   "Format failed ert-test-result RESULT properties to an easy-to-parse format.
 
-Optionally exclude Backtrace-section with non-nil NO-BACKTRACE."
-  (let ((backtrace (ert-test-result-with-condition-backtrace result))
+Keys:
+BACKTRACE - control backtrace frame count.  nil/no argument excludes section."
+  (let ((btrace (ert-test-result-with-condition-backtrace result))
+        (btrace-limit (if (fixnump backtrace)) backtrace 0)
+        (no-backtrace (null backtrace))
         (infos (ert-test-result-with-condition-infos result)))
     (concat (scoot-test--format-result result)
             (scoot-test--format-report-section "Backtrace"
                                                (let ((frames '())
-                                                     (rest backtrace))
-                                                 (while (and rest (< (length frames) 10))
+                                                     (rest btrace))
+                                                 (while (and rest (< (length frames) btrace-limit))
                                                    (setq frames (append frames
                                                                         (list (scoot-test--cut-after-backtrace-frame (pp-to-string (car rest))))))
                                                    (setq rest (cdr rest)))
@@ -162,17 +165,17 @@ Optionally return empty string if EXCLUDE is non-nil."
     (format "[%s]\n%s\n[/%s]\n" section-name output section-name))
   )
 
-(cl-defun scoot-test--run-test (test-name &key no-backtrace)
+(cl-defun scoot-test--run-test (test-name &key backtrace)
   "Run ert test TEST-NAME and return the test output.
 
 Keys:
-  NO-BACKTRACE: Exclude backtraces from report."
+  BACKTRACE: Limit backtrace length, or nil to suppress entirely."
   (condition-case err
       (let* ((result (ert-run-test (ert-get-test test-name))))
         (concat (cond
                  ((ert-test-result-type-p result (or :passed :skipped))
                   (scoot-test--format-result result))
-                 (t (scoot-test--format-result-with-cond result no-backtrace)))
+                 (t (scoot-test--format-result-with-cond result :backtrace backtrace)))
                 (scoot-test--report-server-output)))
     (error
      (let ((bt (with-temp-buffer
@@ -182,7 +185,7 @@ Keys:
        (format "%s%s%s%s"
                (scoot-test--format-report-section "Result" "error")
                (scoot-test--format-report-section "Message" (error-message-string err))
-               (scoot-test--format-report-section "Backtrace" bt no-backtrace)
+               (scoot-test--format-report-section "Backtrace" bt (null backtrace))
                (scoot-test--report-server-output))))))
 
 
