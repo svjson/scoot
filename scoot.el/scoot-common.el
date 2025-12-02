@@ -156,7 +156,7 @@ will be used to compute the column-width of tabs"
               cell (cddr cell))))
     plist))
 
-(defun scoot--plist-select-keys (plist keys)
+(defun scoot--plist-select-keys (plist &rest keys)
   "Return a new plist created from PLIST containing only the keys in KEYS."
   (let (result)
     (dolist (key keys result)

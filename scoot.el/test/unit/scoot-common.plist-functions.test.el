@@ -31,7 +31,7 @@
   (should (equal (scoot--plist-select-keys (list :headers '("A" "B" "C")
                                                  :tables '("Table1", "Table2")
                                                  :widths '(4 8 16))
-                                           '(:headers :widths))
+                                           :headers :widths)
                  (list :headers '("A" "B" "C")
                        :widths '(4 8 16)))))
 

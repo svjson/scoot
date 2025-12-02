@@ -72,7 +72,7 @@
          (table-model (scoot-table--build-visual-model result-model)))
     (should
      (equal
-      (scoot--plist-select-keys table-model '(:headers :widths))
+      (scoot--plist-select-keys table-model :headers :widths)
       '(:headers
         ((:name "Id" :header-label "Id" :metadata ((name . "Id")))
          (:name "RentalObjectCode" :header-label "RentalObjectCode" :metadata ((name . "RentalObjectCode"))))
