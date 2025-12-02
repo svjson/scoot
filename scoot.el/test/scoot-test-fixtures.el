@@ -107,13 +107,19 @@ commands and hooks to run properly."
   "Go to point PT, interactively and triggering hooks."
   (interactively-goto-line (line-number-at-pos pt))
   (while (not (= (point) pt))
-    (do-command #'forward-char)))
+    (do-command (if (< (point) pt)
+                    #'forward-char
+                  #'backward-char))))
 
 (defun interactively-goto-line (line-num)
   "Go to line LINE-NUM, interactively and triggering hooks."
   (goto-char (point-min))
   (while (not (= (line-number-at-pos) line-num))
-    (do-command #'next-line)))
+    (message "%s, %s" (line-number-at-pos) (current-column))
+    (do-command (if (< (line-number-at-pos) line-num)
+                    #'next-line
+                  #'previous-line))))
+
 
 
 (defun interactively-self-insert-char (ch)
