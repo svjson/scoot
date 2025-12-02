@@ -22,7 +22,9 @@
 ;;; Code:
 
 (require 'ert)
+(require 'scoot-type)
 (require 'scoot-widget)
+(require 'scoot-input)
 (require 'scoot-query-block)
 (require 'scoot-test-fixtures)
 
@@ -32,10 +34,10 @@
 (ert-deftest scoot-widget--point->position--cell-visible-to-shadow ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
-                                              :formatter scoot-formatter-string
-                                              :record-cell (list :formatted-value "test")
-                                              :type 'string))
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
+                                               :formatter scoot-formatter-string
+                                               :record-cell (list :formatted-value "test")
+                                               :type 'string))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 110
                              :relative-point 1
@@ -70,10 +72,10 @@
 (ert-deftest scoot-widget--point->position--cell-visible-to-visible ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
-                                              :formatter scoot-formatter-string
-                                              :record-cell (list :formatted-value "test")
-                                              :type 'string))
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
+                                               :formatter scoot-formatter-string
+                                               :record-cell (list :formatted-value "test")
+                                               :type 'string))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 110
                              :absolute-expected-pos '(:line 3 :col 9)
@@ -115,7 +117,7 @@
 (ert-deftest scoot-widget--point->position--cell-shadow-to-visible ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
                                               :formatter scoot-formatter-string
                                               :record-cell (list :formatted-value "full_input")
                                               :type 'string))
@@ -154,10 +156,10 @@
 (ert-deftest scoot-widget--point->position--cell-shadow-to-shadow ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
-                                              :formatter scoot-formatter-string
-                                              :record-cell (list :formatted-value "full_input")
-                                              :type 'string))
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
+                                               :formatter scoot-formatter-string
+                                               :record-cell (list :formatted-value "full_input")
+                                               :type 'string))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1
                              :expected-pos '(:line 1 :col 0))
@@ -196,10 +198,10 @@
 (ert-deftest scoot-widget--point->point--cell-visible-to-shadow ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
-                                              :formatter scoot-formatter-string
-                                              :record-cell (list :formatted-value "full_input")
-                                              :type 'string))
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
+                                               :formatter scoot-formatter-string
+                                               :record-cell (list :formatted-value "full_input")
+                                               :type 'string))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 110
                              :relative-point 1
@@ -236,10 +238,10 @@
 (ert-deftest scoot-widget--point->point--cell-visible-to-visible ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
-                                              :formatter scoot-formatter-string
-                                              :record-cell (list :formatted-value "full_input")
-                                              :type 'string))
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
+                                               :formatter scoot-formatter-string
+                                               :record-cell (list :formatted-value "full_input")
+                                               :type 'string))
           (cases (list (list :case "At Widget Start"
                              :absolute-point 110
                              :relative-point 1)
@@ -293,7 +295,7 @@
 (ert-deftest scoot-widget--point->point--cell-shadow-to-visible ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
                                               :formatter scoot-formatter-string
                                               :record-cell (list :formatted-value "full_input")
                                               :type 'string))
@@ -332,10 +334,10 @@
 (ert-deftest scoot-widget--point->point--cell-shadow-to-shadow ()
   (with-temp-buffer
     (insert-whitespace-block 49 10)
-    (let ((widget (scoot-input--install-input :begin 110 :end 120
-                                              :formatter scoot-formatter-string
-                                              :record-cell (list :formatted-value "full_input")
-                                              :type 'string))
+    (let ((widget (scoot-input--install-input! :begin 110 :end 120
+                                               :formatter scoot-formatter-string
+                                               :record-cell (list :formatted-value "full_input")
+                                               :type 'string))
           (cases (list (list :case "At Content Start"
                              :shadow-point 1)
                        (list :case "4 chars into input"

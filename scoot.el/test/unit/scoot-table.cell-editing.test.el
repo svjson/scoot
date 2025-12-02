@@ -23,6 +23,7 @@
 
 (require 'scoot-table)
 (require 'scoot-test-fixtures)
+(require 'scoot-nexartrade-fixtures)
 (require 'ert)
 
 
@@ -31,25 +32,10 @@
 
 (ert-deftest scoot-table--cell-editing--edit-varchar-cell ()
   ;; Given
-  (let ((result-data '((columns . ["id" "username"])
-                       (rows . [[7 "barb_dwyer"] [2 "ben_rangel"]])
-                       (metadata
-                        (columns
-                         . [((name . "id") (type . "INTEGER")
-                             (typespec (type . "INTEGER") (bits . 64) (signed . t))
-                             (native_type . "int") (nullable . :json-false)
-                             (primary_key . t) (default) (table . "users") (column . "id")
-                             (constraints . []))
-                            ((name . "username") (type . "STRING")
-                             (typespec (type . "STRING") (max-len . 50) (encoding . "utf-8")
-                                       (collation (locale . "Latin1_General_CP1")
-                                                  (case-sensitive . :json-false)
-                                                  (accent-sensitive . t))
-                                       (lob . :json-false))
-                             (native_type
-                              . "varchar(50) COLLATE SQL_Latin1_General_CP1_CI_AS")
-                             (nullable . t) (primary_key . :json-false) (default)
-                             (table . "users") (column . "username") (constraints . []))])))))
+  (let ((result-data (scoot-test--result-data
+                      :data nexartrade-table--users--result-data
+                      :columns ["id" "username"]
+                      :rows [6 1])))
 
     (with-new-window-buffer
      (scoot-table--insert-table! result-data t)

@@ -574,26 +574,28 @@ buffer."
     (goto-char (car cell))
     (scoot-table--move-to-cell-value)))
 
-(defun scoot-table--cell-left ()
+(defun scoot-table--cell-left! ()
   "Move right to the previous cell."
   (interactive)
   (when-let (cell (scoot-table--previous-cell (point)))
     (goto-char (car cell))
     (scoot-table--move-to-cell-value)))
 
-(defun scoot-table--cell-up ()
+(defun scoot-table--cell-up! ()
   "Move up to the corresponding cell in the previous row."
   (interactive)
   (let ((line-move-visual nil))
-    (call-interactively 'previous-line)
+    (call-interactively #'previous-line)
     (when (scoot--thing-at-p (point) '(table-cell table-header))
       (scoot-table--move-to-cell-value))))
 
-(defun scoot-table--cell-down ()
+(defun scoot-table--cell-down! ()
   "Move up to the corresponding cell in the previous row."
   (interactive)
-  (let ((line-move-visual nil))
-    (call-interactively 'next-line)
+  (let ((line-move-visual nil)
+        (col (current-column)))
+    (forward-line 1)
+    (move-to-column col)
     (when (scoot--thing-at-p (point) '(table-cell table-header))
       (scoot-table--move-to-cell-value))))
 
@@ -645,7 +647,7 @@ COLUMN-INDEX is the visual index of the column that has changed.
 NEW-WIDTH is the new column width in characters."
   (scoot-table--resize-column! column-index new-width))
 
-(defun scoot-table--remove-cell-editor (widget cell)
+(defun scoot-table--remove-cell-editor! (widget cell)
   "Uninstalls the editable cell and restores a regular table cell.
 
 WIDGET is the input widget being uninstalled.
@@ -658,7 +660,7 @@ CELL is the cell summary of the cell under edit."
          (record-cell (plist-get cell :record-cell))
          (identity (scoot-table--record-identity record))
          (inhibit-read-only t))
-    (delete-region (1- widget-start) (+ 2 widget-end))
+    (delete-region (1- widget-start) (+ 1 widget-end))
     (goto-char (1- widget-start))
     (scoot-table--insert-table-cell record
                                     record-cell
@@ -679,19 +681,20 @@ CELL is the cell summary of the cell under edit."
   (when (scoot--thing-at-p (point) 'table-cell)
     (let* ((cell (scoot-table--cell-at-point)))
       (when (plist-get cell :editablep)
-        (scoot-input--install-input :begin (car (scoot-table--cell-begin))
-                                    :end (car (scoot-table--cell-end))
-                                    :column (plist-get cell :column)
-                                    :type (alist-get 'typespec (plist-get cell :column))
-                                    :formatter (get-text-property (point) 'formatter)
-                                    :record-cell (plist-get cell :record-cell)
-                                    :record (plist-get cell :record)
-                                    :resize-hook (lambda (new-width)
-                                                   (scoot-table--edit-cell-resize-hook
-                                                    (plist-get cell :cell-index) new-width))
-                                    :remove-hook (lambda (widget)
-                                                   (scoot-table--remove-cell-editor widget cell)))
-        (scoot-table-mode -1)))))
+        (let ((input (scoot-input--install-input! :begin (car (scoot-table--cell-begin))
+                                                  :end (1+ (car (scoot-table--cell-end)))
+                                                  :column (plist-get cell :column)
+                                                  :type (alist-get 'typespec (plist-get cell :column))
+                                                  :formatter (get-text-property (point) 'formatter)
+                                                  :record-cell (plist-get cell :record-cell)
+                                                  :record (plist-get cell :record)
+                                                  :resize-hook (lambda (new-width)
+                                                                 (scoot-table--edit-cell-resize-hook
+                                                                  (plist-get cell :cell-index) new-width))
+                                                  :remove-hook (lambda (widget)
+                                                                 (scoot-table--remove-cell-editor! widget cell)))))
+          (scoot-table-mode -1)
+          input)))))
 
 
 
@@ -782,7 +785,7 @@ CELL is the cell summary of the cell under edit."
                           (plist-get (scoot-table--row-at-point) :record))
                      (scoot-table--mark-row! identity :update))
                    (scoot-table--mark-row! identity :delete))
-               (scoot-table--cell-down))
+               (scoot-table--cell-down!))
       (message "Cannot uniquely identify the row at point."))))
 
 
@@ -795,12 +798,12 @@ CELL is the cell summary of the cell under edit."
     (define-key map (kbd "C-e") 'scoot-table--move-to-last-column)
     (define-key map (kbd "M-a") 'scoot-table--move-to-first-row!)
     (define-key map (kbd "M-e") 'scoot-table--move-to-last-row!)
-    (define-key map (kbd "C-n") 'scoot-table--cell-down)
-    (define-key map (kbd "C-p") 'scoot-table--cell-up)
+    (define-key map (kbd "C-n") 'scoot-table--cell-down!)
+    (define-key map (kbd "C-p") 'scoot-table--cell-up!)
     (define-key map (kbd "C-f") 'scoot-table--cell-right!)
     (define-key map (kbd "TAB") 'scoot-table--cell-right!)
-    (define-key map (kbd "C-b") 'scoot-table--cell-left)
-    (define-key map (kbd "<backtab>") 'scoot-table--cell-left)
+    (define-key map (kbd "C-b") 'scoot-table--cell-left!)
+    (define-key map (kbd "<backtab>") 'scoot-table--cell-left!)
     (define-key map (kbd "RET") 'scoot-table--edit-cell)
     (define-key map (kbd "d") 'scoot-table--toggle-mark-delete)
     (define-key map (kbd "<deletechar>") 'scoot-table--toggle-mark-delete)

@@ -28,21 +28,6 @@
 
 
 
-;; Variables
-
-(defvar-local scoot-input--input-shadow-buffer nil
-  "Reference to the shadow buffer backing widget.")
-
-(defvar-local scoot-input--input-begin nil)
-
-(defvar-local scoot-input--input-end nil)
-
-(defvar-local scoot-input--value-begin nil)
-
-(defvar-local scoot-input--value-end nil)
-
-
-
 ;; Shadow buffer management method implementations
 
 (cl-defmethod scoot-widget--shadow-buffer-name ((_widget-type (eql 'input))
@@ -59,13 +44,35 @@
 
 ;; Input display functions
 
-(defun scoot-input--format-input-content (value)
+(defun scoot-input--format-content (value)
   "Format the cell VALUE as an input widget."
   (let ((face (get-text-property (point) 'face)))
     (propertize value
                 'face `(:inherit ,face :background "#000000"))))
 
-(cl-defun scoot-input--install-input (&key begin end column type formatter record record-cell resize-hook remove-hook)
+
+(defun scoot-input--replace-content! (input value)
+  ""
+  (let ((begin (marker-position (plist-get input :widget-start)))
+        (end (marker-position (plist-get input :widget-end)))
+        (align (plist-get input :align))
+        (margin (make-string (max 0
+                                  (- (plist-get input :widget-min-width)
+                                     (length value)))
+                             ?\s)))
+    (delete-region begin end)
+    (goto-char begin)
+    (when (eq align 'right)
+      (insert margin))
+    (set-marker (plist-get input :editable-start) (point))
+    (insert (scoot-input--format-content value))
+    (set-marker (plist-get input :editable-end) (point))
+    (when (eq align 'left)
+      (insert margin))
+    (set-marker (plist-get input :widget-end) (point))))
+
+
+(cl-defun scoot-input--install-input! (&key begin end column type formatter record record-cell resize-hook remove-hook)
   "Install an input spanning from BEGIN to END.
 
 FORMATTER will be used to format the value of RECORD according to its
@@ -77,86 +84,62 @@ COLUMN may be supplied to allow applying column-level constraints.
 RESIZE-HOOK and REMOVE-HOOK can be provided for non-standard behavior
 editing forces a resize of the widget bounds and when the input is
 removed, respectively."
-  (let ((inhibit-read-only t)
-        (widget (scoot-widget--register-widget! 'input 'input))
-        (value (plist-get record-cell :formatted-value)))
+  (goto-char begin)
+  (scoot-widget--create
+      :type 'input
+      :name 'input
+      :editable-region 'value
+      :value (plist-get record-cell :formatted-value)
 
-    (when resize-hook
-      (plist-put widget :resize-hook resize-hook))
-    (when remove-hook
-      (plist-put widget :remove-hook remove-hook))
-    (when column
-      (plist-put widget :column column))
-
-    (plist-put widget :formatter formatter)
-    (plist-put widget :record record)
-    (plist-put widget :record-cell record-cell)
-    (plist-put widget :contain-cursor t)
-    (plist-put widget :data-type type)
-
-    (setq scoot-input--input-begin begin)
-    (setq scoot-input--input-end end)
-    (if (eq 'left (plist-get formatter :align))
-        (progn
-          (setq scoot-input--value-begin begin)
-          (setq scoot-input--value-end (+ begin (length value) -1)))
+      :init
       (progn
-        (setq scoot-input--value-begin (- end (length value) -1))
-        (setq scoot-input--value-end end)))
-    (delete-region scoot-input--value-begin (1+ scoot-input--value-end))
-    (goto-char scoot-input--value-begin)
-    (insert (scoot-input--format-input-content (copy-sequence value)))
-    (plist-put widget :editable-start (copy-marker scoot-input--value-begin t))
-    (plist-put widget :editable-end (copy-marker scoot-input--value-end t))
-    (plist-put widget :widget-start (copy-marker scoot-input--input-begin t))
-    (plist-put widget :widget-start-line (line-number-at-pos scoot-input--input-begin))
-    (plist-put widget :widget-end (copy-marker scoot-input--input-end t))
-    (plist-put widget :widget-min-width (- scoot-input--input-end scoot-input--input-begin))
-    (plist-put widget :align (plist-get formatter :align))
-    (plist-put widget :remove-on-teardown t)
-    (let ((shadow-buffer (scoot-widget--init-shadow-buffer 'input 'input value)))
-      (with-current-buffer shadow-buffer
-        (goto-char (point-max))))
-    (scoot-input-mode 1)
-    widget))
+        (plist-put widget :formatter formatter)
+        (plist-put widget :record record)
+        (plist-put widget :record-cell record-cell)
+        (plist-put widget :contain-cursor t)
+        (plist-put widget :data-type type)
 
-(defun scoot-input--refresh-input ()
+        (plist-put widget :align (plist-get formatter :align))
+        (plist-put widget :widget-min-width (- end begin))
+        (plist-put widget :remove-on-teardown t)
+
+        (plist-put widget :editable-start (copy-marker begin))
+        (plist-put widget :widget-end (copy-marker end t))
+        (plist-put widget :editable-end (copy-marker end))
+
+        (scoot-input--replace-content! widget value)
+
+        (when resize-hook
+          (plist-put widget :resize-hook resize-hook))
+        (when remove-hook
+          (plist-put widget :remove-hook remove-hook))
+        (when column
+          (plist-put widget :column column)))
+
+      :finalize
+      (progn
+        (with-scoot-widget-shadow-buffer widget
+          (goto-char (point-max)))
+        (scoot-input-mode 1))))
+
+(defun scoot-input--refresh-input! ()
   "Refresh the active input with the contents from the shadow buffer."
   (condition-case err
       (let* ((inhibit-read-only t)
              (inhibit-modification-hooks t)
              (widget (scoot-widget--get-widget :type 'input :name 'input))
-             (widget-start (plist-get widget :widget-start))
-             (widget-start-pos (marker-position widget-start))
-             (widget-end (plist-get widget :widget-end))
-             (widget-end-pos (marker-position widget-end))
-             (editable-start (plist-get widget :editable-start))
-             (editable-start-pos (marker-position editable-start))
-             (editable-end (plist-get widget :editable-end))
-             (editable-end-pos (marker-position editable-end))
+             (current-length (- (plist-get widget :widget-end)
+                                (plist-get widget :widget-start)))
              (new-value (scoot-widget--shadow-buffer-content widget)))
-        (delete-region widget-start-pos
-                       (1+ widget-end-pos))
-        (goto-char widget-start-pos)
-        (let ((margin (max 0 (- (1+ (plist-get widget :widget-min-width))
-                                (length new-value)))))
-          (when (eq 'right (plist-get widget :align))
-            (insert (make-string margin ?\s)))
-          (setq editable-start-pos (point))
-          (insert (scoot-input--format-input-content new-value))
-          (setq editable-end-pos (point))
-          (when (eq 'left (plist-get widget :align))
-            (insert (make-string margin ?\s)))
 
-          (set-marker editable-start editable-start-pos)
-          (set-marker editable-end editable-end-pos)
-          (set-marker widget-start widget-start-pos)
-          (let ((new-widget-end (max (1- (point))
-                                     (+ widget-start-pos (plist-get widget :widget-min-width)))))
-            (set-marker widget-end new-widget-end)
-            (when (/= widget-end-pos new-widget-end)
-              (when-let ((resize-hook (plist-get widget :resize-hook)))
-                (funcall resize-hook (- new-widget-end widget-start-pos)))))))
+        (scoot-input--replace-content! widget new-value)
+
+        (let ((new-length (- (plist-get widget :widget-end)
+                             (plist-get widget :widget-start))))
+
+          (when (/= current-length new-length)
+            (when-let ((resize-hook (plist-get widget :resize-hook)))
+              (funcall resize-hook new-length)))))
     (error
      (message "Error while refreshing input field: %s - %s" (car err) (cdr err)))))
 
@@ -297,7 +280,7 @@ BEG, END and LEN detail the beginning, end and length of the change."
                                       :data-type))))
     (scoot-input--validate-change type-spec beg end len))
   (with-current-buffer scoot-widget-display-buffer
-    (scoot-input--refresh-input)))
+    (scoot-input--refresh-input!)))
 
 
 

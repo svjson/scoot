@@ -85,7 +85,8 @@ INIT - A code block that is expected to render the widget and set up
        additional state.
 FINALIZE - A code block that executes when rendering and widget set up
            is complete."
-  `(let* (,@opts
+  `(let* ((inhibit-read-only t)
+          ,@opts
           (widget (scoot-widget--register-widget! ,type ,name))
           (widget-start-pos (point))
           (widget-start-marker (copy-marker widget-start-pos))
@@ -106,10 +107,12 @@ FINALIZE - A code block that executes when rendering and widget set up
 
      (when edit-region
        (plist-put widget :editable-start (pcase edit-region
-                                           ('widget widget-start-marker)
+                                           ('widget (copy-marker widget-start-marker))
+                                           ('value (plist-get widget :editable-start))
                                            (_ (error "Invalid region: %s" edit-region))))
        (plist-put widget :editable-end (pcase edit-region
-                                         ('widget widget-end-marker)
+                                         ('widget (copy-marker widget-end-marker))
+                                         ('value (plist-get widget :editable-end))
                                          (_ (error "Invalid region: %s" edit-region))))
        (scoot-widget--init-shadow-buffer ,type
                                          ,name
@@ -248,8 +251,27 @@ CONTENT should be a single string formatted with \"\\n\" as line separators."
 
 ;; Widget query functions
 
+(defun scoot-widget--region (widget)
+  "Get the start and end point of WIDGET."
+  (cons (marker-position (plist-get widget :widget-start))
+        (marker-position (plist-get widget :widget-end))))
+
+(defun scoot-widget--editable-region (widget)
+  "Get the start and end point of WIDGET."
+  (when-let ((edit-start (plist-get widget :editable-start))
+             (edit-end (plist-get widget :editable-end)))
+    (cons (marker-position edit-start)
+          (marker-position edit-end))))
+
+(defun scoot-widget--buffer-string (widget)
+  "Get the content of WIDGET as seen in the display buffer."
+  (let ((region (scoot-widget--region widget)))
+    (buffer-substring-no-properties (car region)
+                                    (cdr region))))
+
+
 (defun scoot-widget--widget-start-column (widget)
-  "Get the column number where WIDGET begins in the visible buffer."
+  "Get the column number where WIDGET begins in the display buffer."
   (with-current-buffer (if (bound-and-true-p scoot-widget-display-buffer)
                            scoot-widget-display-buffer
                          (current-buffer))
@@ -315,7 +337,7 @@ OPTS may provide properties:
         (1- (+ point (plist-get widget :widget-start))))
        (t point)))))
 
-(defun scoot-widget--point->position (widget &optional pt opts)
+(defun scoot-widget--point->position (widget &optional point opts)
   "Calculate the position of POINT within WIDGET.
 
 The term \"position\" refers to the plist format of:
@@ -334,8 +356,8 @@ OPTS may provide properties:
           (is-shadow-buf-p (scoot-widget--is-shadow-buffer-p)))
       (goto-char (cond
                   ((and (not is-shadow-buf-p) (not absolute-p))
-                   (1- (+ pt (plist-get widget :widget-start))))
-                  (t pt)))
+                   (1- (+ point (plist-get widget :widget-start))))
+                  (t point)))
       (list :line (cond
                    ((and is-shadow-buf-p (not shadow-p) absolute-p)
                     (1- (+ (plist-get widget :widget-start-line) (line-number-at-pos))))
@@ -612,7 +634,7 @@ command, with arguments in ARGS."
 (declare-function scoot-table--table-at-point-p "scoot-query-table")
 (declare-function scoot-table-mode "scoot-table")
 
-(defun scoot-widget--detect-widget ()
+ (defun scoot-widget--detect-widget ()
   "Check cursor position and handle query block activation/deactivation."
   (if (scoot-qb--query-block-at-point-p)
       (unless (bound-and-true-p scoot-query-block-mode) (scoot-query-block-mode 1))
