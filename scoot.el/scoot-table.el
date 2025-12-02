@@ -416,14 +416,18 @@ EDITABLEP - Signal if editing of the record is allowed."
 
 EDITABLEP - Signal if editing of the table data is to be allowed."
   (scoot-table--refresh-visual-model result-data)
-  (let ((tbl-start (point)))
-    (scoot-table--insert-table-header)
-    (mapc (lambda (record)
-            (scoot-table--insert-table-row record editablep))
-          (plist-get scoot-table--table-model :records))
-    (scoot-table--insert-divider-row)
-    (add-text-properties tbl-start (point) (list 'cursor-sensor-functions scoot-widget--cursor-sensor-functions))
-    (cursor-sensor-mode 1)))
+
+  (scoot-widget--create
+      :type 'table
+      :name 'table
+
+      :init
+      (progn
+        (scoot-table--insert-table-header)
+        (mapc (lambda (record)
+                (scoot-table--insert-table-row record editablep))
+              (plist-get scoot-table--table-model :records))
+        (scoot-table--insert-divider-row))))
 
 
 
@@ -749,6 +753,7 @@ CELL is the cell summary of the cell under edit."
   "Get the row mark for IDENTITY if it exists."
   (when (hash-table-p scoot-table--table-row-marks)
     (gethash identity scoot-table--table-row-marks)))
+
 
 
 ;; Row/Table mark actions
