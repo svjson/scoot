@@ -135,6 +135,52 @@ BODY is the elisp code to execute while the customized key icons are active."
 
 (put 'with-customized-variables 'lisp-indent-function 'defun)
 
+(defmacro with-request-backed-buffer (args mname body op)
+  "Base macro for entering a buffer/mode backed by a server request.
+
+ARGS contains symbol/value pairs that will be expanded into a let form.
+These args may contain overrides for the default values of TIMEOUT=5 and
+KEEP-BUFFER=nil.
+
+MNAME is the name of the public macro.  Used only in error reporting.
+
+BODY is the test body supplied to the top-level macro.
+
+OP is the code that performs the server request and calls the buffer
+setup code.  This code MUST set `test-buf' to the created buffer or a
+timeout will be triggered, as the condition is that `test-buf' is no
+longer nil.
+
+When the test has finished execution - either by success, failure or
+error - the buffer will be killed unless KEEP-BUFFER has been set to
+a non-nil value."
+  (declare (indent 3))
+  `(let ((timeout 5)
+         (keep-buffer nil))
+     (let ,args
+       (let ((test-buf nil))
+         (unwind-protect
+             (progn
+               (scoot-test--ensure-connection
+                (lambda (connection)
+                  ,op))
+
+               (with-timeout (timeout (error "Query timed out (timeout: %s)" timeout))
+                 (while (null test-buf)
+                   (sit-for 0.2)))
+
+               (condition-case err
+                   (with-current-buffer test-buf
+                     ,@body)
+                 (error
+                  (message "Error during %s body execution: %S" ,mname err)
+                  (signal (car err) (cdr err)))))
+
+           (when (and (null keep-buffer) (buffer-live-p test-buf))
+             (message "Killing the buffer now")
+             (kill-buffer test-buf)))))))
+
+
 (defmacro with-result-buffer (args &rest body)
   "Execute a query and open the result buffer with optional timeout.
 
@@ -144,33 +190,22 @@ ARGS is a bind form with the following possible keys:
   keep-buffer - Keeps the resulting buffer if given a non-nil value.
 
 BODY is the elisp code to execute once the query buffer has been opened."
-  (declare (indent 1) (debug ((&rest sexp) body)))
-  `(let ((timeout 5)
-         (keep-buffer nil))
-     (let ,args
-       (let ((result-buf nil))
-         (unwind-protect
-             (progn
-               (scoot-test--ensure-connection
-                (lambda (connection)
-                  (scoot-connection--execute-statement
-                   connection query
-                   (lambda (result-context)
-                     (setq result-buf (scoot--open-resultset result-context))))))
+  (declare (indent 1))
+  `(with-request-backed-buffer
+       ,args
+       "with-result-buffer"
+       ,body
 
-               (with-timeout (timeout (error "Query timed out (timeout: %s)" timeout))
-                 (while (null result-buf)
-                   (sit-for 0.2)))
-
-               (with-current-buffer result-buf
-                 ,@body))
-
-           (when (and (null keep-buffer) (buffer-live-p result-buf))
-             (kill-buffer result-buf)))))))
+     (scoot-connection--execute-statement
+      connection query
+      (lambda (result-context)
+        (setq test-buf (scoot--open-resultset result-context
+                                              :force-new-buffer t))))))
 
 (put 'with-result-buffer 'lisp-indent-function 'defun)
 
-(defmacro with-ddl-edit-mode (args &rest body)
+
+(defmacro with-ddl-edit-mode-buffer (args &rest body)
   "Open the scoot-ddl-edit-mode with optional timeout.
 
 ARGS is a bind form with the following possible keys:
@@ -179,31 +214,19 @@ ARGS is a bind form with the following possible keys:
   keep-buffer - Keeps the resulting buffer if given a non-nil value.
 
 BODY is the elisp code to execute once the query buffer has been opened."
-  (declare (indent 1) (debug ((&rest sexp) body)))
-  `(let ((timeout 5)
-         (keep-buffer nil))
-     (let ,args
-       (let ((ddl-buf nil))
-         (unwind-protect
-             (progn
-               (scoot-test--ensure-connection
-                (lambda (connection)
-                  (scoot-connection--describe-table
-                   connection table
-                   (lambda (result-context)
-                     (setq ddl-buf (scoot-ddl--open-edit-mode result-context))))))
+  (declare (indent 1))
+  `(with-request-backed-buffer
+       ,args
+       "with-ddl-edit-mode-buffer"
+       ,body
 
-               (with-timeout (timeout (error "Request timed out (timeout: %s)" timeout))
-                 (while (null ddl-buf)
-                   (sit-for 0.2)))
+     (scoot-connection--describe-table
+      connection table
+      (lambda (result-context)
+        (setq test-buf (scoot-ddl--open-edit-mode result-context))))))
 
-               (with-current-buffer ddl-buf
-                 ,@body))
 
-           (when (and (null keep-buffer) (buffer-live-p ddl-buf))
-             (kill-buffer ddl-buf)))))))
-
-(defmacro with-ddl-mode (args &rest body)
+(defmacro with-ddl-mode-buffer (args &rest body)
   "Open the scoot-ddl-mode with optional timeout.
 
 ARGS is a bind form with the following possible keys:
@@ -213,28 +236,16 @@ ARGS is a bind form with the following possible keys:
 
 BODY is the elisp code to execute once the query buffer has been opened."
   (declare (indent 1) (debug ((&rest sexp) body)))
-  `(let ((timeout 5)
-         (keep-buffer nil))
-     (let ,args
-       (let ((ddl-buf nil))
-         (unwind-protect
-             (progn
-               (scoot-test--ensure-connection
-                (lambda (connection)
-                  (scoot-connection--describe-table
-                   connection table
-                   (lambda (result-context)
-                     (setq ddl-buf (scoot-ddl--open-table result-context))))))
+  `(with-request-backed-buffer
+      ,args
+      "with-ddl-mode-buffer"
+      ,body
 
-               (with-timeout (timeout (error "Request timed out (timeout: %s)" timeout))
-                 (while (null ddl-buf)
-                   (sit-for 0.2)))
+      (scoot-connection--describe-table
+       connection table
+       (lambda (result-context)
+         (setq ddl-buf (scoot-ddl--open-table result-context))))))
 
-               (with-current-buffer ddl-buf
-                 ,@body))
-
-           (when (and (null keep-buffer) (buffer-live-p ddl-buf))
-             (kill-buffer ddl-buf)))))))
 
 (defun scoot-resultset-cell-summary-at (point)
   "Get a description representation of the resultset table cell at POINT."
@@ -289,6 +300,34 @@ Returns (<point> . <line-number>)."
     (goto-char (car (scoot-resultset-first-line)))
     (forward-line index)
     (cons (point) (line-number-at-pos))))
+
+(defvar-local scoot-rs--result-data nil)
+
+(defun scoot-resultset-row-identities (&optional start-row end-row)
+  "Extract the identifying column values of the current result set.
+
+A zero-arg invocation will return the identifying values of all rows
+in the result set.
+
+A subset can be selected using START-ROW and END-ROW.
+
+If only START-ROW is provided, only that row index will be returned.
+
+If END-ROW is also provided the values between START-ROW and END-ROW
+\(inclusive) will be returned.
+
+This is currently a naive implementation that simply assumes that
+column with index 0 is the primary key.  This will obviously not do
+once there are test for composite keys or uniqueness based relation
+tables."
+  (let* ((rows (alist-get 'rows scoot-rs--result-data))
+         (end-row (if start-row
+                      (1+ (or end-row start-row))
+                    (if end-row (1+ end-row) (length rows))))
+         (start-row (or start-row 0)))
+    (mapcar
+     (lambda (row) (aref row 0))
+     (cl-subseq rows start-row end-row))))
 
 (defun scoot-resultset-row-descriptions (start-row &optional end-row)
   "Get summary of cells between resultset rows START-ROW and END-ROW.

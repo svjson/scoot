@@ -26,6 +26,9 @@
 (require 'scoot)
 (require 'scoot-test-base)
 
+
+
+
 (ert-deftest result--verify-column-headers-with-primary-and-foreign-keys ()
   (with-alphanum-keys
    (with-result-buffer ((query "SELECT * FROM nexartrade_staging.orders")
@@ -75,5 +78,7 @@
                :value "2023-03-05T05:30:53"
                :cell-content "2023-03-05T05:30:53"
                :face 'scoot-cell-temporal-face))))))))
+
+
 
 ;;; scoot-resultset.table.columns.system.test.el ends here

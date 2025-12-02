@@ -22,6 +22,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'scoot-widget)
 
 
 
@@ -77,8 +78,22 @@ BODY is the test body, evaluated with:
                      ,@body)))))
           params))))
 
+
 
-;; Window buffer management
+;; Async
+
+(defmacro wait-until (condition &optional timeout)
+  "Block until CONDITION evaluates to non-nil.
+
+Optionally override the default TIMEOUT value of 3 seconds."
+  (let ((timeout (or timeout 3)))
+    `(with-timeout (,timeout (error "Timeout waiting for condition %S" (quote ,condition)))
+       (while (not ,condition)
+         (sit-for 0.2)))))
+
+
+
+;; Buffer management
 
 (defmacro with-new-window-buffer (&rest body)
   "Macro that executes BODY within a \"real\" temporary buffer.
@@ -91,6 +106,61 @@ commands and hooks to run properly."
            (switch-to-buffer buf)
            ,@body)
        (kill-buffer buf))))
+
+
+
+;; Buffer state & debug
+
+(defun scoot-active-minor-modes ()
+  "Round up active minor modes relevant to scoot and scoot tests."
+  (cl-remove-if-not
+   (lambda (mode)
+	   (memq mode '(cursor-sensor-mode
+                  read-only-mode
+                  scoot-query-block-mode
+                  scoot-input-mode
+                  scoot-table-mode)))
+   local-minor-modes))
+
+(defun scoot-command-hooks ()
+  "Get the active scoot-related command hooks."
+  (cl-flet ((filter-hooks (hook-list white-list)
+              (mapcar
+               (lambda (h)
+                 (let ((hstr (format "%S" h)))
+                   (if (interpreted-function-p h)
+                       (let* ((spos (string-search "scoot" hstr)))
+                         (intern (substring hstr spos (string-search " " hstr spos))))
+                     h)))
+               (seq-filter (lambda (h)
+                             (or (memq h white-list)
+                                 (string-search "scoot" (format "%S" h))))
+                           hook-list))))
+    (list :pre-command-hook (filter-hooks pre-command-hook '())
+          :post-command-hook (filter-hooks post-command-hook '(cursor-sensor--detect)))))
+
+(defun scoot-buffer-widgets ()
+  "Round up widgets present in the current buffer."
+  (cl-flet ((widget-edge (w prop)
+              (let ((pos (plist-get (cdr w) prop)))
+                (list :point (marker-position  pos)
+                      :pos (when pos (cons (line-number-at-pos pos)
+                                           (save-excursion
+                                             (goto-char pos)
+                                             (current-column))))))))
+    (mapcar (lambda (w)
+              (list :id (car w)
+                    :from (widget-edge w :widget-start)
+                    :to (widget-edge w :widget-end)))
+            scoot--active-widgets)))
+
+(defun scoot-buffer-state ()
+  "Round up relevant scoot buffer state."
+  (append
+   (list :major-mode major-mode
+         :minor-modes (scoot-active-minor-modes)
+         :widgets (scoot-buffer-widgets))
+   (scoot-command-hooks)))
 
 
 
@@ -127,6 +197,9 @@ commands and hooks to run properly."
   (let ((last-command-event ch))
     (do-command #'self-insert-command)))
 
+(defun interactively-self-insert-text (text)
+  "Simulate typing TEXT, char by char."
+  (mapc #'interactively-self-insert-char text))
 
 
 ;; Should equal with custom fail message

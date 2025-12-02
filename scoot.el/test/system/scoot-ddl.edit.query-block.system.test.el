@@ -32,8 +32,8 @@
 
 (ert-deftest ddl-edit--existing-table--query-block-is-present ()
   (with-alphanum-keys
-   (with-ddl-edit-mode ((table "users")
-                        (timeout 5))
+   (with-ddl-edit-mode-buffer ((table "users")
+                               (timeout 5))
      (let ((query-block (scoot-widget--get-widget :type 'query-block
                                                   :name 'query-block)))
        (should query-block)
@@ -47,10 +47,12 @@
          (should (string-match-p "last_login" ddl-content))
          (should (string-match-p "is_active" ddl-content)))))))
 
+
 (ert-deftest ddl-edit--existing-table--query-block-is-editable ()
   (with-alphanum-keys
-   (with-ddl-edit-mode ((table "users")
-                        (timeout 5))
+   (with-ddl-edit-mode-buffer ((table "users")
+                               (timeout 5)
+                               (keep-buffer nil))
      (let* ((query-block (scoot-widget--get-widget :type 'query-block
                                                    :name 'query-block))
             (original-content (scoot-widget--shadow-buffer-content query-block)))
@@ -59,6 +61,7 @@
        (interactively-self-insert-char ?a)
        (should (equal (scoot-widget--shadow-buffer-content query-block)
                       (concat "a" original-content)))))))
+
 
 
 

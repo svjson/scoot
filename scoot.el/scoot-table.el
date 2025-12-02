@@ -524,8 +524,8 @@ buffer."
   "Move the cursor to the align anchor of the cell value."
   (if (or (equal (plist-get (alist-get 'formatter (scoot--props-at-point)) :align) 'left)
           (not (car (assoc 'value (scoot--props-at-point)))))
-      (goto-char (car (scoot-table--cell-begin (point))))
-    (goto-char (car (scoot-table--cell-end (point))))))
+      (goto-char (or (car (scoot-table--cell-begin (point))) (point)))
+    (goto-char (or (car (scoot-table--cell-end (point))) (point)))))
 
 (defun scoot-table--move-to-first-column ()
   "Move the cursor to the first column of the current row."

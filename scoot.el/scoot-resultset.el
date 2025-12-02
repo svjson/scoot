@@ -104,8 +104,15 @@ table")
 (defun scoot-rs--execute-query (&optional query)
   "Execute QUERY or the current query in this result buffer."
   (interactive)
-  (setq scoot-rs--current-sql-statement (or query (scoot-qb--get-query (scoot-widget--get-widget :type 'query-block
-                                                                                                 :name 'query-block))))
+  (setq scoot-rs--current-sql-statement
+        (or query
+            (scoot-qb--get-query
+             (scoot-widget--get-widget :type 'query-block
+                                       :name 'query-block))))
+
+  ;; FIXME: This is asynchronus and pending commands and wrapping code MAY
+  ;; switch the current-buffer out from under us, so the buffer should be
+  ;; sent to scoot-rs--update along with the query result.
   (scoot-connection--execute-statement
    scoot-buffer-connection
    scoot-rs--current-sql-statement
@@ -222,6 +229,7 @@ OVERRIDE can be used to bypass other generation rules"
              scoot-resultset-buffer-default-name)))
         (t scoot-resultset-buffer-default-name)))
 
+
 
 ;; ResultSet
 
@@ -258,7 +266,7 @@ RESULT-CONTEXT contains the query statement, result data and connection."
 
 ;; Scoot ResultSet Entry Points
 
-(defun scoot--open-resultset (result-context)
+(cl-defun scoot--open-resultset (result-context &key force-new-buffer)
   "Open a Scoot ResultSet Buffer with a result described by RESULT-CONTEXT.
 
 RESULT-CONTEXT is expected to be a plist, with the following possible keys:
@@ -274,13 +282,23 @@ Additional keys for type object/objects:
 :object-type - The type of object (table/schema/database).
 
 Additional keys for type object:
-:object-name - The name of the object described."
+:object-name - The name of the object described.
+
+Optional keys:
+FORCE-NEW-BUFFER - Force the creation of a new buffer if a buffer with
+                   the target name already exists by killing the old
+                   buffer first."
   (let* ((buf-name (scoot-rs--do-generate-buffer-name result-context))
-         (buf (get-buffer-create (or buf-name scoot-resultset-buffer-default-name))))
+         (buf (progn
+                (when-let ((force-new-buffer force-new-buffer)
+                           (existing-buf (get-buffer buf-name)))
+                  (message "Killing existing buffer %s" existing-buf)
+                  (kill-buffer existing-buf))
+                (get-buffer-create (or buf-name scoot-resultset-buffer-default-name)))))
     (with-current-buffer buf
       (scoot-resultset-mode)
       (scoot-rs--update result-context)
-      (display-buffer buf))
+      (pop-to-buffer buf))
     buf))
 
 
