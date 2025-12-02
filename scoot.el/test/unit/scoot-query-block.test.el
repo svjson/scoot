@@ -71,7 +71,8 @@
   (with-temp-buffer
     (insert "\n\n")
     (let ((widget (scoot-qb--insert-query-block! "SELECT * FROM somewhere")))
-      (should (equal "SELECT * FROM somewhere" (scoot-qb--get-query widget))))))
+      (should (equal (scoot-qb--get-query :widget widget)
+                     "SELECT * FROM somewhere")))))
 
 
 

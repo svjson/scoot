@@ -106,9 +106,8 @@ table")
   (interactive)
   (setq scoot-rs--current-sql-statement
         (or query
-            (scoot-qb--get-query
-             (scoot-widget--get-widget :type 'query-block
-                                       :name 'query-block))))
+            (scoot-qb--get-query :type 'query-block
+                                 :name 'query-block)))
 
   ;; FIXME: This is asynchronus and pending commands and wrapping code MAY
   ;; switch the current-buffer out from under us, so the buffer should be

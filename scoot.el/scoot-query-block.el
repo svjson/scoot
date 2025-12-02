@@ -106,7 +106,8 @@ For subsequent updates/refreshes of the query block, call
     (scoot-widget--init-shadow-buffer 'query-block
                                       'query-block
                                       (string-join wrapped-lines "\n"))
-    (insert (scoot-qb--build-query-block (scoot-qb--get-query widget) opts))
+    (insert (scoot-qb--build-query-block (scoot-qb--get-query :widget widget)
+                                         opts))
     (plist-put widget :editable-end (copy-marker (point)))
     (plist-put widget :widget-end (copy-marker (point)))
     (add-text-properties (plist-get widget :widget-start)
@@ -202,9 +203,14 @@ INITIAL-POS allows overriding the default of (point-min)."
   (forward-line (1- (plist-get pos :line)))
   (forward-char (min (plist-get pos :col) (- (line-end-position) (line-beginning-position)))))
 
-(defun scoot-qb--get-query (qb-widget)
-  "Return the query currently entered into the query block QB-WIDGET."
-  (with-scoot-widget-shadow-buffer qb-widget
+(cl-defun scoot-qb--get-query (&key type name identity widget)
+  "Return the raw text content of a query-block widget.
+
+The widget can be identified by WIDGET instance, IDENTITY symbol or a
+combination of TYPE and NAME."
+  (with-scoot-widget-shadow-buffer (or widget (scoot-widget--get-widget :type type
+                                                                        :name name
+                                                                        :identity identity))
     (buffer-substring-no-properties (point-min) (point-max))))
 
 
