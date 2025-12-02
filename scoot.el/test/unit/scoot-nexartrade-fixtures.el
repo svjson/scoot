@@ -24,6 +24,7 @@
 (require 'cl-lib)
 
 
+;; Fixture functions
 
 (cl-defun nexartrade-fake-connection (&key context name database host port dialect driver)
   "Create a fake connection model.
@@ -37,6 +38,43 @@ PORT, DIALECT and/or DRIVER."
         :port (or port "1433")
         :dialect (or dialect "mssql")
         :driver (or driver "pysql+odbc")))
+
+(cl-defun scoot-test--result-data (&key data columns rows)
+  "Trim result DATA according to COLUMNS and ROWS."
+  (let* ((columns (when columns (seq-into columns 'list)))
+         (col-names (seq-into (alist-get 'columns data) 'list))
+         (data-rows (seq-into (alist-get 'rows data) 'list))
+         (column-metadata (seq-into (alist-get 'columns (alist-get 'metadata data)) 'list))
+         (col-indices (mapcar (lambda (col-name)
+                                (cl-position col-name col-names :test #'equal))
+                              (if (null columns) col-names columns))))
+    `((columns . ,(seq-into (mapcar (lambda (index)
+                                      (nth index col-names))
+                                    col-indices)
+                            'vector))
+      (rows . ,(seq-into (mapcar (lambda (row)
+                                   (seq-into (mapcar (lambda (index)
+                                                       (aref row index))
+                                                     col-indices)
+                                             'vector))
+                                 (cond
+                                  ((null rows)
+                                   data-rows)
+
+                                  ((consp rows)
+                                   (cl-loop for index from (car rows) to (cdr rows)
+                                            collect (nth index data-rows)))
+
+                                  ((sequencep rows)
+                                   (mapcar (lambda (index)
+                                             (nth index data-rows))
+                                           rows))))
+                         'vector))
+      (metadata . ((columns . ,(seq-into
+                                 (mapcar (lambda  (index)
+                                           (nth index column-metadata))
+                                         col-indices)
+                                 'vector)))))))
 
 (cl-defun nexartrade-result-context--table-users (&key connection)
   "Create a result-context describing nexartrade table `users`.

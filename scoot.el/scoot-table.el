@@ -601,11 +601,8 @@ buffer."
 
 ;; Cell Editing
 
-(defun scoot-table--edit-cell-resize-hook (column-index new-width)
-  "Hook that runs when cell editing forces the column width to change.
-
-COLUMN-INDEX is the visual index of the column that has changed.
-NEW-WIDTH is the new column width in characters."
+(defun scoot-table--resize-column! (column-index new-width)
+  "Resize table column with index COLUMN-INDEX to NEW-WIDTH."
   (condition-case err
       (save-excursion
         (scoot-table--move-to-first-row!)
@@ -640,6 +637,13 @@ NEW-WIDTH is the new column width in characters."
               (forward-line 1)))))
     (error
      (message "Error while adjusting column size: %s - %s" (car err) (cdr err)))))
+
+(defun scoot-table--edit-cell-resize-hook (column-index new-width)
+  "Hook that runs when cell editing forces the column width to change.
+
+COLUMN-INDEX is the visual index of the column that has changed.
+NEW-WIDTH is the new column width in characters."
+  (scoot-table--resize-column! column-index new-width))
 
 (defun scoot-table--remove-cell-editor (widget cell)
   "Uninstalls the editable cell and restores a regular table cell.

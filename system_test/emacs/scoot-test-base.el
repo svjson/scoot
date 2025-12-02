@@ -124,15 +124,6 @@ BODY is the elisp code to execute while SETTINGS are active."
        (dolist (pair orig-values)
          (customize-set-value (car pair) (cdr pair))))))
 
-(defmacro with-alphanum-keys (&rest body)
-  "Set alphanumeric primary and foreign keys icons and restore them afterwards.
-
-BODY is the elisp code to execute while the customized key icons are active."
-  `(with-customized-variables
-       ((scoot-primary-key-icon "PK ")
-        (scoot-foreign-key-icon "FK "))
-     ,@body))
-
 (put 'with-customized-variables 'lisp-indent-function 'defun)
 
 (defmacro with-request-backed-buffer (args mname body op)

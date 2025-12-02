@@ -108,6 +108,16 @@ commands and hooks to run properly."
        (kill-buffer buf))))
 
 
+(defmacro with-alphanum-keys (&rest body)
+  "Set alphanumeric primary and foreign keys icons and restore them afterwards.
+
+BODY is the elisp code to execute while the customized key icons are active."
+  `(with-customized-variables
+     ((scoot-primary-key-icon "PK ")
+      (scoot-foreign-key-icon "FK "))
+     ,@body))
+
+
 
 ;; Buffer state & debug
 
