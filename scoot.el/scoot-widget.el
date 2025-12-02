@@ -44,7 +44,89 @@
 
 
 
-;; Shadow buffer management methods
+;; Widget creation
+
+(cl-defmacro scoot-widget--create (&key name
+                                        type
+                                        value
+                                        editable-region
+                                        on-change-function
+                                        opts
+                                        init
+                                        finalize)
+  "Create a widget instance of TYPE with NAME.
+
+Widgets are tracked in the buffer-local alist `scoot--active-widgets`.
+
+Widgets are identified by TYPE and NAME either as separate variables
+or a compound symbol in the format of <TYPE>--<NAME>.
+
+This macro sets up all common properties and facilities that concern
+widgets.  Rendering is performed by the code supplied in INIT and FINALIZE.
+
+The start position of the widget in the buffer contents are set from
+point when the widget rendering begins and the end position is set from
+point when the widget rendering is complete, ie when the INIT block
+exits.
+
+Keys:
+NAME - symbol - An identifying name, unique per TYPE and buffer.
+TYPE - symbol - Widget type.
+VALUE - Widget-specific initial value.
+EDITABLE-REGION - Controls which part of the rendered widget that is
+                  to be editable.
+                  Valid values are:
+                  - `widget - The entire widget area.
+ON-CHANGE-FUNCTION - Optional callback that is invoked when the value
+                     controlled by the widget changes.
+OPTS - A let-form of values used to set or override values during
+       widget initialization.
+INIT - A code block that is expected to render the widget and set up
+       additional state.
+FINALIZE - A code block that executes when rendering and widget set up
+           is complete."
+  `(let* (,@opts
+          (widget (scoot-widget--register-widget! ,type ,name))
+          (widget-start-pos (point))
+          (widget-start-marker (copy-marker widget-start-pos))
+          (widget-end-pos nil)
+          (widget-end-marker nil)
+          (edit-region ,editable-region)
+          (value ,value))
+     (unless widget
+       (error "Failed to create %s widget %s" ,type ,name))
+     (plist-put widget :widget-start widget-start-marker)
+     (plist-put widget :widget-start-line (line-number-at-pos widget-start-pos))
+
+     ,init
+
+     (setq widget-end-pos (point))
+     (setq widget-end-marker (copy-marker widget-end-pos))
+     (plist-put widget :widget-end widget-end-marker)
+
+     (when edit-region
+       (plist-put widget :editable-start (pcase edit-region
+                                           ('widget widget-start-marker)
+                                           (_ (error "Invalid region: %s" edit-region))))
+       (plist-put widget :editable-end (pcase edit-region
+                                         ('widget widget-end-marker)
+                                         (_ (error "Invalid region: %s" edit-region))))
+       (scoot-widget--init-shadow-buffer ,type
+                                         ,name
+                                         value))
+     (plist-put widget :on-change-hook ,on-change-function)
+     (add-text-properties widget-start-pos
+                          widget-end-pos
+                          (list 'cursor-sensor-functions
+                                scoot-widget--cursor-sensor-functions))
+     ,finalize
+
+     (cursor-sensor-mode 1)
+     widget))
+
+
+
+;; Shadow buffer management
 
 (cl-defgeneric scoot-widget--shadow-buffer-name (widget-type widget-name)
   "Construct the shadow buffer name for WIDGET-TYPE with WIDGET-NAME.")

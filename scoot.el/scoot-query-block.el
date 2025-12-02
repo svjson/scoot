@@ -93,32 +93,17 @@ for :width.
 This should be called when initially setting up a query block.
 For subsequent updates/refreshes of the query block, call
 `scoot-qb--refresh-query-block`."
-  (let* ((width (or (plist-get opts :width) (window-body-width)))
-         (wrapped-lines (scoot--wrap-string query (1- width)))
-         (widget (scoot-widget--register-widget! 'query-block
-                                                 'query-block))
-         (qb-start (point)))
-    (unless widget
-      (error "Failed to create query block widget"))
-    (plist-put widget :editable-start (copy-marker qb-start))
-    (plist-put widget :widget-start (copy-marker qb-start))
-    (plist-put widget :widget-start-line (line-number-at-pos qb-start))
-    (scoot-widget--init-shadow-buffer 'query-block
-                                      'query-block
-                                      (string-join wrapped-lines "\n"))
-    (insert (scoot-qb--build-query-block (scoot-qb--get-query :widget widget)
-                                         opts))
-    (plist-put widget :editable-end (copy-marker (point)))
-    (plist-put widget :widget-end (copy-marker (point)))
-    (add-text-properties (plist-get widget :widget-start)
-                         (plist-get widget :widget-end)
-                         (list 'cursor-sensor-functions
-                               scoot-widget--cursor-sensor-functions))
-    (scoot-qb--fontify-query-block! widget)
-    (scoot-qb--ensure-overlay! widget)
-    (plist-put widget :on-change-hook (plist-get opts :on-change))
-    (cursor-sensor-mode 1)
-    widget))
+  (scoot-widget--create
+      :type 'query-block
+      :name 'query-block
+      :editable-region 'widget
+      :value (scoot--wrap-string query (1- width) t)
+      :on-change-function (plist-get opts :on-change)
+      :opts ((width (or (plist-get opts :width) (window-body-width))))
+      :init (insert (scoot-qb--build-query-block value opts))
+      :finalize (progn
+                  (scoot-qb--fontify-query-block! widget)
+                  (scoot-qb--ensure-overlay! widget))))
 
 (defun scoot-qb--refresh-query-block ()
   "Redraw the query-block with the contents of the shadow buffer."
@@ -227,6 +212,7 @@ BEG, END and LEN detail the beginning, end and length of the change."
       (funcall on-change-hook (list :widget widget
                                     :region (list beg end len)
                                     :data (scoot-widget--shadow-buffer-content widget))))))
+
 
 
 ;; Query Block Mode

@@ -89,11 +89,16 @@ See `scoot-local--context-name-resolvers`")
 (declare-function helm-build-sync-source nil)
 (declare-function helm nil)
 
+
 
 ;; Variable and elisp type utilities
 
-(defun scoot--wrap-string (str width)
-  "Wrap STR to WIDTH, preserving whitespace and \n boundaries."
+(defun scoot--wrap-string (str width &optional rewrap-p)
+  "Wrap STR to WIDTH, preserving whitespace and \n boundaries.
+
+This function returns a list of strings representing the wrapped
+lines, unless REWRAP-P is non-nil in which case it joins the lines
+into a multiline string."
   (let ((lines (split-string str "\n"))
         (result '()))
     (dolist (line lines)
@@ -102,7 +107,10 @@ See `scoot-local--context-name-resolvers`")
           (push visible-substr result)
           (setq line (substring line (length visible-substr)))))
       (push line result))
-    (apply #'list (nreverse result))))
+    (let ((finalized-lines (apply #'list (nreverse result))))
+      (if rewrap-p
+          (string-join finalized-lines "\n")
+        finalized-lines))))
 
 (defun scoot--visible-width (s &optional tabwidth)
   "Return the visual width of the string S, expanding tabs.
