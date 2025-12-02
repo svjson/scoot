@@ -74,6 +74,9 @@
 (defvar-local scoot-rs--current-sql-statement nil
   "The current SQL statement that the current buffer is based on.")
 
+(defvar-local scoot-rs--result-data nil
+  "The query result data currently displayed in the buffer.")
+
 (defvar-local scoot-rs--result-type nil
   "The type of result displayed in the current buffer.
 
