@@ -132,10 +132,11 @@ FMT may be any of:
 Keys:
 BACKTRACE - control backtrace frame count.  nil/no argument excludes section."
   (let ((btrace (ert-test-result-with-condition-backtrace result))
-        (btrace-limit (if (fixnump backtrace)) backtrace 0)
+        (btrace-limit (if (fixnump backtrace) backtrace 0))
         (no-backtrace (null backtrace))
         (infos (ert-test-result-with-condition-infos result)))
     (concat (scoot-test--format-result result)
+            (scoot-test--format-report-section "Error" (car btrace) (null (car btrace)))
             (scoot-test--format-report-section "Backtrace"
                                                (let ((frames '())
                                                      (rest btrace))
@@ -184,7 +185,7 @@ Keys:
                  (buffer-string))))
        (format "%s%s%s%s"
                (scoot-test--format-report-section "Result" "error")
-               (scoot-test--format-report-section "Message" (error-message-string err))
+               (scoot-test--format-report-section "Messages" (error-message-string err))
                (scoot-test--format-report-section "Backtrace" bt (null backtrace))
                (scoot-test--report-server-output))))))
 
