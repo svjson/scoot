@@ -77,12 +77,14 @@ def run_cmd(cmd, env_vars={}, silent=True, silent_error=None) -> str:
             for fd, e in events:
                 fdobj = fd_map[fd]
                 instr = fdobj["stream"]
-                line = instr.readline().rstrip("\n")
+                line = instr.readline()
 
                 if not line:
                     if exited is not None:
                         fdobj["eof"] = True
                     continue
+
+                line = line.rstrip()
 
                 fdobj["eof"] = False
                 output_lines.append(line)
