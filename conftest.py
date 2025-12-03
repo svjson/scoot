@@ -37,7 +37,9 @@ def pytest_addoption(parser):
     parser.addoption("--emacs", action="store_true", help="Enable scoot.el tests")
     parser.addoption("--cli", action="store_true", help="Enable scoot-cli tests")
     parser.addoption("--core", action="store_true", help="Enable scoot-core tests")
-    parser.addoption("--server", action="store_true", help="Enable scoot-server tests")
+    parser.addoption(
+        "--server", action="store_true", help="Enable scoot-server tests"
+    )
 
     # Mode Flags
     parser.addoption("--unit", action="store_true", help="Enable unit tests")
@@ -110,6 +112,8 @@ def pytest_configure(config):
     config._backends = expand_selected_backends(config)
     config._enabled_modules = enabled_modules
     config._enabled_modes = enabled_modes
+    config._ert_unit_tests = []
+    config._ert_system_tests = []
 
 
 def pytest_sessionstart(session):
