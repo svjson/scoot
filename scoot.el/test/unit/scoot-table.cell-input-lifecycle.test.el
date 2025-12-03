@@ -162,7 +162,6 @@
 
 ;; remove cell editor
 
-
 (ert-deftest-parametrized scoot-table--scoot-input--remove-cell-editor!
     (cell-index
      content-with-border)
@@ -174,29 +173,29 @@
       (:literal "| tom_atojuicesson |")))
   (with-new-window-buffer
    ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data t)
-   (goto-char (point-min))
-   (scoot-table--move-to-first-row!)
-   (dotimes (_ (1+ (car cell-index)))
-     (scoot-table--cell-right!))
-   (dotimes (_ (cdr cell-index))
-     (scoot-table--cell-down!))
+   (let ((table (scoot-table--insert-table! nexartrade-table--users--result-data t)))
+     (goto-char (point-min))
+     (scoot-table--move-to-first-row!)
+     (dotimes (_ (1+ (car cell-index)))
+       (scoot-table--cell-right!))
+     (dotimes (_ (cdr cell-index))
+       (scoot-table--cell-down!))
 
-   ;; When
-   (let* ((cell (scoot-table--cell-at-point))
-          (cell-bounds (cons (- (car (scoot-table--cell-begin)) 2)
-                             (+ (car (scoot-table--cell-end)) 3)))
-          (precond (should (equal (buffer-substring-no-properties (car cell-bounds)
-                                                                  (cdr cell-bounds))
-                                  content-with-border)))
-          (input (scoot-table--edit-cell)))
-     (should input)
-     (scoot-table--remove-cell-editor! input cell)
+     ;; When
+     (let* ((cell (scoot-table--cell-at-point))
+            (cell-bounds (cons (- (car (scoot-table--cell-begin)) 2)
+                               (+ (car (scoot-table--cell-end)) 3)))
+            (precond (should (equal (buffer-substring-no-properties (car cell-bounds)
+                                                                    (cdr cell-bounds))
+                                    content-with-border)))
+            (input (scoot-table--edit-cell)))
+       (should input)
+       (scoot-table--remove-cell-editor! table input cell)
 
-     ;; Then
-     (should (equal (buffer-substring-no-properties (car cell-bounds)
-                                                    (cdr cell-bounds))
-                    content-with-border)))))
+       ;; Then
+       (should (equal (buffer-substring-no-properties (car cell-bounds)
+                                                      (cdr cell-bounds))
+                      content-with-border))))))
 
 
 

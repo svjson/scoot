@@ -251,6 +251,22 @@ CONTENT should be a single string formatted with \"\\n\" as line separators."
 
 ;; Widget query functions
 
+(cl-defun scoot-widget--at-point (&key point type)
+  "Get the first encountered widget at POINT or point.
+
+The search may be limited to widgets of TYPE."
+  (let ((p (or point (point))))
+    (cdr (seq-find
+          (lambda (entry)
+            (let* ((w (cdr  entry))
+                   (reg (scoot-widget--region w)))
+              (and (or (null type)
+                       (equal type
+                              (plist-get w :type)))
+                   (>= p (car reg))
+                   (< p (cdr reg)))))
+          scoot--active-widgets))))
+
 (defun scoot-widget--region (widget)
   "Get the start and end point of WIDGET."
   (cons (marker-position (plist-get widget :widget-start))

@@ -141,6 +141,15 @@ will be used to compute the column-width of tabs"
           (setq idx (1+ idx)))))
     (substring s 0 idx)))
 
+(defun scoot--plist-get-in (plist &rest keys)
+  "Get value by key path from nested plists.
+
+PLIST is the other list.
+KEYS is the plist key path to follow."
+  (let ((val plist))
+    (dolist (k keys)
+      (setq val (plist-get val k)))
+    val))
 
 (defun scoot--plist-merge (plist1 plist2)
   "Merge PLIST1 and PLIST2. Values from PLIST2 take precedence."

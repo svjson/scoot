@@ -1,4 +1,5 @@
 ;;; scoot-resultset.el --- summary -*- lexical-binding: t -*-
+;; -*- read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in")) -*-
 
 ;; Copyright (C) 2025 Sven Johansson
 
@@ -36,6 +37,7 @@
 ;;; Code:
 
 (require 'scoot-buffer)
+(require 'scoot-table)
 (require 'scoot-xref)
 
 
@@ -121,7 +123,8 @@ table")
 (cl-defun scoot-rs--tables-in-result (&allow-other-keys)
   "Describe a table, either TABLE-NAME or tables involved in the query/result."
   (interactive)
-  (let* ((result-tables (plist-get scoot-table--table-model :tables))
+  (let* ((table (scoot-widget--get-widget :type 'table :name 'table))
+         (result-tables (plist-get-in table :model :tables))
          (table-count (length result-tables)))
     (cond
      ((eq table-count 1)
@@ -441,20 +444,21 @@ CONNECTION (Optional)"
 
 (defun scoot-rs--xref-completions ()
   "Identifiers to show in xref completion prompt."
-  (cond
-   ((eq 'query scoot-rs--result-type)
-    (append (mapcar (lambda (tbl) (scoot-xref--table-identifier (list :name tbl)))
-                    (plist-get scoot-table--table-model :tables))
-            (mapcar
-             (lambda (h)
-               (let ((md (plist-get h :metadata)))
-                 (scoot-xref--column-identifier (list :column (alist-get 'column md)
-                                                      :name (alist-get 'name md)
-                                                      :table (alist-get 'table md)))))
-             (plist-get scoot-table--table-model :headers))))
-   ((eq 'tables scoot-rs--result-object-type)
-    (append (mapcar (lambda (row) (scoot-xref--table-identifier (list :name (plist-get (car row) :value))))
-                    (plist-get scoot-table--table-model :records))))))
+  (let ((table (scoot-widget--get-widget :type 'table :name 'table)))
+    (cond
+     ((eq 'query scoot-rs--result-type)
+      (append (mapcar (lambda (tbl) (scoot-xref--table-identifier (list :name tbl)))
+                      (plist-get-in table :model :tables))
+              (mapcar
+               (lambda (h)
+                 (let ((md (plist-get h :metadata)))
+                   (scoot-xref--column-identifier (list :column (alist-get 'column md)
+                                                        :name (alist-get 'name md)
+                                                        :table (alist-get 'table md)))))
+               (plist-get-in table :model :headers))))
+     ((eq 'tables scoot-rs--result-object-type)
+      (append (mapcar (lambda (row) (scoot-xref--table-identifier (list :name (plist-get (car row) :value))))
+                      (plist-get-in table :model :records)))))))
 
 
 
@@ -532,3 +536,6 @@ OP is either `add or `remove."
 (provide 'scoot-resultset)
 
 ;;; scoot-resultset.el ends here
+;; Local Variables:
+;; read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in"))
+;; End:

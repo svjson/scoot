@@ -163,20 +163,20 @@
   (with-alphanum-keys
    (with-new-window-buffer
     ;; Given
-    (scoot-table--insert-table! (scoot-test--result-data
-                                 :data nexartrade-table--users--result-data
-                                 :columns ["id" "username"]
-                                 :rows [6 1])
-                                t)
-    (goto-char (point-min))
+    (let ((table (scoot-table--insert-table! (scoot-test--result-data
+                                              :data nexartrade-table--users--result-data
+                                              :columns ["id" "username"]
+                                              :rows [6 1])
+                                             t)))
+      (goto-char (point-min))
 
-    ;; When
-    (scoot-table--resize-column! 0 to-width)
-    (equal
-     (buffer-substring-no-properties (point-min) (point-max))
-     (string-join
-      (append expected-table '(""))
-      "\n")))))
+      ;; When
+      (scoot-table--resize-column! table 0 to-width)
+      (equal
+       (buffer-substring-no-properties (point-min) (point-max))
+       (string-join
+        (append expected-table '(""))
+        "\n"))))))
 
 
 

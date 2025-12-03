@@ -1,4 +1,5 @@
 ;;; scoot-table.el --- summary -*- lexical-binding: t -*-
+;; -*- read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in")) -*-
 
 ;; Copyright (C) 2025 Sven Johansson
 
@@ -58,9 +59,6 @@
 
 
 ;; Variables
-
-(defvar-local scoot-table--table-model nil
-  "The model backing the table representation of the data set in.")
 
 (defvar-local scoot-table--cell-overlay nil
   "A reference to the currently active cell overlay.")
@@ -249,13 +247,6 @@ default width of the, presumably, otherwise fixed-width font."
           :formatters formatters
           :records records)))
 
-(defun scoot-table--refresh-visual-model (result-data)
-  "Build the table data model from RESULT-DATA and store to buffer.
-
-The resulting model is stored in `scoot-table--table-model`"
-  (setq scoot-table--table-model
-        (scoot-table--build-visual-model result-data)))
-
 (defun scoot-table--record-identity (record)
   "Extract the record identity from RECORD."
   (list :id (plist-get (nth 0 record) :value)))
@@ -285,9 +276,9 @@ has stored an :original-value property."
 
 ;; Table Rendering
 
-(defun scoot-table--insert-table-header ()
-  "Insert the result set table header."
-  (scoot-table--insert-divider-row)
+(defun scoot-table--insert-table-header (table)
+  "Insert result set header for widget TABLE."
+  (scoot-table--insert-divider-row table)
 
   (cl-mapc (lambda (header width)
              (insert (propertize "| "
@@ -312,14 +303,14 @@ has stored an :original-value property."
                                                                'column-meta (plist-get header :metadata)
                                                                'column (alist-get 'column (plist-get header :metadata))
                                                                'table (alist-get 'table (plist-get header :metadata))))))
-           (plist-get scoot-table--table-model :headers)
-           (plist-get scoot-table--table-model :widths))
+           (plist-get-in table :model :headers)
+           (plist-get-in table :model :widths))
   (insert (propertize "|"
                       'thing 'table-border
                       'face 'scoot-table-border-face))
   (insert "\n")
 
-  (scoot-table--insert-divider-row))
+  (scoot-table--insert-divider-row table))
 
 (defun scoot-table--insert-table-cell (record cell header width fmt column-index editablep)
   "Insert the table cell CELL.
@@ -369,9 +360,10 @@ EDITABLEP - Allow the cell to be edited, t/nil."
     (insert " ")
     (add-text-properties cell-start (point) cell-props)))
 
-(defun scoot-table--insert-table-row (record editablep)
+(defun scoot-table--insert-table-row (table record editablep)
   "Insert a table row containing RECORD.
 
+TABLE - The table widget being rendered
 EDITABLEP - Signal if editing of the record is allowed."
   (let ((record-identity (scoot-table--record-identity record))
         (border (propertize
@@ -379,10 +371,10 @@ EDITABLEP - Signal if editing of the record is allowed."
                  'thing 'table-border
                  'table-row (list :record record)
                  'face 'scoot-table-border-face)))
-    (cl-loop for header in (plist-get scoot-table--table-model :headers)
+    (cl-loop for header in (plist-get-in table :model :headers)
              for cell in record
-             for width in (plist-get scoot-table--table-model :widths)
-             for fmt in (plist-get scoot-table--table-model :formatters)
+             for width in (plist-get-in table :model :widths)
+             for fmt in (plist-get-in table :model :formatters)
              for index from 0
              do
              (insert border)
@@ -400,12 +392,12 @@ EDITABLEP - Signal if editing of the record is allowed."
     (insert "\n")))
 
 
-(defun scoot-table--insert-divider-row ()
-  "Insert a horizontal table divider."
+(defun scoot-table--insert-divider-row (table)
+  "Insert a horizontal table divider for TABLE."
   (insert (propertize
            (concat "+-"
                    (mapconcat (lambda (w) (make-string w ?-))
-                              (plist-get scoot-table--table-model :widths)
+                              (scoot--plist-get-in table :model :widths)
                               "-+-")
                    "-+\n")
            'thing 'table-border
@@ -415,19 +407,17 @@ EDITABLEP - Signal if editing of the record is allowed."
   "Insert the RESULT-DATA table into the buffer.
 
 EDITABLEP - Signal if editing of the table data is to be allowed."
-  (scoot-table--refresh-visual-model result-data)
-
   (scoot-widget--create
       :type 'table
       :name 'table
-
+      :opts ((model (scoot-table--build-visual-model result-data)))
       :init
       (progn
-        (scoot-table--insert-table-header)
-        (mapc (lambda (record)
-                (scoot-table--insert-table-row record editablep))
-              (plist-get scoot-table--table-model :records))
-        (scoot-table--insert-divider-row))))
+        (plist-put widget :model model)
+        (scoot-table--insert-table-header widget)
+        (dolist (record (plist-get model :records))
+          (scoot-table--insert-table-row widget record editablep))
+        (scoot-table--insert-divider-row widget))))
 
 
 
@@ -607,8 +597,8 @@ buffer."
 
 ;; Cell Editing
 
-(defun scoot-table--resize-column! (column-index new-width)
-  "Resize table column with index COLUMN-INDEX to NEW-WIDTH."
+(defun scoot-table--resize-column! (table column-index new-width)
+  "Resize column with index COLUMN-INDEX to NEW-WIDTH in TABLE."
   (condition-case err
       (save-excursion
         (scoot-table--move-to-first-row!)
@@ -624,11 +614,11 @@ buffer."
                (input-lines (mapcar (lambda (w)
                                       (line-number-at-pos (or (plist-get (cdr w) :widget-start) 1)))
                                     scoot--active-widgets))
-               (model-col-width (nth column-index (plist-get scoot-table--table-model :widths))))
-          (setf (nth column-index (plist-get scoot-table--table-model :widths)) (+ model-col-width diff))
+               (model-col-width (nth column-index (plist-get-in table :model :widths))))
+          (setf (nth column-index (plist-get-in table :model :widths)) (+ model-col-width diff))
           (forward-line -3)
           (if (> diff 0)
-              (dotimes (_ (+ 4 (length (plist-get scoot-table--table-model :records))))
+              (dotimes (_ (+ 4 (length (plist-get-in table :model :records))))
                 (unless (member (line-number-at-pos (point)) input-lines)
                   (move-to-column rcol)
                   (insert (string-join (make-list
@@ -636,7 +626,7 @@ buffer."
                                         (buffer-substring (point) (1+ (point))))
                                        "")))
                 (forward-line 1))
-            (dotimes (_ (+ 4 (length (plist-get scoot-table--table-model :records))))
+            (dotimes (_ (+ 4 (length (plist-get-in table :model :records))))
               (unless (member (line-number-at-pos (point)) input-lines)
                 (move-to-column rcol)
                 (delete-region (- (point) diff) (point)))
@@ -644,16 +634,18 @@ buffer."
     (error
      (message "Error while adjusting column size: %s - %s" (car err) (cdr err)))))
 
-(defun scoot-table--edit-cell-resize-hook (column-index new-width)
+(defun scoot-table--edit-cell-resize-hook (table column-index new-width)
   "Hook that runs when cell editing forces the column width to change.
 
+TABLE is the table being resized.
 COLUMN-INDEX is the visual index of the column that has changed.
 NEW-WIDTH is the new column width in characters."
-  (scoot-table--resize-column! column-index new-width))
+  (scoot-table--resize-column! table column-index new-width))
 
-(defun scoot-table--remove-cell-editor! (widget cell)
+(defun scoot-table--remove-cell-editor! (table widget cell)
   "Uninstalls the editable cell and restores a regular table cell.
 
+TABLE is the table that the input is attached to.
 WIDGET is the input widget being uninstalled.
 CELL is the cell summary of the cell under edit."
   (let* ((widget-start (marker-position (plist-get widget :widget-start)))
@@ -668,8 +660,8 @@ CELL is the cell summary of the cell under edit."
     (goto-char (1- widget-start))
     (scoot-table--insert-table-cell record
                                     record-cell
-                                    (nth cell-index (plist-get scoot-table--table-model :headers))
-                                    (nth cell-index (plist-get scoot-table--table-model :widths))
+                                    (nth cell-index (plist-get-in table :model :headers))
+                                    (nth cell-index (plist-get-in table :model :widths))
                                     formatter
                                     cell-index
                                     t)
@@ -682,23 +674,24 @@ CELL is the cell summary of the cell under edit."
 (defun scoot-table--edit-cell ()
   "Enter edit mode at the cell at point."
   (interactive)
-  (when (scoot--thing-at-p (point) 'table-cell)
-    (let* ((cell (scoot-table--cell-at-point)))
-      (when (plist-get cell :editablep)
-        (let ((input (scoot-input--install-input! :begin (car (scoot-table--cell-begin))
-                                                  :end (1+ (car (scoot-table--cell-end)))
-                                                  :column (plist-get cell :column)
-                                                  :type (alist-get 'typespec (plist-get cell :column))
-                                                  :formatter (get-text-property (point) 'formatter)
-                                                  :record-cell (plist-get cell :record-cell)
-                                                  :record (plist-get cell :record)
-                                                  :resize-hook (lambda (new-width)
-                                                                 (scoot-table--edit-cell-resize-hook
-                                                                  (plist-get cell :cell-index) new-width))
-                                                  :remove-hook (lambda (widget)
-                                                                 (scoot-table--remove-cell-editor! widget cell)))))
-          (scoot-table-mode -1)
-          input)))))
+  (when-let* ((table (scoot-widget--at-point :type 'table))
+              (cell (scoot-table--cell-at-point)))
+    (when (plist-get cell :editablep)
+      (let ((input (scoot-input--install-input!
+                    :begin (car (scoot-table--cell-begin))
+                    :end (1+ (car (scoot-table--cell-end)))
+                    :column (plist-get cell :column)
+                    :type (alist-get 'typespec (plist-get cell :column))
+                    :formatter (get-text-property (point) 'formatter)
+                    :record-cell (plist-get cell :record-cell)
+                    :record (plist-get cell :record)
+                    :resize-hook (lambda (new-width)
+                                   (scoot-table--edit-cell-resize-hook
+                                    table (plist-get cell :cell-index) new-width))
+                    :remove-hook (lambda (widget)
+                                   (scoot-table--remove-cell-editor! table widget cell)))))
+        (scoot-table-mode -1)
+        input))))
 
 
 
@@ -708,7 +701,8 @@ CELL is the cell summary of the cell under edit."
 (defun scoot-table--kill-ring-save-column-values ()
   "Save a comma-separated list of the values of column at point to kill ring."
   (interactive)
-  (let* ((cell (scoot-table--cell-at-point))
+  (let* ((table (scoot-widget--at-point :type 'table))
+         (cell (scoot-table--cell-at-point))
          (formatter (plist-get cell :formatter))
          (cell-index (plist-get cell :cell-index)))
     (when (integerp cell-index)
@@ -718,7 +712,7 @@ CELL is the cell summary of the cell under edit."
                          formatter
                          (plist-get (nth cell-index record)
                                     :value)))
-                      (plist-get scoot-table--table-model :records)))
+                      (plist-get-in table :model :records)))
              (result (string-join values ", ")))
         (kill-new result)
         (message result)))))
@@ -726,11 +720,12 @@ CELL is the cell summary of the cell under edit."
 (defun scoot-table--kill-ring-save-row-values ()
   "Save a comma-separated list of the values of column at point to kill ring."
   (interactive)
-  (let* ((row (scoot-table--row-at-point))
+  (let* ((table (scoot-widget--at-point :type 'table))
+         (row (scoot-table--row-at-point))
          (record (plist-get row :record))
          (result (string-join
                (cl-loop for cell in record
-                        for formatter in (plist-get scoot-table--table-model :formatters)
+                        for formatter in (plist-get-in table :model :formatters)
                         collect (scoot--format-literal formatter (plist-get cell :value)))
                ", ")))
     (kill-new result)
@@ -849,3 +844,8 @@ CELL is the cell summary of the cell under edit."
 (provide 'scoot-table)
 
 ;;; scoot-table.el ends here
+;; Local Variables:
+;; read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in"))
+;; End:
+
+
