@@ -180,6 +180,7 @@ def run_test(
         log.error(f"Failed: '{test_name}'")
         for section in [
             "Result",
+            "Error",
             "Duration",
             "Messages",
             "Assertions",

@@ -136,7 +136,7 @@ BACKTRACE - control backtrace frame count.  nil/no argument excludes section."
         (no-backtrace (null backtrace))
         (infos (ert-test-result-with-condition-infos result)))
     (concat (scoot-test--format-result result)
-            (scoot-test--format-report-section "Error" (car btrace) (null (car btrace)))
+            (scoot-test--format-report-section "Error" (ert-test-result-with-condition-condition last-ert-result))
             (scoot-test--format-report-section "Backtrace"
                                                (let ((frames '())
                                                      (rest btrace))
