@@ -22,38 +22,39 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ert-parametrized)
 (require 'scoot-common)
 (require 'scoot-test-fixtures)
 
 
 ;; scoot--plist-get-in
 
-(ert-deftest-parametrized scoot--plist-get-in
+(ert-parametrized-deftest scoot--plist-get-in
     (plist path expected)
     (("one-key-path--existing"
-      (:literal (:key-a (:key-b "value-1" :key-c "value-2") (:key-d "value-3")))
-      (:literal (:key-a))
-      (:literal (:key-b "value-1" :key-c "value-2")))
+      (:quote (:key-a (:key-b "value-1" :key-c "value-2") (:key-d "value-3")))
+      (:quote (:key-a))
+      (:quote (:key-b "value-1" :key-c "value-2")))
 
      ("one-key-path--non-existing"
-      (:literal (:key-a (:key-b "value-1" :key-c "value-2") (:key-d "value-3")))
-      (:literal (:key-f))
-      (:literal nil))
+      (:quote (:key-a (:key-b "value-1" :key-c "value-2") (:key-d "value-3")))
+      (:quote (:key-f))
+      (:eval nil))
 
      ("two-key-path--existing"
-      (:literal (:key-a (:key-b "value-1" :key-c "value-2") (:key-d "value-3")))
-      (:literal (:key-a :key-c))
-      (:literal "value-2"))
+      (:quote (:key-a (:key-b "value-1" :key-c "value-2") (:key-d "value-3")))
+      (:quote (:key-a :key-c))
+      (:eval "value-2"))
 
      ("five-key-path--existing"
-      (:literal (:key-a (:key-b (:key-c (:key-d (:key-e "deeply stashed value"))))))
-      (:literal (:key-a :key-b :key-c :key-d :key-e))
-      (:literal "deeply stashed value"))
+      (:quote (:key-a (:key-b (:key-c (:key-d (:key-e "deeply stashed value"))))))
+      (:quote (:key-a :key-b :key-c :key-d :key-e))
+      (:eval "deeply stashed value"))
 
      ("five-key-path--partially-existing"
-      (:literal (:key-a (:key-b (:key-c (:key-d (:key-e "deeply stashed value"))))))
-      (:literal (:key-a :key-b :key-g :key-d :key-e))
-      (:literal nil)))
+      (:quote (:key-a (:key-b (:key-c (:key-d (:key-e "deeply stashed value"))))))
+      (:quote (:key-a :key-b :key-g :key-d :key-e))
+      (:eval nil)))
 
   (should (equal (apply #'scoot--plist-get-in plist path)
                  expected)))

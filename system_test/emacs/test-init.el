@@ -8,13 +8,21 @@
 ;;; Code:
 
 
+;; Make non-interactive
+
+(setq noninteractive t)
+
+
 ;; Install dependencies for scoot.el
 
 (require 'package)
+(require 'package-vc)
+
 (progn
   (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
   (use-package request :ensure t)
   (use-package dash :ensure t)
+  (package-vc-install "https://www.github.com/svjson/ert-parametrized.el")
   (add-to-list 'load-path (expand-file-name "scoot.el/" default-directory))
   (add-to-list 'load-path (expand-file-name "scoot.el/test/" default-directory))
   (add-to-list 'load-path (expand-file-name "scoot.el/test/unit/" default-directory))

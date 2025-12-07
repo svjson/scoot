@@ -21,145 +21,146 @@
 
 ;;; Code:
 
+(require 'ert)
+(require 'ert-parametrized)
 (require 'scoot-table)
 (require 'scoot-test-fixtures)
 (require 'scoot-nexartrade-fixtures)
-(require 'ert)
 
 
 
 ;; resize id column
 
-(ert-deftest-parametrized scoot-table--scoot-table--resize-column!
+(ert-parametrized-deftest scoot-table--scoot-table--resize-column!
     (column-index
      to-width
      expected-table)
     (("column:id--to-width-5"
-      (:literal 0)
-      (:literal 5)
-      (:literal ("+-------+------------+"
-                 "| PK id | username   |"
-                 "+-------+------------+"
-                 "|     7 | barb_dwyer |"
-                 "|     2 | ben_rangel |"
-                 "+-------+------------+")))
+      (:eval 0)
+      (:eval 5)
+      (:quote ("+-------+------------+"
+               "| PK id | username   |"
+               "+-------+------------+"
+               "|     7 | barb_dwyer |"
+               "|     2 | ben_rangel |"
+               "+-------+------------+")))
      ("column:id--to-width-6"
-      (:literal 0)
-      (:literal 6)
-      (:literal ("+-------+------------+"
-                 "| PK id | username   |"
-                 "+-------+------------+"
-                 "|     7 | barb_dwyer |"
-                 "|     2 | ben_rangel |"
-                 "+-------+------------+")))
+      (:eval 0)
+      (:eval 6)
+      (:quote ("+-------+------------+"
+               "| PK id | username   |"
+               "+-------+------------+"
+               "|     7 | barb_dwyer |"
+               "|     2 | ben_rangel |"
+               "+-------+------------+")))
      ("column:id--to-width-7"
-      (:literal 0)
-      (:literal 7)
-      (:literal ("+-------+------------+"
-                 "| PK id | username   |"
-                 "+-------+------------+"
-                 "|     7 | barb_dwyer |"
-                 "|     2 | ben_rangel |"
-                 "+-------+------------+")))
+      (:eval 0)
+      (:eval 7)
+      (:quote ("+-------+------------+"
+               "| PK id | username   |"
+               "+-------+------------+"
+               "|     7 | barb_dwyer |"
+               "|     2 | ben_rangel |"
+               "+-------+------------+")))
      ("column:id--to-width-8"
-      (:literal 0)
-      (:literal 8)
-      (:literal ("+--------+------------+"
-                 "| PK id  | username   |"
-                 "+--------+------------+"
-                 "|      7 | barb_dwyer |"
-                 "|      2 | ben_rangel |"
-                 "+--------+------------+")))
+      (:eval 0)
+      (:eval 8)
+      (:quote ("+--------+------------+"
+               "| PK id  | username   |"
+               "+--------+------------+"
+               "|      7 | barb_dwyer |"
+               "|      2 | ben_rangel |"
+               "+--------+------------+")))
      ("column:id--to-width-9"
-      (:literal 0)
-      (:literal 9)
-      (:literal ("+--------+------------+"
-                 "| PK id  | username   |"
-                 "+--------+------------+"
-                 "|      7 | barb_dwyer |"
-                 "|      2 | ben_rangel |"
-                 "+--------+------------+")))
+      (:eval 0)
+      (:eval 9)
+      (:quote ("+--------+------------+"
+               "| PK id  | username   |"
+               "+--------+------------+"
+               "|      7 | barb_dwyer |"
+               "|      2 | ben_rangel |"
+               "+--------+------------+")))
      ("column:id--to-width-10"
-      (:literal 0)
-      (:literal 10)
-      (:literal ("+---------+------------+"
-                 "| PK id   | username   |"
-                 "+---------+------------+"
-                 "|       7 | barb_dwyer |"
-                 "|       2 | ben_rangel |"
-                 "+---------+------------+")))
+      (:eval 0)
+      (:eval 10)
+      (:quote ("+---------+------------+"
+               "| PK id   | username   |"
+               "+---------+------------+"
+               "|       7 | barb_dwyer |"
+               "|       2 | ben_rangel |"
+               "+---------+------------+")))
      ("column:id--to-width-11"
-      (:literal 0)
-      (:literal 11)
-      (:literal ("+----------+------------+"
-                 "| PK id    | username   |"
-                 "+----------+------------+"
-                 "|        7 | barb_dwyer |"
-                 "|        2 | ben_rangel |"
-                 "+----------+------------+")))
+      (:eval 0)
+      (:eval 11)
+      (:quote ("+----------+------------+"
+               "| PK id    | username   |"
+               "+----------+------------+"
+               "|        7 | barb_dwyer |"
+               "|        2 | ben_rangel |"
+               "+----------+------------+")))
      ("column:username--to-width-0"
-      (:literal 0)
-      (:literal 0)
-      (:literal ("+----------+------------+"
-                 "| PK id    | username   |"
-                 "+----------+------------+"
-                 "|        7 | barb_dwyer |"
-                 "|        2 | ben_rangel |"
-                 "+----------+------------+")))
+      (:eval 0)
+      (:eval 0)
+      (:quote ("+----------+------------+"
+               "| PK id    | username   |"
+               "+----------+------------+"
+               "|        7 | barb_dwyer |"
+               "|        2 | ben_rangel |"
+               "+----------+------------+")))
      ("column:username--to-width-8"
-      (:literal 0)
-      (:literal 8)
-      (:literal ("+-------+------------+"
-                 "| PK id | username   |"
-                 "+-------+------------+"
-                 "|     7 | barb_dwyer |"
-                 "|     2 | ben_rangel |"
-                 "+-------+------------+")))
+      (:eval 0)
+      (:eval 8)
+      (:quote ("+-------+------------+"
+               "| PK id | username   |"
+               "+-------+------------+"
+               "|     7 | barb_dwyer |"
+               "|     2 | ben_rangel |"
+               "+-------+------------+")))
      ("column:username--to-width-9"
-      (:literal 0)
-      (:literal 9)
-      (:literal ("+-------+------------+"
-                 "| PK id | username   |"
-                 "+-------+------------+"
-                 "|     7 | barb_dwyer |"
-                 "|     2 | ben_rangel |"
-                 "+-------+------------+")))
+      (:eval 0)
+      (:eval 9)
+      (:quote ("+-------+------------+"
+               "| PK id | username   |"
+               "+-------+------------+"
+               "|     7 | barb_dwyer |"
+               "|     2 | ben_rangel |"
+               "+-------+------------+")))
      ("column:username--to-width-10"
-      (:literal 0)
-      (:literal 10)
-      (:literal ("+-------+------------+"
-                 "| PK id | username   |"
-                 "+-------+------------+"
-                 "|     7 | barb_dwyer |"
-                 "|     2 | ben_rangel |"
-                 "+-------+------------+")))
+      (:eval 0)
+      (:eval 10)
+      (:quote ("+-------+------------+"
+               "| PK id | username   |"
+               "+-------+------------+"
+               "|     7 | barb_dwyer |"
+               "|     2 | ben_rangel |"
+               "+-------+------------+")))
      ("column:username--to-width-11"
-      (:literal 0)
-      (:literal 11)
-      (:literal ("+--------+-------------+"
-                 "| PK id  | username    |"
-                 "+--------+-------------+"
-                 "|      7 | barb_dwyer  |"
-                 "|      2 | ben_rangel  |"
-                 "+--------+-------------+")))
+      (:eval 0)
+      (:eval 11)
+      (:quote ("+--------+-------------+"
+               "| PK id  | username    |"
+               "+--------+-------------+"
+               "|      7 | barb_dwyer  |"
+               "|      2 | ben_rangel  |"
+               "+--------+-------------+")))
      ("column:username--to-width-12"
-      (:literal 0)
-      (:literal 12)
-      (:literal ("+--------+--------------+"
-                 "| PK id  | username     |"
-                 "+--------+--------------+"
-                 "|      7 | barb_dwyer   |"
-                 "|      2 | ben_rangel   |"
-                 "+--------+--------------+")))
+      (:eval 0)
+      (:eval 12)
+      (:quote ("+--------+--------------+"
+               "| PK id  | username     |"
+               "+--------+--------------+"
+               "|      7 | barb_dwyer   |"
+               "|      2 | ben_rangel   |"
+               "+--------+--------------+")))
      ("column:username--to-width-13"
-      (:literal 0)
-      (:literal 13)
-      (:literal ("+---------+---------------+"
-                 "| PK id   | username      |"
-                 "+---------+---------------+"
-                 "|       7 | barb_dwyer    |"
-                 "|       2 | ben_rangel    |"
-                 "+---------+---------------+"))))
+      (:eval 0)
+      (:eval 13)
+      (:quote ("+---------+---------------+"
+               "| PK id   | username      |"
+               "+---------+---------------+"
+               "|       7 | barb_dwyer    |"
+               "|       2 | ben_rangel    |"
+               "+---------+---------------+"))))
   (with-alphanum-keys
    (with-new-window-buffer
     ;; Given

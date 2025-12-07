@@ -21,30 +21,31 @@
 
 ;;; Code:
 
+(require 'ert)
+(require 'ert-parametrized)
 (require 'scoot-table)
 (require 'scoot-test-fixtures)
 (require 'scoot-nexartrade-fixtures)
-(require 'ert)
 
 
 
 ;; install input
 
-(ert-deftest-parametrized scoot-table--scoot-input--install-input!
+(ert-parametrized-deftest scoot-table--scoot-input--install-input!
     (column-index
      expected-widget-region
      expected-editable-region
      expected-align)
     (("column:id"
-      (:literal 0)
-      (:literal (554 . 558))
-      (:literal (557 . 558))
-      (:literal right))
+      (:eval 0)
+      (:quote (554 . 558))
+      (:quote (557 . 558))
+      (:quote right))
      ("column:username"
-      (:literal 1)
-      (:literal (561 . 577))
-      (:literal (561 . 577))
-      (:literal left)))
+      (:eval 1)
+      (:quote (561 . 577))
+      (:quote (561 . 577))
+      (:quote left)))
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data t)
@@ -67,14 +68,14 @@
 
 ;; refresh-input
 
-(ert-deftest-parametrized scoot-table--scoot-input--refresh-input!--original-value
+(ert-parametrized-deftest scoot-table--scoot-input--refresh-input!--original-value
     (cell-index)
     (("column:id--row:0"
-      (:literal (0 . 0)))
+      (:quote (0 . 0)))
      ("column:username--row:0"
-      (:literal (1 . 0)))
+      (:quote (1 . 0)))
      ("column:username--row:1"
-      (:literal (1 . 1))))
+      (:quote (1 . 1))))
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data t)
@@ -107,30 +108,30 @@
      (should (equal (scoot-widget--buffer-string input)
                     expected-content)))))
 
-(ert-deftest-parametrized scoot-table--scoot-input--refresh-input!
+(ert-parametrized-deftest scoot-table--scoot-input--refresh-input!
     (column-index
      new-value
      expected-widget-region
      expected-editable-region
      expected-align)
     (("column:id--len-2"
-      (:literal 0)
-      (:literal "10")
-      (:literal (554 . 558))
-      (:literal (556 . 558))
-      (:literal right))
+      (:eval 0)
+      (:eval "10")
+      (:quote (554 . 558))
+      (:quote (556 . 558))
+      (:quote right))
      ("column:username--len-15"
-      (:literal 1)
-      (:literal "tom_atojuicesso")
-      (:literal (561 . 577))
-      (:literal (561 . 576))
-      (:literal left))
+      (:eval 1)
+      (:eval "tom_atojuicesso")
+      (:quote (561 . 577))
+      (:quote (561 . 576))
+      (:quote left))
      ("column:username--len-17"
-      (:literal 1)
-      (:literal "tom_atojuicesson2")
-      (:literal (561 . 578))
-      (:literal (561 . 578))
-      (:literal left)))
+      (:eval 1)
+      (:eval "tom_atojuicesson2")
+      (:quote (561 . 578))
+      (:quote (561 . 578))
+      (:quote left)))
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data t)
@@ -162,15 +163,15 @@
 
 ;; remove cell editor
 
-(ert-deftest-parametrized scoot-table--scoot-input--remove-cell-editor!
+(ert-parametrized-deftest scoot-table--scoot-input--remove-cell-editor!
     (cell-index
      content-with-border)
     (("column:id--row:0"
-      (:literal (0 . 0))
-      (:literal "|    1 |"))
+      (:quote (0 . 0))
+      (:eval "|    1 |"))
      ("column:username--row:0"
-      (:literal (1 . 0))
-      (:literal "| tom_atojuicesson |")))
+      (:quote (1 . 0))
+      (:eval "| tom_atojuicesson |")))
   (with-new-window-buffer
    ;; Given
    (let ((table (scoot-table--insert-table! nexartrade-table--users--result-data t)))

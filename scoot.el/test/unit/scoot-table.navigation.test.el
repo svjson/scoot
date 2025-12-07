@@ -21,25 +21,26 @@
 
 ;;; Code:
 
+(require 'ert)
+(require 'ert-parametrized)
 (require 'scoot-table)
 (require 'scoot-test-fixtures)
 (require 'scoot-nexartrade-fixtures)
-(require 'ert)
 
 
 
 ;; scoot-table--move-to-first-row!
 
-(ert-deftest-parametrized scoot-table--move-to-first-row!
+(ert-parametrized-deftest scoot-table--move-to-first-row!
     (move-to-initial-pos expected-pos)
 
     (("from-table-start"
       (:fun (goto-char (car  (scoot-table--table-start))))
-      (:literal (4 . 0)))
+      (:quote (4 . 0)))
 
      ("from-first-table-header"
       (:fun (progn (forward-line 1) (forward-char 2)))
-      (:literal (4 . 5)))
+      (:quote (4 . 5)))
 
      ("from-table-row-3-column-1"
       (:fun (progn (forward-line 6) (forward-char 2)))
@@ -62,20 +63,20 @@
 
 ;; scoot-table--move-to-last-row!
 
-(ert-deftest-parametrized scoot-table--move-to-last-row!
+(ert-parametrized-deftest scoot-table--move-to-last-row!
     (move-to-initial-pos! expected-line expected-column)
     (("from-table-start"
        (:fun (goto-char (car (scoot-table--table-start))))
-       (:literal 13)
-       (:literal 0))
+       (:eval 13)
+       (:eval 0))
      ("from-first-table-header"
       (:fun (progn (forward-line 1) (forward-char 2)))
-      (:literal 13)
-      (:literal 5))
+      (:eval 13)
+      (:eval 5))
      ("from-table-row-3-column-1"
       (:fun (progn (forward-line 6) (forward-char 2)))
-      (:literal 13)
-      (:literal 5)))
+      (:eval 13)
+      (:eval 5)))
   (with-new-window-buffer
    ;; Given
    (scoot-table--insert-table! nexartrade-table--users--result-data)
@@ -95,21 +96,21 @@
 
 ;; scoot-table--cell-right!
 
-(ert-deftest-parametrized scoot-table--cell-right!
+(ert-parametrized-deftest scoot-table--cell-right!
     (move-to-initial-pos! expected-next-cell-pos expected-thing)
 
     (("from-table-start"
       (:fun (goto-char (car (scoot-table--table-start))))
-      (:literal (187 . 2))
-      (:literal table-header))
+      (:quote (187 . 2))
+      (:quote table-header))
      ("from-first-table-header"
       (:fun (goto-char 187))
-      (:literal (193 . 2))
-      (:literal table-header))
+      (:quote (193 . 2))
+      (:quote table-header))
      ("from-last-table-header"
       (:fun (goto-char 357))
-      (:literal (557 . 4))
-      (:literal table-cell)))
+      (:quote (557 . 4))
+      (:quote table-cell)))
 
   (with-new-window-buffer
    ;; Given
