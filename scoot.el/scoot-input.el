@@ -120,6 +120,7 @@ removed, respectively."
       (progn
         (with-scoot-widget-shadow-buffer widget
           (goto-char (point-max)))
+        (goto-char (plist-get widget :editable-end))
         (scoot-input-mode 1))))
 
 (defun scoot-input--refresh-input! ()

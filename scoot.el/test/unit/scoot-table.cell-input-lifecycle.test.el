@@ -186,7 +186,7 @@
      (let* ((cell (scoot-table--cell-at-point))
             (cell-bounds (cons (- (car (scoot-table--cell-begin)) 2)
                                (+ (car (scoot-table--cell-end)) 3)))
-            (precond (should (equal (buffer-substring-no-properties (car cell-bounds)
+            (_precond (should (equal (buffer-substring-no-properties (car cell-bounds)
                                                                     (cdr cell-bounds))
                                     content-with-border)))
             (input (scoot-table--edit-cell)))
