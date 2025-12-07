@@ -514,6 +514,7 @@ OP is either `add or `remove."
     (define-key map (kbd "C-c s t") #'scoot-list-tables)
     (define-key map (kbd "C-c d t") #'scoot-describe-table)
     (define-key map (kbd "C-c C-c") #'scoot-rs--execute-query)
+    (define-key map (kbd "C-t") #'scoot-table--move-to-first-row!)
     (define-key map (kbd "a") (scoot-rs--add-or-remove-prefix-map 'add))
     (define-key map (kbd "r") (scoot-rs--add-or-remove-prefix-map 'remove))
     map)
