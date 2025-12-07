@@ -22,11 +22,64 @@
 ;;; Code:
 
 (require 'cl-lib)
+
 (require 'scoot-widget)
 
 
 
 ;; Test generation
+
+
+(defun ert--generator-indices (case-params)
+  (let (gen-indices)
+    (cl-loop for item in case-params
+             for index from 0
+             do
+             (when (and (listp item)
+                        (memq (car item) '(:gen :generator)))
+               (push index gen-indices)))
+    gen-indices))
+
+(defun ert--expand-generators (case)
+  "Expand :generator forms in CASE."
+  (if-let* ((gen-indices (nreverse (ert--generator-indices (cdr case))))
+            (gen-values-alist
+             (mapcar
+              (lambda (idx)
+                (let ((gen-form (cadadr (nth idx (cdr case)))))
+                  (cons idx (eval gen-form))))
+              gen-indices))
+            (count (apply #'max (mapcar #'length (mapcar #'cdr gen-values-alist)))))
+      (progn
+        (cl-loop for pi in (number-sequence 0 (1- count))
+                 collect
+                 (let* (sel
+                        (vals (cl-loop for item in (cdr case)
+                                       for index from 0
+                                       collect
+                                       (if (memq index gen-indices)
+                                           (list (caadr item)
+                                                 (let ((val (nth pi (alist-get index gen-values-alist))))
+                                                   (push val sel)
+                                                   val))
+                                         item))))
+                   (append (list (apply #'format (car case) (nreverse sel)))
+                         vals))))
+    (list case)))
+
+
+(defun ert--expand-cases (cases)
+  (apply #'append
+         (mapcar (lambda (case-spec)
+                   (message "case-spec: %S" case-spec)
+                   (if-let ((gen-pos (seq-position (cdr case-spec)
+                                                   :generator
+                                                   (lambda (a b)
+                                                     (eq (car a) b)))))
+                       (ert--expand-generators case-spec)
+                     (list case-spec)))
+                 cases)))
+
 
 (defmacro ert-deftest-parametrized (base-name args params &rest body)
   "Define a group of parametrized ERT tests.
@@ -47,9 +100,10 @@ BODY is the test body, evaluated with:
   - all :fun parameters bound via cl-flet
   - all :literal/:eval parameters bound via let."
   (declare (indent 3))
-  (let ((prefix (if (symbolp base-name)
-                    (symbol-name base-name)
-                  base-name)))
+  (let* ((prefix (if (symbolp base-name)
+                     (symbol-name base-name)
+                   base-name))
+         (cases (ert--expand-cases params)))
     `(progn
        ,@(mapcar
           (lambda (row)
@@ -76,7 +130,7 @@ BODY is the test body, evaluated with:
                  (cl-flet ,(nreverse funcs)
                    (let ,(nreverse values)
                      ,@body)))))
-          params))))
+          cases))))
 
 
 
@@ -251,6 +305,7 @@ ACTUAL."
      ,@body))
 (put 'with-fake-connection 'lisp-indent-function 'defun)
 
+
 
 ;; Data structures
 
@@ -284,6 +339,7 @@ inline data structures using `equals`."
     (while plist
       (puthash (pop plist) (pop plist) tbl))
     tbl))
+
 
 
 
