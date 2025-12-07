@@ -63,9 +63,6 @@
 (defvar-local scoot-table--cell-overlay nil
   "A reference to the currently active cell overlay.")
 
-(defvar-local scoot-table--table-row-marks nil
-  "Associative list of marked rows, record identity to mark type.")
-
 
 
 ;; Custom faces
@@ -265,13 +262,6 @@ It is considered to be modified if at least one of its cells
 has stored an :original-value property."
   (cl-some #'scoot-table--cell-modified-p record))
 
-(defun scoot-table--ensure-row-mark-table ()
-  "Ensure that `scoot-table--table-row-marks` is intialized in the buffer."
-  (when (not scoot-table--table-row-marks)
-    (setq-local scoot-table--table-row-marks (make-hash-table :test #'equal))))
-
-(make-obsolete 'scoot-table--ensure-row-mark-table nil "Use scoot-table--get/put-table-row-mark")
-
 
 
 ;; Table Rendering
@@ -386,9 +376,9 @@ EDITABLEP - Signal if editing of the record is allowed."
                                              index
                                              editablep))
     (insert border)
-    (when-let* ((row-mark (scoot-table--get-row-mark record-identity))
+    (when-let* ((row-mark (scoot-table--get-row-mark table record-identity))
                 (type (and (overlayp row-mark) (overlay-get row-mark 'type))))
-      (scoot-table--mark-row! record-identity type))
+      (scoot-table--mark-row! table record-identity type))
     (insert "\n")))
 
 
@@ -414,6 +404,11 @@ EDITABLEP - Signal if editing of the table data is to be allowed."
       :init
       (progn
         (plist-put widget :model model)
+        (plist-put widget :row-marks (make-hash-table :test #'equal))
+        (plist-put widget :on-destroy (lambda (table)
+                                        (maphash (lambda (id _)
+                                                   (scoot-table--remove-row-mark! table id))
+                                              (plist-get table :row-marks))))
         (scoot-table--insert-table-header widget)
         (dolist (record (plist-get model :records))
           (scoot-table--insert-table-row widget record editablep))
@@ -668,30 +663,32 @@ CELL is the cell summary of the cell under edit."
     (goto-char (+ widget-start (length (plist-get record-cell :formatted-value))))
     (scoot-table-mode 1)
     (if (scoot-table--record-modified-p record)
-        (scoot-table--mark-row! identity :update)
-      (scoot-table--unmark-row-if-type identity :update))))
+        (scoot-table--mark-row! table identity :update)
+      (scoot-table--remove-row-mark! table identity :update))))
 
 (defun scoot-table--edit-cell ()
   "Enter edit mode at the cell at point."
   (interactive)
-  (when-let* ((table (scoot-widget--at-point :type 'table))
-              (cell (scoot-table--cell-at-point)))
-    (when (plist-get cell :editablep)
-      (let ((input (scoot-input--install-input!
-                    :begin (car (scoot-table--cell-begin))
-                    :end (1+ (car (scoot-table--cell-end)))
-                    :column (plist-get cell :column)
-                    :type (alist-get 'typespec (plist-get cell :column))
-                    :formatter (get-text-property (point) 'formatter)
-                    :record-cell (plist-get cell :record-cell)
-                    :record (plist-get cell :record)
-                    :resize-hook (lambda (new-width)
-                                   (scoot-table--edit-cell-resize-hook
-                                    table (plist-get cell :cell-index) new-width))
-                    :remove-hook (lambda (widget)
-                                   (scoot-table--remove-cell-editor! table widget cell)))))
-        (scoot-table-mode -1)
-        input))))
+  (if-let* ((table (scoot-widget--at-point :type 'table))
+            (cell (scoot-table--cell-at-point)))
+      (if (plist-get cell :editablep)
+          (let ((input (scoot-input--install-input!
+                        :begin (car (scoot-table--cell-begin))
+                        :end (1+ (car (scoot-table--cell-end)))
+                        :column (plist-get cell :column)
+                        :type (alist-get 'typespec (plist-get cell :column))
+                        :formatter (get-text-property (point) 'formatter)
+                        :record-cell (plist-get cell :record-cell)
+                        :record (plist-get cell :record)
+                        :resize-hook (lambda (new-width)
+                                       (scoot-table--edit-cell-resize-hook
+                                        table (plist-get cell :cell-index) new-width))
+                        :remove-hook (lambda (widget)
+                                       (scoot-table--remove-cell-editor! table widget cell)))))
+            (scoot-table-mode -1)
+            input)
+        (message "Table cell is not editable"))
+    (message "No table cell at point")))
 
 
 
@@ -744,47 +741,51 @@ CELL is the cell summary of the cell under edit."
 
 ;; Row/Table marks
 
-(defun scoot-table--get-row-mark (identity)
-  "Get the row mark for IDENTITY if it exists."
-  (when (hash-table-p scoot-table--table-row-marks)
-    (gethash identity scoot-table--table-row-marks)))
+(defun scoot-table--get-row-mark (table identity &optional type)
+  "Get the row mark for IDENTITY in TABLE if it exists.
 
+If TYPE is provided the mark will only be returned if the existing
+mark for row with IDENTITY matches TYPE."
+  (when-let ((mark (gethash identity (plist-get table :row-marks))))
+    (when (or (null type)
+              (equal (overlay-get mark 'type)
+                     type))
+      mark)))
 
-
-;; Row/Table mark actions
+(defun scoot-table--remove-row-mark! (table identity &optional type)
+  "Remove row mark for IDENTITY in TABLE if it exists.
 
-(defun scoot-table--mark-row! (identity type)
-  "Mark overlay of type TYPE for row with identity IDENTITY."
-  (when-let ((mark (scoot-table--get-row-mark identity)))
-    (delete-overlay mark))
+If TYPE is provided the mark will only be removed if the existing
+mark for row with IDENTITY matches TYPE.
+
+Returns t if a row mark was removed."
+  (when-let* ((mark (scoot-table--get-row-mark table identity type)))
+    (delete-overlay mark)
+    (remhash identity (plist-get table :row-marks))
+    t))
+
+(defun scoot-table--mark-row! (table identity type)
+  "Mark overlay of type TYPE for row with identity IDENTITY in TABLE."
+  (scoot-table--remove-row-mark! table identity)
   (let ((overlay (make-overlay (line-beginning-position) (line-end-position))))
     (overlay-put overlay 'type type)
     (pcase type
       (:delete (overlay-put overlay 'face 'scoot-table-row-marker-delete-face))
       (:update (overlay-put overlay 'face 'scoot-table-row-marker-update-face)))
-    (unless (hash-table-p scoot-table--table-row-marks)
-      (setq-local scoot-table--table-row-marks (make-hash-table :test #'equal)))
-    (puthash identity overlay scoot-table--table-row-marks)))
+    (puthash identity overlay (plist-get table :row-marks))))
 
-(defun scoot-table--unmark-row-if-type (identity type)
-  "Remove row marker for record with IDENTITY if the mark is of TYPE."
-  (when-let* ((mark (scoot-table--get-row-mark identity))
-              (unmark (and (overlayp mark)
-                           (equal type (overlay-get mark 'type)))))
-    (delete-overlay mark)
-    (remhash identity scoot-table--table-row-marks)
-    t))
 
 (defun scoot-table--toggle-mark-delete ()
   "Toggle mark for deletion at row at point."
   (interactive)
-  (when-let ((row (scoot-table--row-at-point)))
+  (when-let ((table (scoot-widget--at-point :type 'table))
+             (row (scoot-table--row-at-point)))
     (if-let ((identity (scoot-table--record-identity (plist-get row :record))))
-        (progn (if (scoot-table--unmark-row-if-type identity :delete)
+        (progn (if (scoot-table--remove-row-mark! table identity :delete)
                    (when (scoot-table--record-modified-p
                           (plist-get (scoot-table--row-at-point) :record))
-                     (scoot-table--mark-row! identity :update))
-                   (scoot-table--mark-row! identity :delete))
+                     (scoot-table--mark-row! table identity :update))
+                 (scoot-table--mark-row! table identity :delete))
                (scoot-table--cell-down!))
       (message "Cannot uniquely identify the row at point."))))
 
@@ -816,8 +817,6 @@ CELL is the cell summary of the cell under edit."
   "Minor mode for navigating and interacting with tables."
   :lighter " Table"
   :keymap scoot-table-mode-map
-
-  (scoot-table--ensure-row-mark-table)
 
   (if scoot-table-mode
       (add-hook 'post-command-hook 'scoot-table--update-overlay nil t)

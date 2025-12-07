@@ -202,7 +202,6 @@ buffer."
          (new-value (scoot-widget--shadow-buffer-content widget))
          (current-value (plist-get cell :value))
          (original-value (plist-get cell :original-value)))
-
     (cond
      ((not original-value)
       (when (not (equal (format "%s" new-value) (format "%s" current-value)))

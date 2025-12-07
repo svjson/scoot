@@ -527,9 +527,7 @@ OP is either `add or `remove."
   (setq-local scoot-xref-action-fn 'scoot-rs--xref-action)
   (setq-local scoot-xref-identifier-at-point-fn 'scoot-rs--xref-id-at-point)
   (setq-local scoot-xref-completion-provider-fn 'scoot-rs--xref-completions)
-  (add-hook 'xref-backend-functions #'scoot--xref-backend nil t)
-
-  (scoot-table--ensure-row-mark-table))
+  (add-hook 'xref-backend-functions #'scoot--xref-backend nil t))
 
 
 

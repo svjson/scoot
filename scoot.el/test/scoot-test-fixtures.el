@@ -132,6 +132,8 @@ BODY is the elisp code to execute while the customized key icons are active."
 
 (defun interactively-goto-char (pt)
   "Go to point PT, interactively and triggering hooks."
+  (unless (number-or-marker-p pt)
+    (error "interactively-goto-char: Invalid argument: %S" pt))
   (interactively-goto-line (line-number-at-pos pt))
   (while (not (= (point) pt))
     (do-command (if (< (point) pt)

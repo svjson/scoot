@@ -36,67 +36,63 @@
                       :data nexartrade-table--users--result-data
                       :columns ["id" "username"]
                       :rows [6 1])))
+    (with-alphanum-keys
+     (with-new-window-buffer
+      (scoot-table--insert-table! result-data t)
+      (should
+       (equal
+        (buffer-substring-no-properties (point-min) (point-max))
+        (string-join
+         '("+-------+------------+"
+           "| PK id | username   |"
+           "+-------+------------+"
+           "|     7 | barb_dwyer |"
+           "|     2 | ben_rangel |"
+           "+-------+------------+"
+           "")
+         "\n")))
 
-    (with-new-window-buffer
-     (scoot-table--insert-table! result-data t)
-     (should
-      (equal
-       (buffer-substring-no-properties (point-min) (point-max))
-       (string-join
-        '("+------+------------+"
-          "| 🔑id | username   |"
-          "+------+------------+"
-          "|    7 | barb_dwyer |"
-          "|    2 | ben_rangel |"
-          "+------+------------+"
-          "")
-        "\n")))
+      (goto-char (point-min))
+      (scoot-table--move-to-last-row!)
+      (scoot-table--move-to-last-column)
 
-     (goto-char (point-min))
-     (scoot-table--move-to-last-row!)
-     (scoot-table--move-to-last-column)
+      (message "%s" (scoot--props-at-point))
+      (call-interactively #'scoot-table--edit-cell)
 
-     (message "%s" (scoot--props-at-point))
-     (call-interactively #'scoot-table--edit-cell)
+      (should (bound-and-true-p scoot-input-mode))
 
-     (should (bound-and-true-p scoot-input-mode))
+      (dotimes (_ 6)
+        (do-command #'delete-backward-char))
 
-     (dotimes (_ 6)
-       (do-command #'delete-backward-char))
+      (interactively-self-insert-text "dover")
 
-     (interactively-self-insert-char ?d)
-     (interactively-self-insert-char ?o)
-     (interactively-self-insert-char ?v)
-     (interactively-self-insert-char ?e)
-     (interactively-self-insert-char ?r)
+      (should
+       (equal
+        (buffer-substring-no-properties (point-min) (point-max))
+        (string-join
+         '("+-------+------------+"
+           "| PK id | username   |"
+           "+-------+------------+"
+           "|     7 | barb_dwyer |"
+           "|     2 | ben_dover  |"
+           "+-------+------------+"
+           "")
+         "\n")))
 
-     (should
-      (equal
-       (buffer-substring-no-properties (point-min) (point-max))
-       (string-join
-        '("+------+------------+"
-          "| 🔑id | username   |"
-          "+------+------------+"
-          "|    7 | barb_dwyer |"
-          "|    2 | ben_dover  |"
-          "+------+------------+"
-          "")
-        "\n")))
+      (do-command #'scoot-input--confirm-edit)
 
-     (do-command #'scoot-input--confirm-edit)
-
-     (should
-      (equal
-       (buffer-substring-no-properties (point-min) (point-max))
-       (string-join
-        '("+------+------------+"
-          "| 🔑id | username   |"
-          "+------+------------+"
-          "|    7 | barb_dwyer |"
-          "|    2 |>ben_dover  |"
-          "+------+------------+"
-          "")
-        "\n"))))))
+      (should
+       (equal
+        (buffer-substring-no-properties (point-min) (point-max))
+        (string-join
+         '("+-------+------------+"
+           "| PK id | username   |"
+           "+-------+------------+"
+           "|     7 | barb_dwyer |"
+           "|     2 |>ben_dover  |"
+           "+-------+------------+"
+           "")
+         "\n")))))))
 
 
 

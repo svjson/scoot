@@ -432,6 +432,8 @@ Examples:
 
 (defun scoot-widget--destroy-widget! (widget)
   "Delete WIDGET from the current buffer."
+  (when-let ((destroy-fn (plist-get widget :on-destroy)))
+    (funcall destroy-fn widget))
   (when-let ((ov (plist-get widget :widget-overlay)))
     (delete-overlay ov))
   (when-let ((begin (plist-get widget :widget-start))
