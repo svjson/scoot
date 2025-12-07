@@ -34,7 +34,7 @@ def wait_and_retry(
     return func_wrapper
 
 
-def run_cmd(cmd, env_vars={}, silent=True, silent_error=None) -> str:
+def run_cmd(cmd, env_vars={}, silent=True, silent_error=None, wait_for_eof=True) -> str:
     env = os.environ.copy()
     env.update(env_vars)
     output_lines = []
@@ -94,6 +94,8 @@ def run_cmd(cmd, env_vars={}, silent=True, silent_error=None) -> str:
             if exited is not None:
                 if fd_map[kout]["eof"] and fd_map[kerr]["eof"]:
                     break
+                if not wait_for_eof:
+                    break
 
         return "\n".join(output_lines)
     except subprocess.CalledProcessError as e:
@@ -104,4 +106,4 @@ def run_cmd(cmd, env_vars={}, silent=True, silent_error=None) -> str:
 
 
 def run_script(script, env_vars={}) -> str:
-    return run_cmd(["bash", script], env_vars)
+    return run_cmd(["bash", script], env_vars, wait_for_eof=False)

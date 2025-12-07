@@ -118,7 +118,12 @@ def is_emacs_initialized(daemon: EmacsDaemon):
     Check for the Scoot test-runner function.
     """
 
-    return daemon.eval_lisp("(fboundp 'scoot-test--run-test)", True, True) == "t"
+    output = daemon.eval_lisp("(fboundp 'scoot-test--run-test)", True, True)
+
+    if "error" in output.lower() or "backtrace" in output.lower():
+        raise RuntimeError(f"Emacs daemon initialization failed:\n{output}")
+
+    return output == "t"
 
 
 def parse_test_result(result: str):
