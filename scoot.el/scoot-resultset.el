@@ -313,7 +313,6 @@ OBJECT-TYPE is the type of the object to list.
 CONNECTION (Optional)"
   (let ((connection (scoot--interactive-resolve-connection)))
     (scoot--list-objects object-type
-                         title
                          connection
                          (lambda (object-result)
                            (scoot--open-resultset

@@ -221,7 +221,8 @@ These values are dervied from SECTION-DEF."
     (insert (propertize (concat (pcase type
                                   ('table "Table")
                                   ('schema "Schema")
-                                  ('database "Database"))
+                                  ('database "Database")
+                                  (_ "View"))
                                 ": ")
                         'face 'scoot-label-face))
     (insert (propertize name

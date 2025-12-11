@@ -1,8 +1,9 @@
-from scoot_core import config, metadata, query, OperationEnv
-from scoot_core.model import ListDataAdapter
+from scoot_core import OperationEnv, config, metadata, query
 from scoot_core.export import exporter
-from scoot_cli.output import AsciiTable
+from scoot_core.model import ListDataAdapter
 from sqlalchemy import select
+
+from scoot_cli.output import AsciiTable
 
 
 def _dump_single_column_table(header: str, values: list[str]):
@@ -42,7 +43,9 @@ def set_default_connection(context_name: str | None, conn_name: str) -> None:
 def list_tables(op_env: OperationEnv) -> None:
     """List available tables."""
     tables = metadata.list_tables(op_env)
-    _dump_single_column_table("Table Name", sorted(tables))
+    _dump_single_column_table(
+        "Table Name", sorted([table[0] for table in tables["tables"]])
+    )
 
 
 def list_databases(op_env: OperationEnv) -> None:

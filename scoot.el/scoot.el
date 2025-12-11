@@ -33,6 +33,7 @@
 (require 'scoot-server)
 (require 'scoot-connection)
 (require 'scoot-resultset)
+(require 'scoot-table-list)
 (require 'scoot-scratch)
 (require 'scoot-common)
 (require 'scoot-ddl)
@@ -54,10 +55,20 @@
   (scoot-rs--open-object-list-resultset 'schemas "Schema Name"))
 
 ;;;###autoload
-(defun scoot-list-tables ()
-  "List tables visible to the user of the current connection."
+(cl-defun scoot-list-tables (&key include-row-count)
+  "List tables visible to the user of the current connection.
+
+INCLUDE-ROW-COUNT - A non-nil value will include row count per table."
   (interactive)
-  (scoot-rs--open-object-list-resultset 'tables "Table Name"))
+  (let ((connection (scoot--interactive-resolve-connection))
+        (opts (list :include-row-count include-row-count)))
+    (scoot--list-objects 'tables
+                         connection
+                         (lambda (table-result)
+                           (scoot--open-table-list
+                            (scoot-tbll--table-list-to-result-context table-result
+                                                                      connection)))
+                         opts)))
 
 ;;;###autoload
 (defun scoot-describe-table (&optional table-name connection)
@@ -77,6 +88,7 @@ resolved using the context of the function call, if called interactively."
     (scoot-connection--describe-table conn
                                       tbl
                                       #'scoot-ddl--open-table)))
+
 
 
 

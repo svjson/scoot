@@ -183,8 +183,10 @@ Optionally provide CONNECTION to provide options for `completing-read`.
 
 Provide a list of valid options in TABLES for completing read action`"
   (let ((tables (or tables
-                    (seq-into (alist-get 'tables (scoot--await (lambda (callback)
-                                                                 (scoot--list-objects 'tables connection callback))))
+                    (seq-into (mapcar
+                               (lambda (r) (aref r 0))
+                               (alist-get 'tables (scoot--await (lambda (callback)
+                                                                  (scoot--list-objects 'tables connection callback)))))
                               'list))))
     (if tables
         (scoot--completing-read :name "Scoot Tables"
@@ -280,7 +282,24 @@ or configured towards another target."
              (message "Unknown connection and no connection details available: %s"
                       connection-name))))))))
 
+(defun scoot-connection--build-query-string (query-params)
+  "Build a HTTP url query string from plist QUERY-PARAMS.
+
+Example:
+    (scoot-connection--build-query-string `\(:include-row-count t
+                                            :max-results 100
+    => \"?include_row_count=t&max_results=100\""
+  (let ((query (url-build-query-string
+                (cl-loop for (key val) on query-params by #'cddr
+                         collect
+                         (cons (replace-regexp-in-string "[-]" "_" (substring (format "%s" key) 1))
+                               (list (format "%s" val)))))))
+    (if (length> query 0)
+        (concat "?" query)
+      "")))
+
 (cl-defun scoot-connection--send-request (&key uri
+                                               query-params
                                                callback
                                                (method "GET")
                                                body
@@ -296,6 +315,10 @@ and all http requests are meant to use this.
 
 URI is the remote address to be called.  The host, port and protocol will be
 provied by `scoot-server--base-url`.
+
+QUERY-PARAMS, if provided, should be in plist-format.  Any keyword keys will
+be translated to url-safe parameter names,
+ie, :include-row-count => include_row_count
 
 CALLBACK is the \"success callback\" that will be invoked and passed the
 response data upon a successful request.
@@ -315,7 +338,10 @@ OP is a symbol describing the operation that this request is a part of.
 CONNECTION can optionally be supplied to assist the error handler in retrying
 recoverable errors."
   (scoot-ensure-server)
-  (let ((url (format "%s%s" (scoot-server--base-url) uri)))
+  (let* ((url (format "%s%s%s"
+                      (scoot-server--base-url)
+                      uri
+                      (scoot-connection--build-query-string query-params))))
     (request (url-encode-url url)
       :type method
       :headers headers
@@ -329,7 +355,7 @@ recoverable errors."
       :success (cl-function
                 (lambda (&key data &allow-other-keys)
                   (if (and connection
-                             (not (scoot-context--connection-active-p connection)))
+                           (not (scoot-context--connection-active-p connection)))
                       (scoot-connection--fetch-contexts (lambda (_)
                                                           (funcall callback data)
                                                           nil))
@@ -429,17 +455,19 @@ result."
    callback))
 
 
-(defun scoot-connection--list-objects (connection object-type callback)
+(defun scoot-connection--list-objects (connection object-type callback &optional opts)
   "List objects of type OBJECT-TYPE visible to connection CONNECTION.
 
-Invokes CALLBACK with the result if successful."
+OPTS may contain object-specific query-string options for the server request
 
+Invokes CALLBACK with the result if successful."
   (scoot-ensure-server)
   (scoot-connection--send-request
    :uri (format "/api/contexts/%s/connections/%s/%s"
                 (plist-get connection :context)
                 (plist-get connection :name)
                 object-type)
+   :query-params opts
    :op (intern (concat "list-" (symbol-name object-type)))
    :callback callback))
 

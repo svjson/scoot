@@ -1,34 +1,35 @@
 import traceback
-from typing import Any, Optional, cast
+from typing import Any, Optional, TypedDict, cast
 
+import sqlglot
+import sqlglot.expressions as exp
 from sqlalchemy import (
-    inspect,
-    Table,
+    CheckConstraint,
     Column,
     Constraint,
-    MetaData,
-    CheckConstraint,
     ForeignKeyConstraint,
+    MetaData,
+    Table,
+    inspect,
 )
-from sqlalchemy.schema import CreateTable
 from sqlalchemy.exc import NoSuchTableError
-import sqlglot
+from sqlalchemy.schema import CreateTable
 from sqlglot import expressions as sge
-import sqlglot.expressions as exp
 
-from .openv import OperationEnv
-
-from .dialect import sqlglot_dialect
-
+from . import expression
 from .config import is_server
 from .connection import Connection
-from .model import TableModel, ColumnModel
+from .dialect import sqlglot_dialect
+from .dialect.registry import find_and_apply_additional_constraints
+from .dialect.registry import resolve_type as resolve_scoot_type
 from .exceptions import ScootQueryException, ScootSchemaException
-from .dialect.registry import (
-    resolve_type as resolve_scoot_type,
-    find_and_apply_additional_constraints,
-)
-from . import expression
+from .model import ColumnModel, TableModel
+from .openv import OperationEnv
+
+
+class TableList(TypedDict):
+    tables: list[list]
+    properties: list[str]
 
 
 def list_schemas(ctx: OperationEnv) -> list[str]:
@@ -38,11 +39,19 @@ def list_schemas(ctx: OperationEnv) -> list[str]:
     return schemas
 
 
-def list_tables(ctx: OperationEnv) -> list[str]:
+def list_tables(ctx: OperationEnv, include_row_count=False) -> TableList:
     """Return a list of table names."""
     inspector = inspect(ctx.connection.engine)
-    tables = inspector.get_table_names()
-    return tables
+    tables = [[table] for table in inspector.get_table_names()]
+    properties = ["name"]
+
+    if include_row_count:
+        properties.append("row_count")
+        for table in tables:
+            resultset = ctx.connection.execute(f"SELECT COUNT(*) FROM {table[0]}")
+            table.append(resultset.rows[0][0])
+
+    return {"tables": tables, "properties": properties}
 
 
 def list_databases(ctx: OperationEnv) -> list[str]:
@@ -132,9 +141,7 @@ def get_identifier_name(identifier):
     if identifier is None:
         return None
     return (
-        identifier.this
-        if isinstance(identifier, sge.Identifier)
-        else str(identifier)
+        identifier.this if isinstance(identifier, sge.Identifier) else str(identifier)
     )
 
 
@@ -252,7 +259,6 @@ def resolve_column_metadata(
     tbl_exprs,
 ) -> list[dict]:
     with op_env.operation("inspect expression"):
-
         colmeta = ColumnMeta(e)
         if colmeta.table:
             colmeta.table_model = known_tables.get(colmeta.table.casefold(), None)
@@ -328,7 +334,6 @@ def resolve_query_metadata(op_env: OperationEnv, sql: str):
         columns = []
 
         for e in expr.expressions:
-
             columns_meta = resolve_column_metadata(
                 op_env, e, known_tables=known_tables, tbl_exprs=expr_tables
             )

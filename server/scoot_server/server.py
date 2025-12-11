@@ -1,12 +1,11 @@
-import traceback
 import logging
+import traceback
 from decimal import Decimal
 from functools import wraps
 
 import orjson
 from flask import Flask, Response, current_app, request
-from scoot_core import Cache, config, metadata, query, ResultSet, ScootErrorType
-from .context import RequestContext, ServerOperation
+from scoot_core import Cache, ResultSet, ScootErrorType, config, metadata, query
 from scoot_core.exceptions import (
     ScootApplicationError,
     ScootConnectionException,
@@ -15,6 +14,8 @@ from scoot_core.exceptions import (
 )
 
 from scoot_server import connmgr
+
+from .context import RequestContext, ServerOperation
 
 app = Flask(__name__)
 
@@ -184,7 +185,17 @@ def create_connection(ctx: str):
 @with_error_handler
 @with_op_env
 def list_tables(op_env):
-    return json_response({"tables": metadata.list_tables(op_env)})
+    include_row_count = request.args.get("include_row_count", None) in [
+        "true",
+        "t",
+        "1",
+        "y",
+        "yes",
+    ]
+
+    return json_response(
+        metadata.list_tables(op_env, include_row_count=include_row_count)
+    )
 
 
 @app.route(
@@ -222,7 +233,6 @@ def list_schemas(op_env):
 @with_error_handler
 @with_op_env
 def query_operation(op_env: ServerOperation):
-
     with op_env.operation("parse request"):
         data = request.get_json()
         sql = data.get("sql")

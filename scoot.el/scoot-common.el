@@ -556,9 +556,8 @@ If CONTEXT-NAME is not given an attempt will be made to resolve it using
    (list :connection-name "default"
          :interactive t)))
 
-(defun scoot--list-objects (object-type connection callback)
-  "List objects visible to the user of CONNECTION or the
-current contextually available connection.
+(defun scoot--list-objects (object-type connection callback &optional opts)
+  "List objects of OBJECT-TYPE visible to the user of CONNECTION.
 
 Valid object types are:
 \\='databases
@@ -566,13 +565,15 @@ Valid object types are:
 \\='tables
 
 OBJECT-TYPE is the type of the object to list.
-CONNECTION (Optional)
-CALLBACK The function to call with the object result"
+CONNECTION (Optional) is the connection to use.
+CALLBACK The function to call with the object result.
+OPTS is aoptional and may provide options for the object retrieval."
   (let* ((connection (or connection (scoot--interactive-resolve-connection))))
     (scoot-connection--list-objects
      connection
      object-type
-     callback)))
+     callback
+     opts)))
 
 (provide 'scoot-common)
 
