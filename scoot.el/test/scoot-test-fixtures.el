@@ -40,92 +40,12 @@ Optionally override the default TIMEOUT value of 3 seconds."
 
 
 
-;; Buffer management
-
-(defmacro with-new-window-buffer (&rest body)
-  "Macro that executes BODY within a \"real\" temporary buffer.
-
-Unlike `with-temp-buffer` this buffer attaches to the window, allowing
-commands and hooks to run properly."
-  `(let ((buf (generate-new-buffer "*scoot test-buffer*")))
-     (unwind-protect
-         (progn
-           (switch-to-buffer buf)
-           ,@body)
-       (kill-buffer buf))))
-
-
-(defmacro with-alphanum-keys (&rest body)
-  "Set alphanumeric primary and foreign keys icons and restore them afterwards.
-
-BODY is the elisp code to execute while the customized key icons are active."
-  `(with-customized-variables
-     ((scoot-primary-key-icon "PK ")
-      (scoot-foreign-key-icon "FK "))
-     ,@body))
-
-
-
-;; Buffer state & debug
-
-(defun scoot-active-minor-modes ()
-  "Round up active minor modes relevant to scoot and scoot tests."
-  (cl-remove-if-not
-   (lambda (mode)
-	   (memq mode '(cursor-sensor-mode
-                  read-only-mode
-                  scoot-query-block-mode
-                  scoot-input-mode
-                  scoot-table-mode)))
-   local-minor-modes))
-
-(defun scoot-command-hooks ()
-  "Get the active scoot-related command hooks."
-  (cl-flet ((filter-hooks (hook-list white-list)
-              (mapcar
-               (lambda (h)
-                 (let ((hstr (format "%S" h)))
-                   (if (interpreted-function-p h)
-                       (let* ((spos (string-search "scoot" hstr)))
-                         (intern (substring hstr spos (string-search " " hstr spos))))
-                     h)))
-               (seq-filter (lambda (h)
-                             (or (memq h white-list)
-                                 (string-search "scoot" (format "%S" h))))
-                           hook-list))))
-    (list :pre-command-hook (filter-hooks pre-command-hook '())
-          :post-command-hook (filter-hooks post-command-hook '(cursor-sensor--detect)))))
-
-(defun scoot-buffer-widgets ()
-  "Round up widgets present in the current buffer."
-  (cl-flet ((widget-edge (w prop)
-              (let ((pos (plist-get (cdr w) prop)))
-                (list :point (marker-position  pos)
-                      :pos (when pos (cons (line-number-at-pos pos)
-                                           (save-excursion
-                                             (goto-char pos)
-                                             (current-column))))))))
-    (mapcar (lambda (w)
-              (list :id (car w)
-                    :from (widget-edge w :widget-start)
-                    :to (widget-edge w :widget-end)))
-            scoot--active-widgets)))
-
-(defun scoot-buffer-state ()
-  "Round up relevant scoot buffer state."
-  (append
-   (list :major-mode major-mode
-         :minor-modes (scoot-active-minor-modes)
-         :widgets (scoot-buffer-widgets))
-   (scoot-command-hooks)))
-
-
-
 ;; Keyboard command simulation
 
 (defun do-command (cmd)
   "Call CMD interactively and run command hooks."
-  (let ((this-command cmd))
+  (let ((this-command cmd)
+        (post-command-hook post-command-hook))
     (run-hooks 'pre-command-hook)
     (call-interactively cmd)
     (run-hooks 'post-command-hook)))
@@ -149,8 +69,6 @@ BODY is the elisp code to execute while the customized key icons are active."
                     #'next-line
                   #'previous-line))))
 
-
-
 (defun interactively-self-insert-char (ch)
   "Simulate `self-insert-command`, inserting CH."
   (let ((last-command-event ch))
@@ -159,6 +77,7 @@ BODY is the elisp code to execute while the customized key icons are active."
 (defun interactively-self-insert-text (text)
   "Simulate typing TEXT, char by char."
   (mapc #'interactively-self-insert-char text))
+
 
 
 ;; Should equal with custom fail message

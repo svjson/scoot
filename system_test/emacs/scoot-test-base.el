@@ -110,21 +110,6 @@ that it is a prefix of, otherwise nil."
     (cl-every #'string-prefix-p prefix-list string-list)))
 
 
-(defmacro with-customized-variables (settings &rest body)
-  "Temporarily set custom variables and restore them afterwards.
-
-SETTINGS should have the form: ((some-setting-name value)
-                                (another-setting another-value))
-BODY is the elisp code to execute while SETTINGS are active."
-  `(let ((orig-values (mapcar (lambda (s) (cons s (symbol-value s))) ',(mapcar #'car settings))))
-     (unwind-protect
-         (progn
-           ,@(mapcar (lambda (s) `(customize-set-value ',(car s) ,(cadr s))) settings)
-           ,@body)
-       (dolist (pair orig-values)
-         (customize-set-value (car pair) (cdr pair))))))
-
-(put 'with-customized-variables 'lisp-indent-function 'defun)
 
 (defmacro with-request-backed-buffer (args mname body op)
   "Base macro for entering a buffer/mode backed by a server request.

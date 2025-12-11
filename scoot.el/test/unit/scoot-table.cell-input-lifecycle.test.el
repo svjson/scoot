@@ -25,6 +25,8 @@
 (require 'ert-parametrized)
 (require 'scoot-table)
 (require 'scoot-test-fixtures)
+(require 'scoot-test-buffer-fixtures)
+(require 'scoot-test-customization-fixtures)
 (require 'scoot-nexartrade-fixtures)
 
 

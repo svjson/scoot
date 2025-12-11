@@ -28,6 +28,7 @@
 
 
 
+;; Interaction
 
 (defun scoot-test-table--move-to-cell! (table cell)
   "Move point to CELL of TABLE."
@@ -42,14 +43,24 @@
   (dotimes (_ (cdr cell))
     (do-command #'scoot-table--cell-right!)))
 
-(defun scoot-test-table--edit-cell! (table cell edit)
-  "Edit CELL of TABLE according to EDIT."
+(defun scoot-test-table--activate-cell-editor! (table cell)
+  "Active edit mode at CELL in TABLE."
   (scoot-test-table--move-to-cell! table cell)
-  (do-command #'scoot-table--edit-cell)
-  (dotimes (_ 6)
+  (do-command #'scoot-table--edit-cell))
+
+(defun scoot-test-table--edit-cell! (table cell edit &optional no-submit)
+  "Edit CELL of TABLE according to EDIT.
+
+Will confirm/submit the edit unless a non-nil value is provided
+for NO-SUBMIT."
+  (scoot-test-table--activate-cell-editor! table cell)
+  (dotimes (_ (length
+               (scoot-widget--shadow-buffer-content
+                (scoot-widget--get-widget :type 'input :name 'input))))
     (do-command #'delete-backward-char))
   (interactively-self-insert-text edit)
-  (do-command #'scoot-input--confirm-edit))
+  (unless no-submit
+    (do-command #'scoot-input--confirm-edit)))
 
 
 

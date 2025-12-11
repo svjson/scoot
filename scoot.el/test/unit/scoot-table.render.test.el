@@ -23,6 +23,10 @@
 
 (require 'scoot-table)
 (require 'scoot-test-fixtures)
+(require 'scoot-test-buffer-fixtures)
+(require 'scoot-test-table-fixtures)
+(require 'scoot-test-customization-fixtures)
+(require 'scoot-nexartrade-fixtures)
 (require 'ert)
 
 
