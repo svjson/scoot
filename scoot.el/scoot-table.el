@@ -262,6 +262,21 @@ It is considered to be modified if at least one of its cells
 has stored an :original-value property."
   (cl-some #'scoot-table--cell-modified-p record))
 
+(defun scoot-table--column-values (table column-index &optional format exclude-rows)
+  "Get the values of column with index COLUMN-INDEX from all rows of TABLE.
+
+Optionally provide a list of row indices in EXCLUDE-ROWS to exclude from
+result."
+  (let ((formatter (nth column-index (plist-get-in table :model :formatters))))
+    (mapcar (lambda (record)
+              (let ((column-value (plist-get (nth column-index record) :value)))
+                (funcall (pcase format
+                           (:value #'scoot--format-value)
+                           (_ #'scoot--format-literal))
+                         (if (null column-value) scoot-formatter-null formatter)
+                         column-value)))
+            (plist-get-in table :model :records))))
+
 
 
 ;; Table Rendering
@@ -700,17 +715,11 @@ CELL is the cell summary of the cell under edit."
   (interactive)
   (let* ((table (scoot-widget--at-point :type 'table))
          (cell (scoot-table--cell-at-point))
-         (formatter (plist-get cell :formatter))
-         (cell-index (plist-get cell :cell-index)))
-    (when (integerp cell-index)
-      (let* ((values (mapcar
-                      (lambda (record)
-                        (scoot--format-literal
-                         formatter
-                         (plist-get (nth cell-index record)
-                                    :value)))
-                      (plist-get-in table :model :records)))
-             (result (string-join values ", ")))
+         (column-index (plist-get cell :column-index)))
+    (when (integerp column-index)
+      (let* ((result (string-join
+                      (scoot-table--column-values table column-index :literal)
+                      ", ")))
         (kill-new result)
         (message result)))))
 
