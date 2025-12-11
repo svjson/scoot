@@ -1,27 +1,25 @@
 from typing import Optional, override
 
 import sqlalchemy
+from sqlalchemy.dialects.mssql import dialect as mssql_dialect
 from sqlalchemy.sql.expression import text
 from sqlalchemy.sql.schema import CheckConstraint
 
 from scoot_core.connection import Connection
-from .mapper import (
-    TypeConverter,
-    TypeMapper,
-    DECIMALConverter,
-    VARCHARConverter,
-    TemporalConverter,
-    subst_leading,
-)
-
-from sqlalchemy.dialects.mssql import dialect as mssql_dialect
 
 from .. import types
 from ..types import SIGNED, UNSIGNED
+from .mapper import (
+    DECIMALConverter,
+    TemporalConverter,
+    TypeConverter,
+    TypeMapper,
+    VARCHARConverter,
+    subst_leading,
+)
 
 
 class MSSQLTypeMapper(TypeMapper):
-
     def __init__(self):
         self.conversion_map = {
             "BIT": types.Integer(1, UNSIGNED),
@@ -97,10 +95,7 @@ TypeMapperImpl = MSSQLTypeMapper
 type_mapper = MSSQLTypeMapper()
 
 
-def find_and_apply_additional_constraints(
-    conn: Connection, table: sqlalchemy.Table
-):
-
+def find_and_apply_additional_constraints(conn: Connection, table: sqlalchemy.Table):
     schema = table.schema
     if schema:
         schema = f"'${schema}'"
@@ -125,8 +120,9 @@ def find_and_apply_additional_constraints(
     )
 
     for row in tbl_con.rows:
-        table.constraints.add(
-            CheckConstraint(text(row[1]), name=row[0], table=table)
-        )
+        if row[1] is not None:
+            table.constraints.add(
+                CheckConstraint(text(row[1]), name=row[0], table=table)
+            )
 
     return []
