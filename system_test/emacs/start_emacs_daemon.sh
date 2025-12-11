@@ -13,6 +13,3 @@ fi
 # Start daemon and trim X11 warning on stderr
 emacs --daemon=$INST --init-directory "${EMD}"  2>&1 | grep -v -A 4 -B 1 "Warning: due to a long standing Gtk+ bug"
 
-# Load init.el
-emacsclient -s $INST -e "(load-file \"${EMD}/init.el\")"
-

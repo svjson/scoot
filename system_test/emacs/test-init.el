@@ -10,8 +10,6 @@
 
 ;; Make non-interactive
 
-(setq noninteractive t)
-
 
 ;; Install dependencies for scoot.el
 
@@ -98,7 +96,7 @@ FMT may be any of:
                                                    (format "\"%s\"" (symbol-name tn)))
                                                         test-names)
                                                 ", ")))
-      (t test-names))))
+      (_ test-names))))
 
 
 
@@ -144,7 +142,7 @@ BACKTRACE - control backtrace frame count.  nil/no argument excludes section."
         (no-backtrace (null backtrace))
         (infos (ert-test-result-with-condition-infos result)))
     (concat (scoot-test--format-result result)
-            (scoot-test--format-report-section "Error" (ert-test-result-with-condition-condition last-ert-result))
+            (scoot-test--format-report-section "Error" (ert-test-result-with-condition-condition result))
             (scoot-test--format-report-section "Backtrace"
                                                (let ((frames '())
                                                      (rest btrace))
@@ -212,7 +210,7 @@ Keys:
 (add-hook 'kill-emacs-hook #'scoot-test--cleanup-gpg)
 
 
-;; Export the PID of the emaces daemon so we can predictably kill it if it
+;; Export the PID of the emacs daemon so we can predictably kill it if it
 ;; refuses to exit gracefully.
 
 (with-temp-file (expand-file-name "proc.pid" user-emacs-directory)
