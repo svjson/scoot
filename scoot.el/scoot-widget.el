@@ -438,11 +438,14 @@ Examples:
     (delete-overlay ov))
   (when-let ((begin (plist-get widget :widget-start))
              (end (plist-get widget :widget-end)))
-    (delete-region begin end)))
+    (delete-region begin end))
+  (setq scoot--active-widgets (assq-delete-all (scoot-widget--make-identity (plist-get widget :type)
+                                                                            (plist-get widget :name))
+                                               scoot--active-widgets)))
 
 (defun scoot-widget--destroy-widgets! ()
   "Destroy all known Scoot widgets in the current buffer."
-  (dolist (widget-entry scoot--active-widgets)
+  (dolist (widget-entry (copy-sequence scoot--active-widgets))
     (scoot-widget--destroy-widget! (cdr widget-entry)))
   (setq-local scoot--active-widgets nil))
 
