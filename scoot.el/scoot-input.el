@@ -72,7 +72,7 @@
     (set-marker (plist-get input :widget-end) (point))))
 
 
-(cl-defun scoot-input--install-input! (&key begin end column type formatter record record-cell resize-hook remove-hook)
+(cl-defun scoot-input--install-input! (&key begin end column type formatter record record-cell meta resize-hook remove-hook)
   "Install an input spanning from BEGIN to END.
 
 FORMATTER will be used to format the value of RECORD according to its
@@ -98,6 +98,7 @@ removed, respectively."
         (plist-put widget :record-cell record-cell)
         (plist-put widget :contain-cursor t)
         (plist-put widget :data-type type)
+        (plist-put widget :meta meta)
 
         (plist-put widget :align (plist-get formatter :align))
         (plist-put widget :widget-min-width (- end begin))

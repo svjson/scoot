@@ -31,7 +31,7 @@
 
 ;; Edit string/varchar cell
 
-(ert-deftest scoot-table--cell-editing--edit-varchar-cell ()
+(ert-deftest scoot-table--cell-editing--varchar-cell ()
   ;; Given
   (let ((result-data (scoot-test--result-data
                       :data nexartrade-table--users--result-data
@@ -39,61 +39,94 @@
                       :rows [6 1])))
     (with-alphanum-keys
      (with-new-window-buffer
-      (scoot-table--insert-table! result-data t)
-      (should
-       (equal
-        (buffer-substring-no-properties (point-min) (point-max))
-        (string-join
-         '("+-------+------------+"
-           "| PK id | username   |"
-           "+-------+------------+"
-           "|     7 | barb_dwyer |"
-           "|     2 | ben_rangel |"
-           "+-------+------------+"
-           "")
-         "\n")))
+      (let ((table (scoot-table--insert-table! result-data t)))
+        (should
+         (equal
+          (scoot-widget--buffer-string table)
+          (string-join
+           '("+-------+------------+"
+             "| PK id | username   |"
+             "+-------+------------+"
+             "|     7 | barb_dwyer |"
+             "|     2 | ben_rangel |"
+             "+-------+------------+"
+             "")
+           "\n")))
 
-      (goto-char (point-min))
-      (scoot-table--move-to-last-row!)
-      (scoot-table--move-to-last-column)
+        ;; When - input content is edited
+        (scoot-test-table--edit-cell! table '(1 . 2) "ben_dover" t)
 
-      (message "%s" (scoot--props-at-point))
-      (call-interactively #'scoot-table--edit-cell)
+        ;; Then - table matches input
+        (should
+         (equal
+          (scoot-widget--buffer-string table)
+          (string-join
+           '("+-------+------------+"
+             "| PK id | username   |"
+             "+-------+------------+"
+             "|     7 | barb_dwyer |"
+             "|     2 | ben_dover  |"
+             "+-------+------------+"
+             "")
+           "\n")))
 
-      (should (bound-and-true-p scoot-input-mode))
+        ;; When - input is confirmed
+        (do-command #'scoot-input--confirm-edit)
 
-      (dotimes (_ 6)
-        (do-command #'delete-backward-char))
+        ;; Then - table shows content and modified marker
+        (should
+         (equal
+          (scoot-widget--buffer-string table)
+          (string-join
+           '("+-------+------------+"
+             "| PK id | username   |"
+             "+-------+------------+"
+             "|     7 | barb_dwyer |"
+             "|     2 |>ben_dover  |"
+             "+-------+------------+"
+             "")
+           "\n"))))))))
 
-      (interactively-self-insert-text "dover")
+(ert-deftest scoot-table--cell-editing--last-column--varchar--column-expansion ()
+  ;; Given
+  (let ((result-data (scoot-test--result-data
+                      :data nexartrade-table--users--result-data
+                      :columns ["id" "username"]
+                      :rows [6 1])))
+    (with-alphanum-keys
+     (with-new-window-buffer
+      (let ((table (scoot-table--insert-table! result-data t)))
+        (should
+         (equal
+          (scoot-widget--buffer-string table)
+          (string-join
+           '("+-------+------------+"
+             "| PK id | username   |"
+             "+-------+------------+"
+             "|     7 | barb_dwyer |"
+             "|     2 | ben_rangel |"
+             "+-------+------------+"
+             "")
+           "\n")))
 
-      (should
-       (equal
-        (buffer-substring-no-properties (point-min) (point-max))
-        (string-join
-         '("+-------+------------+"
-           "| PK id | username   |"
-           "+-------+------------+"
-           "|     7 | barb_dwyer |"
-           "|     2 | ben_dover  |"
-           "+-------+------------+"
-           "")
-         "\n")))
+        ;; When - a character is added
+        (scoot-test-table--move-to-cell! table '(1 . 2))
+        (scoot-table--edit-cell)
+        (interactively-self-insert-char ?s)
 
-      (do-command #'scoot-input--confirm-edit)
-
-      (should
-       (equal
-        (buffer-substring-no-properties (point-min) (point-max))
-        (string-join
-         '("+-------+------------+"
-           "| PK id | username   |"
-           "+-------+------------+"
-           "|     7 | barb_dwyer |"
-           "|     2 |>ben_dover  |"
-           "+-------+------------+"
-           "")
-         "\n")))))))
+        ;; Then - last column has been expanded by one
+        (should
+         (equal
+          (scoot-widget--buffer-string table)
+          (string-join
+           '("+-------+-------------+"
+             "| PK id | username    |"
+             "+-------+-------------+"
+             "|     7 | barb_dwyer  |"
+             "|     2 | ben_rangels |"
+             "+-------+-------------+"
+             "")
+           "\n"))))))))
 
 
 

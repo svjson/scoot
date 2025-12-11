@@ -40,75 +40,77 @@
      expected-align)
     (("column:id"
       (:eval 0)
-      (:quote (554 . 558))
-      (:quote (557 . 558))
+      (:quote (558 . 563))
+      (:quote (562 . 563))
       (:quote right))
      ("column:username"
       (:eval 1)
-      (:quote (561 . 577))
-      (:quote (561 . 577))
+      (:quote (566 . 582))
+      (:quote (566 . 582))
       (:quote left)))
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data t)
-   (goto-char (point-min))
-   (scoot-table--move-to-first-row!)
-   (dotimes (_ (1+ column-index))
-     (scoot-table--cell-right!))
+  (with-alphanum-keys
+   (with-new-window-buffer
+    ;; Given
+    (scoot-table--insert-table! nexartrade-table--users--result-data t)
+    (goto-char (point-min))
+    (scoot-table--move-to-first-row!)
+    (dotimes (_ (1+ column-index))
+      (scoot-table--cell-right!))
 
-   ;; When
-   (let ((input (scoot-table--edit-cell)))
-     (should input)
-     (should (equal (plist-get input :widget-start-line) 4))
-     (should (equal (plist-get input :align) expected-align))
-     (should (equal (scoot-widget--region input)
-                    expected-widget-region))
-     (should (equal (scoot-widget--editable-region input)
-                    expected-editable-region))
-     (should (plist-get input :contain-cursor)))))
+    ;; When
+    (let ((input (scoot-table--edit-cell)))
+      (should input)
+      (should (equal (plist-get input :widget-start-line) 4))
+      (should (equal (plist-get input :align) expected-align))
+      (should (equal (scoot-widget--region input)
+                     expected-widget-region))
+      (should (equal (scoot-widget--editable-region input)
+                     expected-editable-region))
+      (should (plist-get input :contain-cursor))))))
 
 
 ;; refresh-input
 
 (ert-parametrized-deftest scoot-table--scoot-input--refresh-input!--original-value
-    (cell-index)
+    (cell-coordinate)
     (("column:id--row:0"
       (:quote (0 . 0)))
      ("column:username--row:0"
       (:quote (1 . 0)))
      ("column:username--row:1"
       (:quote (1 . 1))))
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data t)
-   (goto-char (point-min))
-   (scoot-table--move-to-first-row!)
-   (dotimes (_ (1+ (car cell-index)))
-     (scoot-table--cell-right!))
-   (dotimes (_ (cdr cell-index))
-     (scoot-table--cell-down!))
+  (with-alphanum-keys
+   (with-new-window-buffer
+    ;; Given
+    (scoot-table--insert-table! nexartrade-table--users--result-data t)
+    (goto-char (point-min))
+    (scoot-table--move-to-first-row!)
+    (dotimes (_ (1+ (car cell-coordinate)))
+      (scoot-table--cell-right!))
+    (dotimes (_ (cdr cell-coordinate))
+      (scoot-table--cell-down!))
 
-   (let ((input (scoot-table--edit-cell))
-         expected-widget-region
-         expected-editable-region
-         expected-content)
-     (should input)
+    (let ((input (scoot-table--edit-cell))
+          expected-widget-region
+          expected-editable-region
+          expected-content)
+      (should input)
 
-     (setq expected-widget-region (scoot-widget--region input))
-     (setq expected-editable-region (scoot-widget--editable-region input))
-     (setq expected-content (scoot-widget--buffer-string input))
+      (setq expected-widget-region (scoot-widget--region input))
+      (setq expected-editable-region (scoot-widget--editable-region input))
+      (setq expected-content (scoot-widget--buffer-string input))
 
-     ;; When
-     (scoot-input--refresh-input!)
+      ;; When
+      (scoot-input--refresh-input!)
 
-     ;; Then
-     (should (equal (plist-get input :widget-start-line) (+ 4 (cdr cell-index))))
-     (should (equal (scoot-widget--region input)
-                    expected-widget-region))
-     (should (equal (scoot-widget--editable-region input)
-                    expected-editable-region))
-     (should (equal (scoot-widget--buffer-string input)
-                    expected-content)))))
+      ;; Then
+      (should (equal (plist-get input :widget-start-line) (+ 4 (cdr cell-coordinate))))
+      (should (equal (scoot-widget--region input)
+                     expected-widget-region))
+      (should (equal (scoot-widget--editable-region input)
+                     expected-editable-region))
+      (should (equal (scoot-widget--buffer-string input)
+                     expected-content))))))
 
 (ert-parametrized-deftest scoot-table--scoot-input--refresh-input!
     (column-index
@@ -119,86 +121,90 @@
     (("column:id--len-2"
       (:eval 0)
       (:eval "10")
-      (:quote (554 . 558))
-      (:quote (556 . 558))
+      (:quote (558 . 563))
+      (:quote (561 . 563))
       (:quote right))
      ("column:username--len-15"
       (:eval 1)
       (:eval "tom_atojuicesso")
-      (:quote (561 . 577))
-      (:quote (561 . 576))
+      (:quote (566 . 582))
+      (:quote (566 . 581))
       (:quote left))
      ("column:username--len-17"
       (:eval 1)
       (:eval "tom_atojuicesson2")
-      (:quote (561 . 578))
-      (:quote (561 . 578))
+      (:quote (566 . 583))
+      (:quote (566 . 583))
       (:quote left)))
-  (with-new-window-buffer
-   ;; Given
-   (scoot-table--insert-table! nexartrade-table--users--result-data t)
-   (goto-char (point-min))
-   (scoot-table--move-to-first-row!)
-   (dotimes (_ (1+ column-index))
-     (scoot-table--cell-right!))
+  (with-alphanum-keys
+   (with-new-window-buffer
+    ;; Given
+    (scoot-table--insert-table! nexartrade-table--users--result-data t)
+    (goto-char (point-min))
+    (scoot-table--move-to-first-row!)
+    (dotimes (_ (1+ column-index))
+      (scoot-table--cell-right!))
 
-   ;; When
-   (let ((input (scoot-table--edit-cell)))
-     (should input)
+    ;; When
+    (let ((input (scoot-table--edit-cell)))
+      (should input)
 
-     (with-scoot-widget-shadow-buffer input
-       (with-silent-modifications
-         (erase-buffer))
-       (insert new-value))
-     (scoot-input--refresh-input!)
+      (with-scoot-widget-shadow-buffer input
+        (with-silent-modifications
+          (erase-buffer))
+        (insert new-value))
+      (scoot-input--refresh-input!)
 
-     ;; Then
-     (should (equal (plist-get input :widget-start-line) 4))
-     (should (equal (plist-get input :align) expected-align))
-     (should (equal (scoot-widget--region input)
-                    expected-widget-region))
-     (should (equal (scoot-widget--editable-region input)
-                    expected-editable-region))
-     (should (plist-get input :contain-cursor)))))
+      ;; Then
+      (should (equal (plist-get input :widget-start-line) 4))
+      (should (equal (plist-get input :align) expected-align))
+      (should (equal (scoot-widget--region input)
+                     expected-widget-region))
+      (should (equal (scoot-widget--editable-region input)
+                     expected-editable-region))
+      (should (plist-get input :contain-cursor))))))
 
 
 
 ;; remove cell editor
 
 (ert-parametrized-deftest scoot-table--scoot-input--remove-cell-editor!
-    (cell-index
+    (cell-coordinate
      content-with-border)
     (("column:id--row:0"
       (:quote (0 . 0))
-      (:eval "|    1 |"))
+      (:eval "|     1 |"))
      ("column:username--row:0"
       (:quote (1 . 0))
       (:eval "| tom_atojuicesson |")))
-  (with-new-window-buffer
-   ;; Given
-   (let ((table (scoot-table--insert-table! nexartrade-table--users--result-data t)))
-     (goto-char (point-min))
-     (scoot-table--move-to-first-row!)
-     (dotimes (_ (1+ (car cell-index)))
-       (scoot-table--cell-right!))
-     (dotimes (_ (cdr cell-index))
-       (scoot-table--cell-down!))
+  (with-alphanum-keys
+   (with-new-window-buffer
+    ;; Given
+    (let ((table (scoot-table--insert-table! nexartrade-table--users--result-data t)))
+      (goto-char (point-min))
+      (scoot-table--move-to-first-row!)
+      (dotimes (_ (1+ (car cell-coordinate)))
+        (scoot-table--cell-right!))
+      (dotimes (_ (cdr cell-coordinate))
+        (scoot-table--cell-down!))
 
-     ;; When
-     (let* ((cell (scoot-table--cell-at-point))
-            (cell-bounds (cons (- (car (scoot-table--cell-begin)) 2)
-                               (+ (car (scoot-table--cell-end)) 3)))
-            (_precond (should (equal (buffer-substring-no-properties (car cell-bounds)
-                                                                    (cdr cell-bounds))
-                                    content-with-border)))
-            (input (scoot-table--edit-cell)))
-       (should input)
-       (scoot-table--remove-cell-editor! table input cell)
+      ;; When
+      (let* ((cell (scoot-table--cell-at-point))
+             (cell-bounds (scoot-table--cell-bounds))
+             (left-bounds (- (car (plist-get cell-bounds :begin)) 2))
+             (right-bounds (+ (car (plist-get cell-bounds :end)) 2))
+             (_precond (should (equal (buffer-substring-no-properties
+                                       left-bounds
+                                       right-bounds)
+                                      content-with-border)))
+             (input (scoot-table--edit-cell)))
+        (should input)
+        (scoot-table--remove-cell-editor! table input cell)
 
-       ;; Then
-       (should (equal (buffer-substring-no-properties (car cell-bounds)
-                                                      (cdr cell-bounds))
-                      content-with-border))))))
+        ;; Then
+        (should (equal (buffer-substring-no-properties left-bounds
+                                                       right-bounds)
+                       content-with-border)))))))
 
 
 

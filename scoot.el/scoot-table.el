@@ -281,9 +281,9 @@ result."
 
 ;; Table Rendering
 
-(defun scoot-table--insert-table-header (table)
+(defun scoot-table--insert-table-header! (table)
   "Insert result set header for widget TABLE."
-  (scoot-table--insert-divider-row table)
+  (scoot-table--insert-divider-row! table :top)
 
   (cl-mapc (lambda (header width)
              (insert (propertize "| "
@@ -315,9 +315,16 @@ result."
                       'face 'scoot-table-border-face))
   (insert "\n")
 
-  (scoot-table--insert-divider-row table))
+  (scoot-table--insert-divider-row! table :div))
 
-(defun scoot-table--insert-table-cell (record cell header width fmt column-index editablep)
+(defun scoot-table--insert-table-cell! (record
+                                        cell
+                                        header
+                                        width
+                                        fmt
+                                        column-index
+                                        row-index
+                                        editablep)
   "Insert the table cell CELL.
 
 Requires:
@@ -326,6 +333,7 @@ HEADER - The table model header description for the column.
 WIDTH - The table model width for the column.
 FMT - The formatter for this cell/column.
 COLUMN-INDEX - The column index.
+ROW-INDEX - The row index.
 EDITABLEP - Allow the cell to be edited, t/nil."
   (let* ((cell-start (point))
          (value (plist-get cell :value))
@@ -344,7 +352,8 @@ EDITABLEP - Allow the cell to be edited, t/nil."
                            'value value
                            'record-cell cell
                            'record record
-                           'cell-index column-index)))
+                           'row-index row-index
+                           'column-index column-index)))
     (if dirty-p
         (insert (propertize ">"
                             'thing 'table-cell
@@ -365,10 +374,11 @@ EDITABLEP - Allow the cell to be edited, t/nil."
     (insert " ")
     (add-text-properties cell-start (point) cell-props)))
 
-(defun scoot-table--insert-table-row (table record editablep)
+(defun scoot-table--insert-table-row! (table row-index record editablep)
   "Insert a table row containing RECORD.
 
 TABLE - The table widget being rendered
+ROW-INDEX - The row number in the table, zero-based.
 EDITABLEP - Signal if editing of the record is allowed."
   (let ((record-identity (scoot-table--record-identity record))
         (border (propertize
@@ -383,13 +393,14 @@ EDITABLEP - Signal if editing of the record is allowed."
              for index from 0
              do
              (insert border)
-             (scoot-table--insert-table-cell record
-                                             cell
-                                             header
-                                             width
-                                             fmt
-                                             index
-                                             editablep))
+             (scoot-table--insert-table-cell! record
+                                              cell
+                                              header
+                                              width
+                                              fmt
+                                              index
+                                              row-index
+                                              editablep))
     (insert border)
     (when-let* ((row-mark (scoot-table--get-row-mark table record-identity))
                 (type (and (overlayp row-mark) (overlay-get row-mark 'type))))
@@ -397,8 +408,8 @@ EDITABLEP - Signal if editing of the record is allowed."
     (insert "\n")))
 
 
-(defun scoot-table--insert-divider-row (table)
-  "Insert a horizontal table divider for TABLE."
+(defun scoot-table--insert-divider-row! (table role)
+  "Insert a horizontal table divider for TABLE with ROLE."
   (insert (propertize
            (concat "+-"
                    (mapconcat (lambda (w) (make-string w ?-))
@@ -406,6 +417,7 @@ EDITABLEP - Signal if editing of the record is allowed."
                               "-+-")
                    "-+\n")
            'thing 'table-border
+           'divider-role role
            'face 'scoot-table-border-face)))
 
 (defun scoot-table--insert-table! (result-data &optional editablep)
@@ -424,10 +436,12 @@ EDITABLEP - Signal if editing of the table data is to be allowed."
                                         (maphash (lambda (id _)
                                                    (scoot-table--remove-row-mark! table id))
                                               (plist-get table :row-marks))))
-        (scoot-table--insert-table-header widget)
-        (dolist (record (plist-get model :records))
-          (scoot-table--insert-table-row widget record editablep))
-        (scoot-table--insert-divider-row widget))))
+        (scoot-table--insert-table-header! widget)
+        (cl-loop for record in (plist-get model :records)
+                 for row-index from 0
+                 do
+                 (scoot-table--insert-table-row! widget row-index record editablep))
+        (scoot-table--insert-divider-row! widget :bottom))))
 
 
 
@@ -439,21 +453,46 @@ EDITABLEP - Signal if editing of the table data is to be allowed."
                                table-header
                                table-border)))
 
-(defun scoot-table--table-start ()
-  "Return the first point of the table in the buffer.
+(defun scoot-table--table-start (&optional table)
+  "Return the first point of TABLE or table at point  in the buffer.
 
 Returns the position in the format of (<point> . <line-number>)"
-  (save-excursion
-    (while (and (not (bobp)) (scoot-table--table-at-point-p))
-      (forward-line -1))
-    (goto-char (line-beginning-position))
-    (when (not (scoot-table--table-at-point-p))
-      (forward-line 1))
-    (cons (point) (line-number-at-pos))))
+  (when-let ((start-pos (plist-get (or table
+                                       (scoot-widget--at-point :type table))
+                                   :widget-start)))
+    (cons (marker-position start-pos) (line-number-at-pos start-pos))))
 
-(defun scoot-table--cell-at-point ()
-  "Return the result set table cell at point."
-  (let* ((props (scoot--props-at-point)))
+(defun scoot-table--table-width (table)
+  "Return the column width of TABLE."
+  (let ((column-widths (plist-get-in table :model :widths))
+        (border-width 1)
+        (padding 1))
+    (+ border-width
+       (* (+ border-width
+             (* 2 padding))
+          (length column-widths))
+       (apply #'+ column-widths))))
+
+(defun scoot-table--column-offset (table column-index)
+  "Return the column offset for COLUMN-INDEX in TABLE."
+  (let ((column-widths (plist-get-in table :model :widths)))
+    (+ 1
+       (apply #'+ (seq-take column-widths column-index))
+       (* 3 column-index))))
+
+(defun scoot-table--column-index-at-buffer-column (table &optional col-number)
+  "Get the column index for buffer COL-NUMBER in TABLE."
+  (let ((col-number (or col-number (current-column))))
+    (if (= col-number 0)
+        -1
+      (let ((column-index 0))
+        (while (> col-number (scoot-table--column-offset table column-index))
+          (setq column-index (1+ column-index)))
+        column-index))))
+
+(defun scoot-table--cell-at-point (&optional point)
+  "Return the result set table cell at POINT."
+  (let* ((props (scoot--props-at-point point)))
     (when (eq (alist-get 'thing props) 'table-cell)
       (list :type (alist-get 'thing props)
             :column (alist-get 'column-meta props)
@@ -461,36 +500,52 @@ Returns the position in the format of (<point> . <line-number>)"
             :record-cell (alist-get 'record-cell props)
             :record (alist-get 'record props)
             :formatter (alist-get 'formatter props)
-            :cell-index (alist-get 'cell-index props)
+            :row-index (alist-get 'row-index props)
+            :column-index (alist-get 'column-index props)
             :editablep (alist-get 'editablep props)))))
+
+(defun scoot-table--row-index-at-point ()
+  "Return the row index at point."
+  (plist-get (scoot-table--cell-at-point) :row-index))
 
 (defun scoot-table--row-at-point ()
   "Return the result set table row at point."
   (when (scoot-table--table-at-point-p)
     (alist-get 'table-row (scoot--props-at-point (line-beginning-position)))))
 
+(defun scoot-table--cell-bounds (&optional point)
+  "Return the cell bounds of the table cell at POINT."
+  (let* ((point (or point (point)))
+         (table (scoot-widget--at-point :point point))
+         (cell (scoot-table--cell-at-point point))
+         (column-index (or (plist-get cell :column-index)
+                           (scoot-table--column-index-at-buffer-column
+                            table
+                            (scoot--column-at-pos point))))
+         (column-offset (scoot-table--column-offset table column-index))
+         (cell-begin-point (scoot--pos-at-column
+                            point
+                            (1+ column-offset)))
+         (cell-end-point (scoot--pos-at-column
+                          point
+                          (+ 1
+                             column-offset
+                             (nth column-index
+                                  (plist-get-in table :model :widths))))))
+    (list :begin (cons cell-begin-point (line-number-at-pos cell-begin-point))
+          :end (cons cell-end-point (line-number-at-pos cell-end-point)))))
+
 (defun scoot-table--cell-begin (&optional point)
   "Find the location of the first char of the cell at POINT.
 
 Returns (<point> . <line-number>)."
-  (let ((p (or point (point))))
-    (when (scoot--thing-at-p p '(table-cell table-header))
-      (while (scoot--thing-at-p (1- p) '(table-cell table-header))
-        (setq p (1- p)))
-      (setq p (1+ p))
-      (cons p (line-number-at-pos p)))))
+  (plist-get (scoot-table--cell-bounds point) :begin))
 
 (defun scoot-table--cell-end (&optional point)
   "Find the location of the first char of the cell at POINT.
 
 Returns (<point> . <line-number>)."
-  (let ((p (or point (point))))
-    (when (scoot--thing-at-p p '(table-cell table-header))
-      (setq p (next-single-property-change p 'thing))
-      (when p
-        (setq p (- p (if (not (scoot--thing-at-p p '(table-cell table-header))) 2 1)))
-        (cons p (line-number-at-pos p))))))
-
+  (plist-get (scoot-table--cell-bounds point) :end))
 
 (defun scoot-table--next-cell (&optional point)
   "Find the location of the the next table-cell of the buffer.
@@ -526,10 +581,11 @@ buffer."
 
 (defun scoot-table--move-to-cell-value ()
   "Move the cursor to the align anchor of the cell value."
-  (if (or (equal (plist-get (alist-get 'formatter (scoot--props-at-point)) :align) 'left)
-          (not (car (assoc 'value (scoot--props-at-point)))))
-      (goto-char (or (car (scoot-table--cell-begin (point))) (point)))
-    (goto-char (or (car (scoot-table--cell-end (point))) (point)))))
+  (let ((cell (scoot-table--cell-at-point)))
+    (if (and (equal 'right (plist-get-in cell :formatter :align))
+             (plist-get cell :value))
+        (goto-char (1- (car (scoot-table--cell-end))))
+      (goto-char (car (scoot-table--cell-begin))))))
 
 (defun scoot-table--move-to-first-column ()
   "Move the cursor to the first column of the current row."
@@ -608,39 +664,56 @@ buffer."
 ;; Cell Editing
 
 (defun scoot-table--resize-column! (table column-index new-width)
-  "Resize column with index COLUMN-INDEX to NEW-WIDTH in TABLE."
+  "Resize column with index COLUMN-INDEX to NEW-WIDTH in TABLE.
+
+Widths are calculated excluding padding."
   (condition-case err
       (save-excursion
+        (goto-char (plist-get table :widget-start))
         (scoot-table--move-to-first-row!)
         (scoot-table--move-to-first-column)
         (dotimes (_ column-index)
           (scoot-table--cell-right!))
-        (goto-char (1+ (car (scoot-table--cell-end))))
+        (goto-char (car (scoot-table--cell-end)))
         (let* ((inhibit-read-only t)
+               (lcol (save-excursion
+                       (goto-char (car (scoot-table--cell-begin)))
+                       (current-column)))
                (rcol (current-column))
-               (current-width (- (car (scoot-table--cell-end))
-                                 (car (scoot-table--cell-begin))))
+               (min-width (apply #'min (mapcar #'length (scoot-table--column-values table column-index :value))))
+               (new-width (max min-width new-width))
+               (current-width (nth column-index (plist-get-in table :model :widths)))
                (diff (- new-width current-width))
                (input-lines (mapcar (lambda (w)
-                                      (line-number-at-pos (or (plist-get (cdr w) :widget-start) 1)))
-                                    scoot--active-widgets))
-               (model-col-width (nth column-index (plist-get-in table :model :widths))))
-          (setf (nth column-index (plist-get-in table :model :widths)) (+ model-col-width diff))
-          (forward-line -3)
-          (if (> diff 0)
+                                      (line-number-at-pos (plist-get w :widget-start)))
+                                    (seq-filter
+                                     (lambda (w)
+                                       (= column-index (plist-get-in w :meta :column-index)))
+                                     (scoot-widget--get-by-type 'input)))))
+          (when (/= 0 diff)
+            (setf (nth column-index (plist-get-in table :model :widths)) (+ current-width diff))
+            (goto-char (car (scoot-table--table-start)))
+            (cond
+             ((> diff 0)
               (dotimes (_ (+ 4 (length (plist-get-in table :model :records))))
-                (unless (member (line-number-at-pos (point)) input-lines)
+                (unless (member (line-number-at-pos) input-lines)
                   (move-to-column rcol)
+                  (let ((cell (scoot-table--cell-at-point)))
+                    (move-to-column (pcase (plist-get-in cell :formatter :align)
+                                      ('right lcol)
+                                      (_ rcol))))
                   (insert (string-join (make-list
                                         diff
                                         (buffer-substring (point) (1+ (point))))
                                        "")))
-                (forward-line 1))
-            (dotimes (_ (+ 4 (length (plist-get-in table :model :records))))
-              (unless (member (line-number-at-pos (point)) input-lines)
-                (move-to-column rcol)
-                (delete-region (- (point) diff) (point)))
-              (forward-line 1)))))
+                (forward-line 1)))
+
+             ((< diff 0)
+              (dotimes (_ (+ 4 (length (plist-get-in table :model :records))))
+                (unless (member (line-number-at-pos (point)) input-lines)
+                  (move-to-column rcol)
+                  (delete-region (- (point) diff) (point)))
+                (forward-line 1)))))))
     (error
      (message "Error while adjusting column size: %s - %s" (car err) (cdr err)))))
 
@@ -661,20 +734,21 @@ CELL is the cell summary of the cell under edit."
   (let* ((widget-start (marker-position (plist-get widget :widget-start)))
          (widget-end (marker-position (plist-get widget :widget-end)))
          (formatter (plist-get widget :formatter))
-         (cell-index (plist-get cell :cell-index))
+         (column-index (plist-get cell :column-index))
          (record (plist-get cell :record))
          (record-cell (plist-get cell :record-cell))
          (identity (scoot-table--record-identity record))
          (inhibit-read-only t))
     (delete-region (1- widget-start) (+ 1 widget-end))
     (goto-char (1- widget-start))
-    (scoot-table--insert-table-cell record
-                                    record-cell
-                                    (nth cell-index (plist-get-in table :model :headers))
-                                    (nth cell-index (plist-get-in table :model :widths))
-                                    formatter
-                                    cell-index
-                                    t)
+    (scoot-table--insert-table-cell! record
+                                     record-cell
+                                     (nth column-index (plist-get-in table :model :headers))
+                                     (nth column-index (plist-get-in table :model :widths))
+                                     formatter
+                                     column-index
+                                     (plist-get-in widget :meta :row-index)
+                                     t)
     (goto-char (+ widget-start (length (plist-get record-cell :formatted-value))))
     (scoot-table-mode 1)
     (if (scoot-table--record-modified-p record)
@@ -689,15 +763,17 @@ CELL is the cell summary of the cell under edit."
       (if (plist-get cell :editablep)
           (let ((input (scoot-input--install-input!
                         :begin (car (scoot-table--cell-begin))
-                        :end (1+ (car (scoot-table--cell-end)))
+                        :end (car (scoot-table--cell-end))
                         :column (plist-get cell :column)
                         :type (alist-get 'typespec (plist-get cell :column))
                         :formatter (get-text-property (point) 'formatter)
                         :record-cell (plist-get cell :record-cell)
                         :record (plist-get cell :record)
+                        :meta (list :row-index (plist-get cell :row-index)
+                                    :column-index (plist-get cell :column-index))
                         :resize-hook (lambda (new-width)
                                        (scoot-table--edit-cell-resize-hook
-                                        table (plist-get cell :cell-index) new-width))
+                                        table (plist-get cell :column-index) new-width))
                         :remove-hook (lambda (widget)
                                        (scoot-table--remove-cell-editor! table widget cell)))))
             (scoot-table-mode -1)
@@ -843,7 +919,7 @@ Returns t if a row mark was removed."
           (when scoot-table--cell-overlay
             (delete-overlay scoot-table--cell-overlay))
           (setq scoot-table--cell-overlay (make-overlay (car (scoot-table--cell-begin (point)))
-                                                        (1+ (car (scoot-table--cell-end (point))))))
+                                                        (car (scoot-table--cell-end (point)))))
           (overlay-put scoot-table--cell-overlay
                        'face 'scoot-table-active-cell-face)))
     (when scoot-table--cell-overlay

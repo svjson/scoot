@@ -317,6 +317,19 @@ The term \"position\" refers to the plist format of:
     (move-to-column (min (plist-get pos :col) (- (line-end-position) (line-beginning-position))))
     (point)))
 
+(defun scoot--pos-at-column (line-at-point column)
+  "Get the buffer position of COLUMN at the line containing LINE-AT-POINT."
+  (save-excursion
+    (goto-char line-at-point)
+    (move-to-column column)
+    (point)))
+
+(defun scoot--column-at-pos (pos)
+  "Get the buffer column at point POS."
+  (save-excursion
+    (goto-char pos)
+    (current-column)))
+
 (defun scoot--save-cursor (&optional var-name)
   "Save the current cursor position.
 

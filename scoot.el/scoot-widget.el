@@ -420,6 +420,13 @@ Examples:
                              (scoot-widget--make-identity type name))))
     (alist-get widget-identity scoot--active-widgets)))
 
+(defun scoot-widget--get-by-type (type)
+  "Get widgets of TYPE in the current buffer."
+  (mapcar #'cdr (seq-filter (lambda (entry)
+                              (equal type (plist-get (cdr entry) :type)))
+                            scoot--active-widgets)))
+
+
 (defun scoot-widget--get-widget-config (widget-type widget-name)
   "Get the widget config for widget identified by WIDGET-TYPE and WIDGET-NAME."
   (let ((widget-identity (scoot-widget--make-identity widget-type

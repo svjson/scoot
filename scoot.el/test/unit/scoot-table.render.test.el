@@ -29,33 +29,34 @@
 (require 'scoot-nexartrade-fixtures)
 (require 'ert)
 
+
 
 ;; scoot-table--insert-table!
 
 (ert-deftest scoot-table--insert-table!--table-from-result-data ()
   ;; Given
   (let ((result-data '((columns . ["RentalObjectCode" "Status"])
-                        (rows . [["705-021-99-0008" 3]
-                                 ["900-001-01-0001" 2]
-                                 ["100-009-18-0024" 3]])
-                        (metadata
-                         (columns
-                          . [((name . "RentalObjectCode") (type . "STRING")
-                              (typespec (type . "STRING") (max-len . 255)
-                                        (encoding . "utf-8")
-                                        (collation (locale . "Finnish_Swedish")
-                                                   (case-sensitive . :json-false)
-                                                   (accent-sensitive . t))
-                                        (lob . :json-false))
-                              (native_type . "nvarchar(255) COLLATE Finnish_Swedish_CI_AS")
-                              (nullable . :json-false) (primary_key . :json-false) (default)
-                              (table . "Listing") (column . "RentalObjectCode")
-                              (constraints . []))
-                             ((name . "Status") (type . "INTEGER")
-                              (typespec (type . "INTEGER") (bits . 64) (signed . t))
-                              (native_type . "int") (nullable . :json-false)
-                              (primary_key . :json-false) (default) (table . "Listing")
-                              (column . "Status") (constraints . []))])))))
+                       (rows . [["705-021-99-0008" 3]
+                                ["900-001-01-0001" 2]
+                                ["100-009-18-0024" 3]])
+                       (metadata
+                        (columns
+                         . [((name . "RentalObjectCode") (type . "STRING")
+                             (typespec (type . "STRING") (max-len . 255)
+                                       (encoding . "utf-8")
+                                       (collation (locale . "Finnish_Swedish")
+                                                  (case-sensitive . :json-false)
+                                                  (accent-sensitive . t))
+                                       (lob . :json-false))
+                             (native_type . "nvarchar(255) COLLATE Finnish_Swedish_CI_AS")
+                             (nullable . :json-false) (primary_key . :json-false) (default)
+                             (table . "Listing") (column . "RentalObjectCode")
+                             (constraints . []))
+                            ((name . "Status") (type . "INTEGER")
+                             (typespec (type . "INTEGER") (bits . 64) (signed . t))
+                             (native_type . "int") (nullable . :json-false)
+                             (primary_key . :json-false) (default) (table . "Listing")
+                             (column . "Status") (constraints . []))])))))
 
     (with-new-window-buffer
      (insert "\n\n")
