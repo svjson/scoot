@@ -47,11 +47,6 @@
 (declare-function which-key-add-keymap-based-replacements nil)
 (declare-function which-key-add-key-based-replacements nil)
 
-(declare-function scoot-describe-table "scoot")
-(declare-function scoot-list-databases "scoot")
-(declare-function scoot-list-schemas "scoot")
-(declare-function scoot-list-tables "scoot")
-
 
 
 ;; Customization Options
@@ -294,7 +289,6 @@ FORCE-NEW-BUFFER - Force the creation of a new buffer if a buffer with
          (buf (progn
                 (when-let ((force-new-buffer force-new-buffer)
                            (existing-buf (get-buffer buf-name)))
-                  (message "Killing existing buffer %s" existing-buf)
                   (kill-buffer existing-buf))
                 (get-buffer-create (or buf-name scoot-resultset-buffer-default-name)))))
     (with-current-buffer buf
@@ -509,10 +503,6 @@ OP is either `add or `remove."
 (defvar scoot-resultset-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map scoot-buffer-mode-map)
-    (define-key map (kbd "C-c s d") #'scoot-list-databases)
-    (define-key map (kbd "C-c s s") #'scoot-list-schemas)
-    (define-key map (kbd "C-c s t") #'scoot-list-tables)
-    (define-key map (kbd "C-c d t") #'scoot-describe-table)
     (define-key map (kbd "C-c C-c") #'scoot-rs--execute-query)
     (define-key map (kbd "C-t") #'scoot-table--move-to-first-row!)
     (define-key map (kbd "a") (scoot-rs--add-or-remove-prefix-map 'add))

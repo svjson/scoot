@@ -33,6 +33,15 @@
 
 
 
+;; Forward declarations
+
+(declare-function scoot-describe-table "scoot")
+(declare-function scoot-list-databases "scoot")
+(declare-function scoot-list-schemas "scoot")
+(declare-function scoot-list-tables "scoot")
+
+
+
 ;; Local Variables
 
 (defvar-local scoot-buffer-connection nil
@@ -305,6 +314,10 @@ falsy values will enforce `read-only-mode` and scoot invariants thereof."
     (define-key map (kbd "h") #'describe-mode)
     (define-key map (kbd "?") #'describe-mode)
     (define-key map (kbd "TAB") #'scoot-buffer-toggle-outline)
+    (define-key map (kbd "C-c s d") #'scoot-list-databases)
+    (define-key map (kbd "C-c s s") #'scoot-list-schemas)
+    (define-key map (kbd "C-c s t") #'scoot-list-tables)
+    (define-key map (kbd "C-c d t") #'scoot-describe-table)
     map)
   "Base keymap for modes dervied from `scoot-buffer-mode`.")
 

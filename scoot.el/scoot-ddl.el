@@ -29,15 +29,6 @@
 
 
 
-;; Forward declarations
-
-(declare-function scoot-describe-table "scoot")
-(declare-function scoot-list-databases "scoot")
-(declare-function scoot-list-schemas "scoot")
-(declare-function scoot-list-tables "scoot")
-
-
-
 ;; Local Variables
 
 (defvar-local scoot-ddl--result-context nil
@@ -155,10 +146,6 @@ Optionally re-uses a scoot-ddl-mode buffer if SAME-BUFFER is non-nil."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map scoot-buffer-mode-map)
     (define-key map (kbd "e") #'scoot-ddl-edit-table)
-    (define-key map (kbd "C-c s d") #'scoot-list-databases)
-    (define-key map (kbd "C-c s s") #'scoot-list-schemas)
-    (define-key map (kbd "C-c s t") #'scoot-list-tables)
-    (define-key map (kbd "C-c d t") #'scoot-describe-table)
     map)
   "Keymap for `scoot-ddl-mode`.")
 
@@ -179,10 +166,6 @@ Optionally re-uses a scoot-ddl-mode buffer if SAME-BUFFER is non-nil."
 (defvar scoot-ddl-edit-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map scoot-buffer-mode-map)
-    (define-key map (kbd "C-c s d") #'scoot-list-databases)
-    (define-key map (kbd "C-c s s") #'scoot-list-schemas)
-    (define-key map (kbd "C-c s t") #'scoot-list-tables)
-    (define-key map (kbd "C-c d t") #'scoot-describe-table)
     map)
   "Keymap for `scoot-ddl-mode`.")
 
