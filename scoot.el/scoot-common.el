@@ -191,17 +191,14 @@ KEYS is the plist key path to follow."
     (let ((name (match-string 1 str)))
       name)))
 
+
 
 ;; Buffer inspection and navigation utilities
 
-(defun scoot--props-at (pt)
-  "Return `text-properties` at PT as an alist."
-  (let* ((text-props (text-properties-at pt)))
+(defun scoot--props-at-point (&optional point)
+  "Return `text-properties` at POINT as an alist."
+  (let* ((text-props (text-properties-at (or point (point)))))
     (cl-loop for (prop val) on text-props by #'cddr collect (cons prop val))))
-
-(defun scoot--props-at-point ()
-  "Return `text-properties` at point as an alist."
-  (scoot--props-at (point)))
 
 (defun scoot--object-name-at-point ()
   "Test the `thing-at-point`, if any, for a valid SQL identifier and return it."
@@ -212,15 +209,14 @@ KEYS is the plist key path to follow."
 (defun scoot--thing-at-p (point thing)
   "Test the scoot `thing` prop at POINT for equality withn THING."
   (if (sequencep thing)
-      (member (alist-get 'thing (scoot--props-at point)) thing)
-    (equal thing (alist-get 'thing (scoot--props-at point)))))
+      (member (alist-get 'thing (scoot--props-at-point point)) thing)
+    (equal thing (alist-get 'thing (scoot--props-at-point point)))))
 
 (defun scoot--thing-at (&optional point)
   "Get the scoot-thing text-property at POINT.
 
 The value of (point) will be used if POINT is not provided."
-  (let ((p (or point (point))))
-    (alist-get 'thing (scoot--props-at p))))
+  (alist-get 'thing (scoot--props-at-point point)))
 
 (defun scoot--scan-property-with-value (forward-p opt prop value limit)
   "Scan for the next position where PROP has VALUE.

@@ -452,7 +452,7 @@ Returns the position in the format of (<point> . <line-number>)"
 (defun scoot-table--row-at-point ()
   "Return the result set table row at point."
   (when (scoot-table--table-at-point-p)
-    (alist-get 'table-row (scoot--props-at (line-beginning-position)))))
+    (alist-get 'table-row (scoot--props-at-point (line-beginning-position)))))
 
 (defun scoot-table--cell-begin (&optional point)
   "Find the location of the first char of the cell at POINT.

@@ -160,7 +160,7 @@ For subsequent updates/refreshes of the query block, call
 
 (defun scoot-qb--query-block-at-p (pt)
   "Return non-nil if point PT is inside the query block."
-  (eq (alist-get 'thing (scoot--props-at pt)) 'query-block))
+  (eq (alist-get 'thing (scoot--props-at-point pt)) 'query-block))
 
 (defun scoot-qb--query-block-at-point-p ()
   "Return non-nil if the cursor is inside the query block."

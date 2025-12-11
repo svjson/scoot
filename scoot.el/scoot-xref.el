@@ -199,7 +199,7 @@ EXPRL is expected to be a list of plists."
                                       (intern))
                                   point
                                   xref-target
-                                  (scoot--props-at point))))
+                                  (scoot--props-at-point point))))
 
 (defun scoot-xref--find-buffer-location (buf xref-target)
   "Find the location of XREF-TARGET in BUF."

@@ -248,7 +248,7 @@ BODY is the elisp code to execute once the query buffer has been opened."
         (while (and (<= (point) (cdr cell-region))
                     (equal " " (buffer-substring-no-properties (point) (1+ (point)))))
           (forward-char 1))
-        (let ((props (scoot--props-at (point))))
+        (let ((props (scoot--props-at-point)))
           (list :column (alist-get 'name (alist-get 'column-meta props))
                 :value (alist-get 'value props)
                 :cell-content content
