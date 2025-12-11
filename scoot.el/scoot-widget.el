@@ -502,8 +502,13 @@ Examples:
 
 WIDGET-TYPE and WIDGET-NAME are used to identify the config of the
 widget that a command is being performed on."
-  (let ((widget (scoot-widget--get-widget :type widget-type
-                                          :name widget-name)))
+  (let* ((widget (scoot-widget--get-widget :type widget-type
+                                           :name widget-name))
+         (widget-post-command-hook (plist-get widget :post-command-hook)))
+    ;; Due to a bug where cursor-sensor--detect wipes local post-command-hooks
+    ;; we need to re-attach it at this point.
+    (unless (memq widget-post-command-hook post-command-hook)
+      (add-hook 'post-command-hook widget-post-command-hook nil t))
     (setq-local scoot--pre-command-point (point))
     (with-scoot-widget-shadow-buffer widget
       (setq-local scoot--pre-command-point (point)))
@@ -652,7 +657,7 @@ command, with arguments in ARGS."
 (declare-function scoot-table--table-at-point-p "scoot-query-table")
 (declare-function scoot-table-mode "scoot-table")
 
- (defun scoot-widget--detect-widget ()
+(defun scoot-widget--detect-widget ()
   "Check cursor position and handle query block activation/deactivation."
   (if (scoot-qb--query-block-at-point-p)
       (unless (bound-and-true-p scoot-query-block-mode) (scoot-query-block-mode 1))
