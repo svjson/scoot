@@ -144,12 +144,22 @@ will be used to compute the column-width of tabs"
 (defun scoot--plist-get-in (plist &rest keys)
   "Get value by key path from nested plists.
 
-PLIST is the other list.
+PLIST is the root plist.
 KEYS is the plist key path to follow."
   (let ((val plist))
     (dolist (k keys)
       (setq val (plist-get val k)))
     val))
+
+(defun scoot--plist-put-in (plist keys value)
+  "Put value key path in nested plists.
+
+PLIST is the root plist.
+KEYS is a list containing the plist key path to follow.
+VALUE is the value to set under the last key of KEYS in the
+innermost plist."
+  (let ((target (apply #'scoot--plist-get-in plist (butlast keys))))
+    (plist-put target (car (last keys)) value)))
 
 (defun scoot--plist-merge (plist1 plist2)
   "Merge PLIST1 and PLIST2. Values from PLIST2 take precedence."

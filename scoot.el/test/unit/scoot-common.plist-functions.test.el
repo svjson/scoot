@@ -60,6 +60,28 @@
                  expected)))
 
 
+;; scoot--plist-put-in
+
+(ert-parametrized-deftest scoot--plist-put-in
+    (plist path value expected)
+    (("put-new-key-into-nested"
+      (:quote (:key-a (:key-b "value-1")))
+      (:quote (:key-a :key-c))
+      (:eval "value-2")
+      (:quote (:key-a (:key-b "value-1" :key-c "value-2"))))
+     ("put-new-key-at-root"
+      (:quote (:key-a "value-1"))
+      (:quote (:key-b))
+      (:eval "value-2")
+      (:quote (:key-a "value-1" :key-b "value-2"))))
+
+  ;; When
+  (scoot--plist-put-in plist path value)
+
+  ;; Then
+  (should (equal plist expected)))
+
+
 ;; scoot--plist-select-keys
 
 (ert-deftest scoot--plist-select-keys--cherry-picking-existing-keys ()

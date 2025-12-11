@@ -1,5 +1,5 @@
 ;;; scoot-table.el --- summary -*- lexical-binding: t -*-
-;; -*- read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in")) -*-
+;; -*- read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in") ("plist-put-in" . "scoot--plist-put-in") -*-
 
 ;; Copyright (C) 2025 Sven Johansson
 
@@ -844,7 +844,8 @@ Returns t if a row mark was removed."
 
 ;;; scoot-table.el ends here
 ;; Local Variables:
-;; read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in"))
+;; read-symbol-shorthands: (("plist-get-in" . "scoot--plist-get-in")
+;;                          ("plist-put-in" . "scoot--plist-put-in"))
 ;; End:
 
 
