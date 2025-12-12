@@ -1,9 +1,10 @@
 import re
-from functools import wraps
 import traceback
+from functools import wraps
 
 from sqlalchemy import exc
 
+from scoot_core.config import PRINT_STACKTRACES
 from scoot_core.exceptions import ScootQueryException
 
 
@@ -16,7 +17,6 @@ def handler_generic(func):
 
 
 def handler_pyodbc(func):
-
     def extract_sql_message(exc):
         if len(exc.args) > 1:
             message = exc.args[1]
@@ -34,7 +34,8 @@ def handler_pyodbc(func):
             return func(*args, **kwargs)
         except exc.ProgrammingError as pe:
             if isinstance(pe.__cause__, pyodbc.ProgrammingError):
-                traceback.print_exc()
+                if PRINT_STACKTRACES:
+                    traceback.print_exc()
                 root_exc: pyodbc.ProgrammingError = pe.__cause__
                 raise ScootQueryException(extract_sql_message(root_exc))
             else:

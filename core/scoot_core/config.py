@@ -9,6 +9,7 @@ default_config_name: Annotated[
 ] = "scoot_default"
 
 is_server = False
+PRINT_STACKTRACES = False
 
 SCOOT_USER_DIR = Path.home() / ".scoot"
 
@@ -32,7 +33,6 @@ def _load_config_file(path: Path) -> dict:
 
 
 class Context:
-
     def __init__(self, name: str, config: dict):
         self.name = name
         self.connections: dict[str, dict[str, Any]] = config.get("connections", {})

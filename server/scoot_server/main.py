@@ -1,10 +1,13 @@
 import argparse
 
-from scoot_server import server
 from scoot_core import config
+
+from scoot_server import server
 
 
 def main():
+    config.PRINT_STACKTRACES = True
+
     parser = argparse.ArgumentParser(prog="scoot-server", add_help=True)
     parser.add_argument("-p", help="Server port", required=False)
     parser.add_argument("-c", help="Server configuration name", required=False)
