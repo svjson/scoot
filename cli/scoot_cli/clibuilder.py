@@ -45,7 +45,6 @@ class BaseBuilder:
 
 
 class VerbBuilder(BaseBuilder):
-
     def __init__(self, verb: str, **kwargs):
         super().__init__(verb, **kwargs)
         self.arguments = []
@@ -103,14 +102,11 @@ class ResourceBuilder(BaseBuilder):
 
 
 class ScootCLI:
-
     def __init__(self):
         self.parser = ArgumentParser(prog="scoot")
         self.subparsers = self.parser.add_subparsers(dest="resource", required=True)
         self.connarg_parser = _make_connection_args_parser()
-        self.preparser = ArgumentParser(
-            parents=[self.connarg_parser], add_help=False
-        )
+        self.preparser = ArgumentParser(parents=[self.connarg_parser], add_help=False)
         self._resources: dict[str, ResourceBuilder] = {}
         self._verbs: dict[str, VerbBuilder] = {}
 
@@ -155,6 +151,8 @@ class ScootCLI:
         next = None
         if hasattr(args, "resource"):
             next = self._resources.get(args.resource, None)
+            if next is None:
+                next = self._verbs.get(args.resource, None)
 
         if next is None:
             return ctx
@@ -166,9 +164,7 @@ class ScootCLI:
         return next or ctx
 
     def parse(self) -> Tuple[Namespace, CommandHandler | None, bool]:
-        preparser_sub = self.preparser.add_subparsers(
-            dest="resource", required=True
-        )
+        preparser_sub = self.preparser.add_subparsers(dest="resource", required=True)
         self._build_parser(preparser_sub, require_verb=False)
         verb = self._resolve_verb(self.preparser.parse_known_args())
         glob_args, remaining = self.connarg_parser.parse_known_args()

@@ -1,7 +1,8 @@
 from types import FunctionType, LambdaType
+
+from scoot_core import OperationEnv, config
 from scoot_core.connection import Connection
-from scoot_core import config
-from scoot_core import OperationEnv
+from scoot_core.exceptions import ScootError, ScootQueryException
 
 from . import commands
 from .clibuilder import ScootCLI, require
@@ -9,14 +10,10 @@ from .clibuilder import ScootCLI, require
 
 def define_db(scoot: ScootCLI):
     # Resource - db
-    db = (
-        scoot.resource("db").require_connection().description("Database operations")
-    )
+    db = scoot.resource("db").require_connection().description("Database operations")
 
     # Verb - list
-    db.verb("list").command(
-        lambda op_env, _: commands.list_databases(require(op_env))
-    )
+    db.verb("list").command(lambda op_env, _: commands.list_databases(require(op_env)))
 
 
 def define_connection(scoot: ScootCLI):
@@ -55,9 +52,9 @@ def define_context(scoot: ScootCLI):
 
 def define_query(scoot: ScootCLI):
     # Verb - query
-    scoot.verb("query").require_connection().description(
-        "Query execution"
-    ).argument("sql", "The SQL query to execute").option("-o").command(
+    scoot.verb("query").require_connection().description("Query execution").argument(
+        "sql", "The SQL query to execute"
+    ).option("-o").command(
         lambda op_env, args: commands.execute_query(
             require(op_env), args.sql, **{"output_format": args.o}
         )
@@ -67,9 +64,7 @@ def define_query(scoot: ScootCLI):
 def define_schema(scoot: ScootCLI):
     # Resource - schema
     schema = (
-        scoot.resource("schema")
-        .require_connection()
-        .description("Schema operations")
+        scoot.resource("schema").require_connection().description("Schema operations")
     )
 
     # Verb - list
@@ -80,14 +75,10 @@ def define_schema(scoot: ScootCLI):
 
 def define_table(scoot: ScootCLI):
     # Resource - table
-    table = (
-        scoot.resource("table").require_connection().description("Table operations")
-    )
+    table = scoot.resource("table").require_connection().description("Table operations")
 
     # Verb - list
-    table.verb("list").command(
-        lambda op_env, _: commands.list_tables(require(op_env))
-    )
+    table.verb("list").command(lambda op_env, _: commands.list_tables(require(op_env)))
 
     # Verb - describe
     table.verb("describe").argument("table_name").option("-o").command(

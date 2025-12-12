@@ -7,7 +7,6 @@ from .run_scoot_cli import ScootCli
 
 def test_table_list__nexartrade__c_arg_last(fake_home_env, db_backend: BackendService):
     result = ScootCli(fake_home_env).run("table list -c nexartrade")
-    print(result.stdout)
     assert (
         result.stdout
         == dedent(
