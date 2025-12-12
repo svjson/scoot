@@ -148,7 +148,13 @@ def main():
     op_env = make_operation_env(scoot, args, requires_conn)
 
     if command:
-        command(op_env, args)
+        try:
+            command(op_env, args)
+        except Exception as e:
+            if isinstance(e, ScootError):
+                print(f"Error: {e.message}")
+            else:
+                print(f"Error: {e}")
 
 
 if __name__ == "__main__":
