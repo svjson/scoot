@@ -27,7 +27,7 @@ schemas:
           - name: is_active
             type: boolean
             default: true
-    
+
       - name: products
         description: "Products available for purchase."
         columns:
@@ -52,7 +52,7 @@ schemas:
           - name: created_at
             type: timestamp
             default: current_timestamp
-    
+
       - name: orders
         description: "Order records with references to users and products."
         columns:
@@ -77,7 +77,7 @@ schemas:
           - name: created_at
             type: timestamp
             default: current_timestamp
-    
+
       - name: order_items
         description: "Line items for orders, with product references."
         columns:
@@ -100,4 +100,4 @@ schemas:
           - name: total_price
             type: decimal(10, 2)
             check: "total_price >= 0"
-    
+

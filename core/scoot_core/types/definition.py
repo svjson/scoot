@@ -1,11 +1,15 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any, override
+
+from sqlalchemy import types as sqatypes
+
+from scoot_core.types.convertible import SqlAlchemyTypeConvertible
 
 SIGNED = True
 UNSIGNED = False
 
 
-class Type:
+class Type(ABC):
     """Base class for all types.
 
     This class hierarchy is used to define the types of a DBS, and their specifics.
@@ -16,14 +20,23 @@ class Type:
     applications, such as scoot.el, where it provides editing capabilities with
     the information required to enforce type correctness."""
 
-    def __init__(self, *, sqltype: str | None = None):
+    def __init__(self, *, sqltype: str | None = None, source_type: Any | None = None):
         self.sqltype = sqltype
+        self.source_type = source_type
 
     @abstractmethod
     def to_dict(self) -> dict[str, Any]:
-        pass
+        raise NotImplementedError
 
-    @override
+    @abstractmethod
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        raise NotImplementedError
+
+    def to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        if self.source_type and isinstance(self.source_type, SqlAlchemyTypeConvertible):
+            return self.source_type.to_sqlalchemy_type()
+        return self._to_sqlalchemy_type()
+
     def __str__(self) -> str:
         return str(self.to_dict())
 
@@ -38,11 +51,16 @@ class Boolean(Type):
         true_literals: list[str] | None = None,
         false_literals: list[str] | None = None,
         sqltype: str | None = None,
+        source_type=None,
     ):
-        super().__init__(sqltype=sqltype)
+        super().__init__(sqltype=sqltype, source_type=source_type)
         self.notation = notation
         self.true_literals = true_literals
         self.false_literals = false_literals
+
+    @override
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        return sqatypes.Boolean()
 
     @override
     def to_dict(self):
@@ -57,10 +75,21 @@ class Boolean(Type):
 class Integer(Type):
     """Represents an integer type."""
 
-    def __init__(self, bits: int, signed: bool, *, sqltype: str | None = None):
-        super().__init__(sqltype=sqltype)
+    def __init__(
+        self,
+        bits: int | None,
+        signed: bool,
+        *,
+        sqltype: str | None = None,
+        source_type=None,
+    ):
+        super().__init__(sqltype=sqltype, source_type=source_type)
         self.bits = bits
         self.signed = signed
+
+    @override
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        return sqatypes.Integer()
 
     @override
     def to_dict(self):
@@ -87,10 +116,15 @@ class Decimal(Type):
         scale: int | None,
         *,
         sqltype: str | None = None,
+        source_type=None,
     ):
-        super().__init__(sqltype=sqltype)
+        super().__init__(sqltype=sqltype, source_type=source_type)
         self.precision = precision
         self.scale = scale
+
+    @override
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        return sqatypes.DECIMAL(precision=self.precision, scale=self.scale)
 
     @override
     def to_dict(self):
@@ -137,18 +171,31 @@ class String(Type):
 
     def __init__(
         self,
-        max_len: int | None,
-        encoding: str,
-        collation: Collation | None,
+        max_len: int | None = None,
+        encoding: str | None = None,
+        collation: Collation | None = None,
         *,
         lob: bool = False,
         sqltype: str | None = None,
+        source_type=None,
     ):
-        super().__init__(sqltype=sqltype)
+        super().__init__(sqltype=sqltype, source_type=source_type)
         self.max_len = max_len
         self.encoding = encoding
         self.collation = collation
         self.lob = lob
+
+    @override
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        if self.max_len is None or self.lob:
+            return sqatypes.Text(
+                collation=self.collation.locale if self.collation else None
+            )
+        else:
+            return sqatypes.String(
+                length=self.max_len,
+                collation=self.collation.locale if self.collation else None,
+            )
 
     @override
     def to_dict(self):
@@ -215,6 +262,9 @@ class Time:
         return Time(
             clock=self.clock,
             timezone=self.timezone.clone() if self.timezone else None,
+            fsp=self.fsp,
+            precision=self.precision,
+            scale=self.scale,
         )
 
     def to_dict(self):
@@ -245,11 +295,24 @@ class Temporal(Type):
         date: Date | None = None,
         time: Time | None = None,
         sqltype: str | None = None,
+        source_type=None,
     ):
-        super().__init__(sqltype=sqltype)
+        super().__init__(sqltype=sqltype, source_type=source_type)
         self.date = date
         self.time = time
 
+    @override
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        if self.date and not self.time:
+            return sqatypes.Date()
+        elif self.time and not self.date:
+            return sqatypes.Time(timezone=bool(self.time.timezone))
+        elif self.date and self.time:
+            return sqatypes.DateTime(timezone=bool(self.time.timezone))
+        else:
+            raise ValueError("Temporal type must have either date or time component.")
+
+    @override
     def to_dict(self):
         return {
             "type": "TEMPORAL",

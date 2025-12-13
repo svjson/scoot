@@ -5,9 +5,9 @@ import sqlalchemy
 from sqlalchemy.sql.type_api import TypeEngine
 from sqlglot import exp
 
-from . import mssql, mysql, oracle, postgres
 from .. import types
 from ..connection import Connection
+from . import mssql, mysql, oracle, postgres
 from .sqlglot import sqlglot_dialect
 
 _dialect_module: dict[str, ModuleType] = {
@@ -30,16 +30,13 @@ def resolve_type(
     dialect: str,
     type: types.TypeAdapter | TypeEngine | exp.DataType | exp.ColumnDef,
 ) -> tuple[Optional[types.Type], Optional[str], Optional[str]]:
-
     module = _module(dialect)
     return module.type_mapper.resolve_type(
-        types.TypeAdapter.get_instance(type, sqlglot_dialect(dialect))
+        types.type_adapter(type, sqlglot_dialect(dialect))
     )
 
 
-def find_and_apply_additional_constraints(
-    conn: Connection, table: sqlalchemy.Table
-):
+def find_and_apply_additional_constraints(conn: Connection, table: sqlalchemy.Table):
     dialect = conn.get_dialect()
     module = _module(dialect)
 

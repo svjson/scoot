@@ -1,27 +1,26 @@
 from typing import Optional, override
 
 import sqlalchemy
-from .mapper import (
-    TypeConverter,
-    TypeMapper,
-    DECIMALConverter,
-    VARCHARConverter,
-    TemporalConverter,
-)
 from sqlalchemy.dialects.mysql import dialect as mysql_dialect
 
 from .. import types
-from ..types import SIGNED, UNSIGNED
 from ..connection import Connection
+from ..types import SIGNED, UNSIGNED
+from .mapper import (
+    DECIMALConverter,
+    TemporalConverter,
+    TypeConverter,
+    TypeMapper,
+    VARCHARConverter,
+)
 
 
 class MySQLTypeMapper(TypeMapper):
-
     dialect = mysql_dialect()
 
     def __init__(self):
         self.conversion_map = {
-            "TINYINT": types.Integer(1, UNSIGNED),
+            "BOOLEAN": types.Boolean(),
             "DATE": types.Temporal(
                 date=types.Date(
                     min=(1000, 1, 1), max=(9999, 12, 31), calendar="Gregorian"
@@ -42,6 +41,7 @@ class MySQLTypeMapper(TypeMapper):
             "TIME": TemporalConverter(
                 default=types.Temporal(time=types.Time(clock="24", fsp=6))
             ),
+            "TINYINT": types.Integer(1, UNSIGNED),
             "INTEGER": types.Integer(64, SIGNED),
             "VARCHAR": VARCHARConverter(lambda _: None),
         }
@@ -59,6 +59,9 @@ class MySQLTypeMapper(TypeMapper):
         if isinstance(mapped, TypeConverter):
             scoot_type = mapped.convert(type)
 
+        if scoot_type is None:
+            raise TypeError(f"Unable to resolve type of: '{type}'")
+
         native_type = type.native_expression(self.dialect)
 
         return scoot_type, type_expr, native_type
@@ -68,7 +71,5 @@ TypeMapperImpl = MySQLTypeMapper
 type_mapper = MySQLTypeMapper()
 
 
-def find_and_apply_additional_constraints(
-    conn: Connection, table: sqlalchemy.Table
-):
+def find_and_apply_additional_constraints(conn: Connection, table: sqlalchemy.Table):
     return []

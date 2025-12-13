@@ -1,7 +1,8 @@
 import sqlalchemy
-from sqlalchemy import create_engine, text, Engine
+from sqlalchemy import Engine, create_engine, text
 
 from scoot_core.model import ResultSet
+
 from .error import dialect_error_handler
 
 
@@ -73,9 +74,7 @@ class Connection:
                     print(f"Attempting to close stray connection {connection}")
                     connection.close()
                 except Exception as e:
-                    print(
-                        f"Connection {connection} failed to close gracefully. {e}"
-                    )
+                    print(f"Connection {connection} failed to close gracefully. {e}")
 
         self.engine.dispose()
 

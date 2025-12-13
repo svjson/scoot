@@ -21,8 +21,17 @@ from .mapper import (
 
 class MSSQLTypeMapper(TypeMapper):
     def __init__(self):
-        self.conversion_map = {
+        self.conversion_map: dict[str, types.Type | TypeConverter] = {
             "BIT": types.Integer(1, UNSIGNED),
+            "BOOLEAN": types.Boolean(),
+            "DATETIME": TemporalConverter(
+                default=types.Temporal(
+                    date=types.Date(
+                        min=(1, 1, 1), max=(9999, 12, 31), calendar="gregorian"
+                    ),
+                    time=types.Time(clock="24", fsp=8),
+                )
+            ),
             "DATETIMEOFFSET": TemporalConverter(
                 default=types.Temporal(
                     date=types.Date(
@@ -36,6 +45,7 @@ class MSSQLTypeMapper(TypeMapper):
             "DECIMAL": DECIMALConverter(18, 0),
             "INTEGER": types.Integer(64, SIGNED),
             "NVARCHAR": VARCHARConverter(self.parse_collation),
+            "TEXT": types.String(),
             "VARCHAR": VARCHARConverter(self.parse_collation),
         }
 
@@ -58,11 +68,18 @@ class MSSQLTypeMapper(TypeMapper):
         type_expr = str(type)
         base_type, _, _ = self.parse_sql_type(type_expr)
 
-        mapped = self.conversion_map.get(base_type, None)
+        mapped: types.Type | TypeConverter | None = self.conversion_map.get(
+            base_type, None
+        )
         scoot_type = mapped if isinstance(mapped, types.Type) else None
 
         if isinstance(mapped, TypeConverter):
             scoot_type = mapped.convert(type)
+
+        if scoot_type is None:
+            raise TypeError(f"Unable to resolve type of: '{type}'")
+
+        scoot_type.source_type = type
 
         native_type = type.native_expression(self.dialect)
         n = native_type.find("(")

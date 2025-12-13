@@ -1,9 +1,10 @@
+from sqlglot import exp, parse_one
+
 from scoot_core.dialect import sqlglot_dialect
 from scoot_core.dialect.registry import resolve_type
-from scoot_core.openv import OperationEnv
 from scoot_core.schema.ir import ColumnIR, TableIR
+
 from .reader import SchemaReader
-from sqlglot import parse_one, exp
 
 
 class DDLReader(SchemaReader):
@@ -17,7 +18,7 @@ class DDLReader(SchemaReader):
         ddl (str): The DDL CREATE TABLE statement to be parsed.
     """
 
-    def __init__(self, op_env: OperationEnv, ddl: str):
+    def __init__(self, dialect: str, ddl: str):
         """
         Initializes the DDLReader with the given operation environment and DDL statement.
 
@@ -25,8 +26,7 @@ class DDLReader(SchemaReader):
             op_env (OperationEnv): The operation environment containing dialect information.
             ddl (str): The DDL CREATE TABLE statement to be parsed.
         """
-        self.op_env = op_env
-        self.dialect = op_env.get_dialect()
+        self.dialect = dialect
         self.glot_dialect = sqlglot_dialect(self.dialect)
         self.ddl = ddl
 
@@ -43,7 +43,7 @@ class DDLReader(SchemaReader):
             TypeError: If the DDL statement is not a CREATE TABLE statement
                        or if a column type cannot be resolved.
         """
-        expr = parse_one(self.ddl, read=sqlglot_dialect(self.op_env.get_dialect()))
+        expr = parse_one(self.ddl, read=sqlglot_dialect(self.glot_dialect))
 
         if not isinstance(expr, exp.Create):
             raise TypeError("Expression is not a CREATE TABLE statement")
@@ -77,9 +77,7 @@ class DDLReader(SchemaReader):
         column_name = column_expr.name
         scoot_type, _, native_type = resolve_type(self.dialect, column_expr)
         if not scoot_type:
-            raise TypeError(
-                f"Could not resolve type of {column_expr} ({native_type})"
-            )
+            raise TypeError(f"Could not resolve type of {column_expr} ({native_type})")
 
         nullable = False
         if null_constr := column_expr.find(exp.NotNullColumnConstraint):
@@ -99,8 +97,8 @@ class DDLReader(SchemaReader):
         return ColumnIR(
             name=column_name,
             type=scoot_type,
-            native_type=native_type,
             nullable=nullable,
             primary_key=is_primary_key,
+            unique=is_primary_key,
             default=None,
         )

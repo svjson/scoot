@@ -1,11 +1,10 @@
-import pytest
 from typing import cast
 
+import pytest
 from scoot_core.dialect.mssql import MSSQLTypeMapper
-from scoot_core.types import String, Collation, Integer, TypeAdapter
-
+from scoot_core.types import Collation, Integer, String, type_adapter
+from sqlalchemy.dialects.mssql import BIT, INTEGER, VARCHAR
 from sqlglot import exp, parse_one
-from sqlalchemy.dialects.mssql import VARCHAR, INTEGER, BIT
 
 mapper = MSSQLTypeMapper()
 
@@ -13,10 +12,10 @@ mapper = MSSQLTypeMapper()
 @pytest.mark.parametrize(
     "case",
     [
-        {"name": "SqlAlchemyAdapter", "input": TypeAdapter.get_instance(BIT())},
+        {"name": "SqlAlchemyAdapter", "input": type_adapter(BIT())},
         {
             "name": "SqlGlotAdapter",
-            "input": TypeAdapter.get_instance(
+            "input": type_adapter(
                 cast(
                     exp.ColumnDef,
                     parse_one("CREATE TABLE test (name BIT)", dialect="tsql").find(
@@ -29,7 +28,6 @@ mapper = MSSQLTypeMapper()
     ids=lambda c: c["name"],
 )
 def test_bit_conversion(case):
-
     # When
     scoot_type, sqla_type, native_type = mapper.resolve_type(case["input"])
 
@@ -44,11 +42,8 @@ def test_bit_conversion(case):
 
 
 def test_integer_conversion():
-
     # When
-    scoot_type, sqla_type, native_type = mapper.resolve_type(
-        TypeAdapter.get_instance(INTEGER())
-    )
+    scoot_type, sqla_type, native_type = mapper.resolve_type(type_adapter(INTEGER()))
 
     # Then
     assert isinstance(scoot_type, Integer)
@@ -61,10 +56,9 @@ def test_integer_conversion():
 
 
 def test_varchar_conversion():
-
     # When
     scoot_type, sqla_type, native_type = mapper.resolve_type(
-        TypeAdapter.get_instance(VARCHAR(50, "SQL_Latin1_General_CP1_CI_AS"))
+        type_adapter(VARCHAR(50, "SQL_Latin1_General_CP1_CI_AS"))
     )
 
     # Then

@@ -1,9 +1,10 @@
 from typing import cast
-import pytest
-from scoot_core.openv import OperationEnv
-from scoot_core.connection import Connection
 
-DIALECTS = ["postgres", "mysql", "mssql", "oracle"]
+import pytest
+from scoot_core.connection import Connection
+from scoot_core.openv import OperationEnv
+
+DIALECTS = ["postgresql", "mysql", "mssql", "oracle"]
 
 
 @pytest.fixture(params=DIALECTS, ids=lambda d: f"dialect={d}")

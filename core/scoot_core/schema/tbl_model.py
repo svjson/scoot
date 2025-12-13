@@ -1,6 +1,8 @@
+from scoot_core.dialect.registry import resolve_type
 from scoot_core.model import ColumnModel, TableModel
 from scoot_core.schema.emitter import SchemaEmitter
 from scoot_core.schema.ir import ColumnIR, TableIR
+from scoot_core.types.adapter import ScootTypeAdapter, TypeAdapter
 
 
 class TableModelEmitter(SchemaEmitter[TableModel]):
@@ -13,6 +15,9 @@ class TableModelEmitter(SchemaEmitter[TableModel]):
     Returns:
         TableModel: The emitted table model.
     """
+
+    def __init__(self, dialect: str):
+        self.dialect = dialect
 
     def emit_table(self, table: TableIR) -> TableModel:
         """
@@ -40,11 +45,21 @@ class TableModelEmitter(SchemaEmitter[TableModel]):
         Returns:
             ColumnModel: The emitted column model.
         """
+
+        _, _, native_type = resolve_type(
+            self.dialect,
+            (
+                column.type.source_type
+                if isinstance(column.type.source_type, TypeAdapter)
+                else column.type.to_sqlalchemy_type()
+            ),
+        )
+
         return ColumnModel(
             column.name,
             column.type,
             column.nullable,
             column.primary_key,
             default=column.default,
-            native_type=column.native_type,
+            native_type=native_type,
         )

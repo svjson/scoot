@@ -1,9 +1,8 @@
 import re
 from abc import abstractmethod
-from typing import Optional, override, Callable
+from typing import Callable, Optional, override
 
 from .. import types
-from sqlalchemy.sql.type_api import TypeEngine
 
 
 class TypeConverter:
@@ -26,9 +25,7 @@ class VARCHARConverter(TypeConverter):
     The constructor accepts a `collation_parser` function that is used to parse/decode
     backend/DBMS-system-specific collation strings in, if present"""
 
-    def __init__(
-        self, collation_parser: Callable[[str], Optional[types.Collation]]
-    ):
+    def __init__(self, collation_parser: Callable[[str], Optional[types.Collation]]):
         self.collation_parser = collation_parser
         pass
 

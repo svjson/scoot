@@ -1,6 +1,7 @@
-import sqlalchemy.sql.sqltypes as alchemy
-from scoot_core.dialect import resolve_type
 import scoot_core.types as scoot
+import sqlalchemy.sql.sqltypes as alchemy
+from scoot_core import types
+from scoot_core.dialect import resolve_type
 
 
 def test_resolve_type__boolean__mariadb():
@@ -11,9 +12,9 @@ def test_resolve_type__boolean__mariadb():
     scoot_type, driver_type, native_type = resolve_type("mariadb", col_type)
 
     # Then
-    assert scoot_type is None
-    assert driver_type == 'BOOLEAN'
-    assert native_type == 'BOOL'
+    assert isinstance(scoot_type, types.Boolean)
+    assert driver_type == "BOOLEAN"
+    assert native_type == "BOOL"
 
 
 def test_resolve_type__boolean__mssql():
@@ -24,9 +25,9 @@ def test_resolve_type__boolean__mssql():
     scoot_type, driver_type, native_type = resolve_type("mssql", col_type)
 
     # Then
-    assert scoot_type is None
-    assert driver_type == 'BOOLEAN'
-    assert native_type == 'bit'
+    assert isinstance(scoot_type, types.Boolean)
+    assert driver_type == "BOOLEAN"
+    assert native_type == "bit"
 
 
 def test_resolve_type__boolean__mysql():
@@ -37,9 +38,9 @@ def test_resolve_type__boolean__mysql():
     scoot_type, driver_type, native_type = resolve_type("mysql", col_type)
 
     # Then
-    assert scoot_type is None
-    assert driver_type == 'BOOLEAN'
-    assert native_type == 'BOOL'
+    assert isinstance(scoot_type, types.Boolean)
+    assert driver_type == "BOOLEAN"
+    assert native_type == "BOOL"
 
 
 def test_resolve_type__boolean__oracle():
@@ -50,9 +51,9 @@ def test_resolve_type__boolean__oracle():
     scoot_type, driver_type, native_type = resolve_type("oracle", col_type)
 
     # Then
-    assert scoot_type is None
-    assert driver_type == 'BOOLEAN'
-    assert native_type == 'SMALLINT'
+    assert isinstance(scoot_type, types.Boolean)
+    assert driver_type == "BOOLEAN"
+    assert native_type == "SMALLINT"
 
 
 def test_resolve_type__boolean__postgres():
@@ -71,5 +72,5 @@ def test_resolve_type__boolean__postgres():
             false_literals=["false", "no", "off", "0"],
         ).to_dict()
     )
-    assert driver_type == 'BOOLEAN'
-    assert native_type == 'BOOLEAN'
+    assert driver_type == "BOOLEAN"
+    assert native_type == "BOOLEAN"

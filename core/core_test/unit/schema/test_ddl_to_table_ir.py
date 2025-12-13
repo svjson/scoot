@@ -1,9 +1,8 @@
 from scoot_core.schema.ddl import DDLReader
-from scoot_core.schema.tbl_model import TableModelEmitter
-from scoot_core.schema.translate import translate_table_schema
+from scoot_core.schema.ir import TableIR
 
 
-def test_ddl_to_table_model__single_non_nullable_column():
+def test_ddl_to_table_ir__single_non_nullable_column():
     # Given
     dialect = "mssql"
     ddl = """
@@ -11,33 +10,29 @@ def test_ddl_to_table_model__single_non_nullable_column():
          id INTEGER NOT NULL
        )
     """
-    reader = DDLReader(dialect, ddl)
-    emitter = TableModelEmitter(dialect)
 
     # When
-    model = translate_table_schema(reader, emitter)
+    reader = DDLReader(dialect, ddl)
+    table_ir: TableIR = reader.read_table()
 
     # Then
-    assert model.to_dict() == {
+    assert table_ir.to_dict() == {
         "name": "mytable",
-        "schema": None,
         "columns": [
             {
                 "name": "id",
-                "type": "INTEGER",
-                "native_type": "int",
-                "typespec": {"bits": 64, "signed": True, "type": "INTEGER"},
-                "nullable": False,
+                "type": {"bits": 64, "signed": True, "type": "INTEGER"},
+                "source_type": "INTEGER",
+                "unique": False,
                 "primary_key": False,
+                "nullable": False,
                 "default": None,
             }
         ],
-        "constraints": [],
-        "create_stmt": None,
     }
 
 
-def test_ddl_to_table_model__nexartrade_users():
+def test_dll_to_table_ir__nexartrade_users():
     # Given
     dialect = "mssql"
     ddl = """
@@ -53,31 +48,31 @@ def test_ddl_to_table_model__nexartrade_users():
       )
     """
 
-    reader = DDLReader(dialect, ddl)
-    emitter = TableModelEmitter(dialect)
-
     # When
-    model = translate_table_schema(reader, emitter)
+    reader = DDLReader(dialect, ddl)
+    table_ir: TableIR = reader.read_table()
 
     # Then
-    assert model.to_dict() == {
+    assert table_ir.to_dict() == {
         "name": "users",
-        "schema": None,
         "columns": [
             {
                 "name": "id",
-                "type": "INTEGER",
-                "native_type": "int",
-                "typespec": {"bits": 64, "signed": True, "type": "INTEGER"},
-                "nullable": False,
+                "type": {"bits": 64, "signed": True, "type": "INTEGER"},
+                "source_type": "INTEGER",
                 "primary_key": True,
+                "unique": True,
+                "nullable": False,
                 "default": None,
             },
             {
+                "default": None,
                 "name": "username",
-                "type": "STRING",
-                "native_type": "varchar(50) COLLATE SQL_Latin1_General_CP1_CI_AS",
-                "typespec": {
+                "nullable": True,
+                "unique": False,
+                "primary_key": False,
+                "source_type": "VARCHAR(50)",
+                "type": {
                     "collation": {
                         "accent-sensitive": True,
                         "case-sensitive": False,
@@ -88,15 +83,15 @@ def test_ddl_to_table_model__nexartrade_users():
                     "max-len": 50,
                     "type": "STRING",
                 },
-                "nullable": True,
-                "primary_key": False,
-                "default": None,
             },
             {
+                "default": None,
                 "name": "email",
-                "type": "STRING",
-                "native_type": "varchar(100) COLLATE SQL_Latin1_General_CP1_CI_AS",
-                "typespec": {
+                "unique": False,
+                "nullable": True,
+                "primary_key": False,
+                "source_type": "VARCHAR(100)",
+                "type": {
                     "collation": {
                         "accent-sensitive": True,
                         "case-sensitive": False,
@@ -107,15 +102,15 @@ def test_ddl_to_table_model__nexartrade_users():
                     "max-len": 100,
                     "type": "STRING",
                 },
-                "nullable": True,
-                "primary_key": False,
-                "default": None,
             },
             {
+                "default": None,
                 "name": "password_hash",
-                "type": "STRING",
-                "native_type": "varchar(255) COLLATE SQL_Latin1_General_CP1_CI_AS",
-                "typespec": {
+                "nullable": True,
+                "primary_key": False,
+                "unique": False,
+                "source_type": "VARCHAR(255)",
+                "type": {
                     "collation": {
                         "accent-sensitive": True,
                         "case-sensitive": False,
@@ -126,15 +121,15 @@ def test_ddl_to_table_model__nexartrade_users():
                     "max-len": 255,
                     "type": "STRING",
                 },
-                "nullable": True,
-                "primary_key": False,
-                "default": None,
             },
             {
+                "default": None,
                 "name": "created_at",
-                "type": "TEMPORAL",
-                "native_type": "datetimeoffset",
-                "typespec": {
+                "nullable": True,
+                "unique": False,
+                "primary_key": False,
+                "source_type": "DATETIMEOFFSET",
+                "type": {
                     "date": {
                         "calendar": "gregorian",
                         "max": (9999, 12, 31),
@@ -149,15 +144,15 @@ def test_ddl_to_table_model__nexartrade_users():
                     },
                     "type": "TEMPORAL",
                 },
-                "nullable": True,
-                "primary_key": False,
-                "default": None,
             },
             {
+                "default": None,
                 "name": "last_login",
-                "type": "TEMPORAL",
-                "native_type": "datetimeoffset",
-                "typespec": {
+                "nullable": True,
+                "unique": False,
+                "primary_key": False,
+                "source_type": "DATETIMEOFFSET",
+                "type": {
                     "date": {
                         "calendar": "gregorian",
                         "max": (9999, 12, 31),
@@ -172,20 +167,15 @@ def test_ddl_to_table_model__nexartrade_users():
                     },
                     "type": "TEMPORAL",
                 },
-                "nullable": True,
-                "primary_key": False,
-                "default": None,
             },
             {
-                "name": "is_active",
-                "type": "INTEGER",
-                "typespec": {"bits": 1, "signed": False, "type": "INTEGER"},
-                "native_type": "bit",
-                "nullable": True,
-                "primary_key": False,
                 "default": None,
+                "name": "is_active",
+                "nullable": True,
+                "unique": False,
+                "primary_key": False,
+                "type": {"bits": 1, "signed": False, "type": "INTEGER"},
+                "source_type": "BIT",
             },
         ],
-        "constraints": [],
-        "create_stmt": None,
     }
