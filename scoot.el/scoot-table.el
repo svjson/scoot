@@ -348,7 +348,7 @@ EDITABLEP - Allow the cell to be edited, t/nil."
                         scoot-formatter-null
                       fmt))
          (align (plist-get formatter :align))
-         (padding (- width (string-width formatted-value)))
+         (padding (max 0 (- width (string-width formatted-value))))
          (header-meta (plist-get header :metadata))
          (cell-props (list 'thing 'table-cell
                            'editablep editablep
