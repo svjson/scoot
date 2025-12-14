@@ -287,7 +287,7 @@ def resolve_column_metadata(
 
             for tbl in source_tbl_exprs:
                 tbl_name = tbl.name
-                table_model = known_tables.get(tbl.name)
+                table_model = known_tables.get(tbl.name.casefold())
                 if table_model:
                     pref = None
                     if len(tbl_exprs) > 1:
@@ -304,7 +304,6 @@ def resolve_column_metadata(
                                 ),
                             }
                         )
-
             return columns
         elif is_anonymous(e):
             columns = []
@@ -344,7 +343,7 @@ def resolve_query_metadata(op_env: OperationEnv, sql: str):
             for tbl in expr_tables:
                 tbl_meta = try_describe_table(op_env, tbl.name)
                 if tbl_meta:
-                    known_tables[tbl_meta.name] = tbl_meta
+                    known_tables[tbl_meta.name.casefold()] = tbl_meta
 
         columns = []
 
