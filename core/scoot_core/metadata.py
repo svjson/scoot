@@ -231,6 +231,7 @@ class ColumnMeta:
     def __init__(self, e):
         self.expr = e
         self.name = e.alias_or_name
+        self.alias = e.alias
         self.table: str | None = getattr(e, "table", None)
         self.column: str | None = getattr(e, "name", None)
         self.constraints = []
@@ -256,7 +257,7 @@ def resolve_column_metadata(
     op_env: OperationEnv,
     e: exp.Expression,
     known_tables: dict[str, TableModel],
-    tbl_exprs,
+    tbl_exprs: list[exp.Table],
 ) -> list[dict]:
     with op_env.operation("inspect expression"):
         colmeta = ColumnMeta(e)
@@ -272,24 +273,38 @@ def resolve_column_metadata(
             colmeta.table = tbl_prefix
             colmeta.name = e.sql()
 
-        if isinstance(e, sge.Star):
+        if e.is_star:
             columns = []
-            if colmeta.table is None and len(tbl_exprs) == 1:
-                for tbl in tbl_exprs:
-                    tbl_name = tbl.name
-                    table_model = known_tables.get(tbl.name)
-                    if table_model:
-                        for c in table_model.columns:
-                            columns.append(
-                                {
-                                    "name": c.name,
-                                    "table": tbl.name,
-                                    "column": c.name,
-                                    "constraints": table_model.get_constraints_for_column(
-                                        c.name
-                                    ),
-                                }
-                            )
+
+            if colmeta.table is None:
+                source_tbl_exprs = tbl_exprs
+            else:
+                source_tbl_exprs = [
+                    tbl_expr
+                    for tbl_expr in tbl_exprs
+                    if tbl_expr.name == colmeta.table or tbl_expr.alias == colmeta.table
+                ]
+
+            for tbl in source_tbl_exprs:
+                tbl_name = tbl.name
+                table_model = known_tables.get(tbl.name)
+                if table_model:
+                    pref = None
+                    if len(tbl_exprs) > 1:
+                        pref = tbl.alias if tbl.alias == colmeta.table else tbl.name
+
+                    for c in table_model.columns:
+                        columns.append(
+                            {
+                                "name": (f"{pref}.{c.name}" if pref else c.name),
+                                "table": tbl.name,
+                                "column": c.name,
+                                "constraints": table_model.get_constraints_for_column(
+                                    c.name
+                                ),
+                            }
+                        )
+
             return columns
         elif is_anonymous(e):
             columns = []

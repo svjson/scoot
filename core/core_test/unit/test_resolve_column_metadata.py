@@ -48,6 +48,32 @@ columns:
     }
 
 
+NEXAR_TRADE__PRODUCTS_COLUMNS = [
+    {"name": "id", "column": "id", "table": "products", "constraints": []},
+    {"name": "name", "column": "name", "table": "products", "constraints": []},
+    {
+        "name": "description",
+        "column": "description",
+        "table": "products",
+        "constraints": [],
+    },
+    {"column": "sku", "constraints": [], "name": "sku", "table": "products"},
+    {"column": "price", "constraints": [], "name": "price", "table": "products"},
+    {
+        "name": "in_stock",
+        "column": "in_stock",
+        "table": "products",
+        "constraints": [],
+    },
+    {
+        "name": "created_at",
+        "column": "created_at",
+        "table": "products",
+        "constraints": [],
+    },
+]
+
+
 def test_resolve_column_metadata__id_and_name_from_nexartrade_products(
     dialect_op_env: OperationEnv,
 ):
@@ -93,32 +119,126 @@ def test_resolve_column_metadata__star_from_nexartrade_products(
         columns.extend(columns_meta)
 
     # Then
+    assert columns == NEXAR_TRADE__PRODUCTS_COLUMNS
+
+
+def test_resolve_column_metadata__table_dot_star_from_nexartrade_products(
+    dialect_op_env: OperationEnv,
+):
+    # Given
+    expr = sqlglot.parse_one(
+        "SELECT products.* FROM products",
+        read=sqlglot_dialect(dialect_op_env.get_dialect()),
+    )
+
+    tbl_exprs = list(expr.find_all(expressions.Table))
+    known_tables = nexartrade_tables(dialect_op_env.get_dialect())
+    columns = []
+
+    # When
+    for e in expr.expressions:
+        columns_meta = resolve_column_metadata(
+            dialect_op_env, e, known_tables, tbl_exprs
+        )
+        columns.extend(columns_meta)
+
+    # Then
+    assert columns == NEXAR_TRADE__PRODUCTS_COLUMNS
+
+
+def test_resolve_column_metadata__table_dot_star_from_two_aliased_tables(
+    dialect_op_env: OperationEnv,
+):
+    # Given
+    expr = sqlglot.parse_one(
+        """
+    SELECT
+      o.*, oi.*
+    FROM
+      orders as o,
+      order_items as oi
+    WHERE oi.order_id = o.id
+      AND o.id = 2;
+    """
+    )
+
+    tbl_exprs = list(expr.find_all(expressions.Table))
+    known_tables = {
+        "orders": translate_table_schema(
+            YamlSchemaReader(
+                yaml.safe_load(
+                    """
+name: orders
+columns:
+  - name: id
+    type: integer
+    primary_key: true
+    auto_increment: true
+  - name: user_id
+    type: integer
+    references: users(id)
+"""
+                )
+            ),
+            TableModelEmitter(dialect_op_env.get_dialect()),
+        ),
+        "order_items": translate_table_schema(
+            YamlSchemaReader(
+                yaml.safe_load(
+                    """
+name: order_items
+description: "Line items for orders, with product references."
+columns:
+  - name: id
+    type: integer
+    primary_key: true
+    auto_increment: true
+  - name: order_id
+    type: integer
+    references: orders(id)
+  - name: product_id
+    type: integer
+    references: products(id)
+"""
+                )
+            ),
+            TableModelEmitter(dialect_op_env.get_dialect()),
+        ),
+    }
+    columns = []
+
+    # When
+    for e in expr.expressions:
+        columns_meta = resolve_column_metadata(
+            dialect_op_env, e, known_tables, tbl_exprs
+        )
+        columns.extend(columns_meta)
+
+    # Then
     assert columns == [
-        {"column": "id", "constraints": [], "name": "id", "table": "products"},
-        {"column": "name", "constraints": [], "name": "name", "table": "products"},
+        {"name": "o.id", "column": "id", "table": "orders", "constraints": []},
         {
-            "column": "description",
+            "name": "o.user_id",
+            "column": "user_id",
+            "table": "orders",
             "constraints": [],
-            "name": "description",
-            "table": "products",
-        },
-        {"column": "sku", "constraints": [], "name": "sku", "table": "products"},
-        {
-            "column": "price",
-            "constraints": [],
-            "name": "price",
-            "table": "products",
         },
         {
-            "column": "in_stock",
+            "name": "oi.id",
+            "column": "id",
+            "table": "order_items",
             "constraints": [],
-            "name": "in_stock",
-            "table": "products",
         },
         {
-            "column": "created_at",
+            "name": "oi.order_id",
+            "column": "order_id",
+            "table": "order_items",
             "constraints": [],
-            "name": "created_at",
-            "table": "products",
+        },
+        {
+            "name": "oi.product_id",
+            "column": "product_id",
+            "table": "order_items",
+            "constraints": [],
         },
     ]
