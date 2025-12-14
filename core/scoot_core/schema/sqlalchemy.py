@@ -36,14 +36,16 @@ class SqlAlchemyTableEmitter(SchemaEmitter[Table]):
             if col.primary_key:
                 primary_key.append(column)
 
-        print(primary_key)
         return Table(table.name, MetaData(), *columns, *constraints, *primary_key)
 
     def emit_column(self, col: ColumnIR) -> Tuple[Column, list[Constraint]]:
         column = Column(
             col.name,
             col.type.to_sqlalchemy_type(),
-            unique=col.unique,
+            # Primary key is implicitly unique, and attempting to create a table
+            # from a table model with unique AND primary key set will cause oracle_23c
+            # to throw a fit.
+            unique=col.unique and not col.primary_key,
             primary_key=col.primary_key,
             nullable=col.nullable,
         )

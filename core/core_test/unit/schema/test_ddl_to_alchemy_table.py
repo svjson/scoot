@@ -64,7 +64,7 @@ def test_ddl_to_table_model__nexartrade_users():
     assert isinstance(column_id.type, Integer)
     assert column_id.primary_key is True
     assert column_id.nullable is False
-    assert column_id.unique is True
+    assert column_id.unique is False  # Implicitly unique via PK
 
     column_username = table.columns[1]
     assert column_username.name == "username"

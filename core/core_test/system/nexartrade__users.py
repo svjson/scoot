@@ -86,7 +86,7 @@ USERS__COLUMNS = {
                 },
                 "time": {
                     "clock": "24",
-                    "fsp": None,
+                    "fsp": 6,
                     "precision": None,
                     "scale": None,
                     "tz": None,
@@ -112,7 +112,7 @@ USERS__COLUMNS = {
                 },
                 "time": {
                     "clock": "24",
-                    "fsp": None,
+                    "fsp": 6,
                     "precision": None,
                     "scale": None,
                     "tz": None,
@@ -188,7 +188,7 @@ USERS__COLUMNS = {
                 },
                 "time": {
                     "clock": "24",
-                    "fsp": None,
+                    "fsp": 8,
                     "precision": None,
                     "scale": None,
                     "tz": None,
@@ -206,7 +206,7 @@ USERS__COLUMNS = {
                 },
                 "time": {
                     "clock": "24",
-                    "fsp": None,
+                    "fsp": 8,
                     "precision": None,
                     "scale": None,
                     "tz": None,
