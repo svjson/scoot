@@ -5,6 +5,7 @@ from .adapter import TypeAdapter, Types
 from .definition import (
     SIGNED,
     UNSIGNED,
+    Binary,
     Boolean,
     Collation,
     Date,
@@ -50,6 +51,7 @@ def type_adapter(
 __all__ = [
     "SIGNED",
     "UNSIGNED",
+    "Binary",
     "Boolean",
     "Collation",
     "Date",

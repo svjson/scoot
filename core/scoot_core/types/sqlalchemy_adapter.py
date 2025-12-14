@@ -9,7 +9,10 @@ from .adapter import TypeAdapter, Types
 """
 Maps scoot_core.types.Types to SQLAlchemy TypeEngine types.
 """
-SqlAlchemyTypes: dict[Types, Type] = {Types.STRING: sqla.String}
+SqlAlchemyTypes: dict[Types, Type] = {
+    Types.STRING: sqla.String,
+    Types.BINARY: sqla.BINARY,
+}
 
 
 class SqlAlchemyType(TypeAdapter):
@@ -91,6 +94,8 @@ class SqlAlchemyType(TypeAdapter):
             int | None: The maximum length if applicable, otherwise None.
         """
         if isinstance(self.type, sqla.String):
+            return self.type.length
+        if isinstance(self.type, sqla.LargeBinary):
             return self.type.length
 
         return None

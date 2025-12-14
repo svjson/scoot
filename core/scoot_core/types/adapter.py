@@ -11,6 +11,7 @@ from . import definition as types
 
 class Types(Enum):
     STRING = auto()
+    BINARY = auto()
 
 
 class TypeAdapter(ABC):

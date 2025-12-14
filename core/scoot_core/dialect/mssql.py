@@ -10,6 +10,7 @@ from scoot_core.connection import Connection
 from .. import types
 from ..types import SIGNED, UNSIGNED
 from .mapper import (
+    BinaryConverter,
     DECIMALConverter,
     TemporalConverter,
     TypeConverter,
@@ -22,6 +23,7 @@ from .mapper import (
 class MSSQLTypeMapper(TypeMapper):
     def __init__(self):
         self.conversion_map: dict[str, types.Type | TypeConverter] = {
+            "BINARY": BinaryConverter(),
             "BIT": types.Integer(1, UNSIGNED),
             "BOOLEAN": types.Boolean(),
             "DATETIME": TemporalConverter(
@@ -44,8 +46,10 @@ class MSSQLTypeMapper(TypeMapper):
             ),
             "DECIMAL": DECIMALConverter(18, 0),
             "INTEGER": types.Integer(64, SIGNED),
+            "NTEXT": types.String(2 * 1024 * 1024 * 1024, "utf-16"),
             "NVARCHAR": VARCHARConverter(self.parse_collation),
             "TEXT": types.String(),
+            "VARBINARY": BinaryConverter(),
             "VARCHAR": VARCHARConverter(self.parse_collation),
         }
 

@@ -19,6 +19,18 @@ class TypeConverter:
         pass
 
 
+class BinaryConverter(TypeConverter):
+    """Converts SQLAlchmery BINARY/LargeBinary to the Scoot Binary type."""
+
+    @override
+    def convert(self, type: types.TypeAdapter):
+        max_len = None
+        if type.is_type(types.Types.BINARY):
+            max_len = type.max_length()
+
+        return types.Binary(max_len=max_len)
+
+
 class VARCHARConverter(TypeConverter):
     """Converts SQLAlchemy VARCHAR types to Scoot String types.
 

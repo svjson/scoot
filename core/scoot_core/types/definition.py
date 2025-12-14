@@ -72,6 +72,22 @@ class Boolean(Type):
         }
 
 
+class Binary(Type):
+    """Represents a binary data type."""
+
+    def __init__(self, max_len=None, sqltype: str | None = None, source_type=None):
+        super().__init__(sqltype=sqltype, source_type=source_type)
+        self.max_len = max_len
+
+    @override
+    def _to_sqlalchemy_type(self) -> sqatypes.TypeEngine:
+        return sqatypes.LargeBinary(length=self.max_len)
+
+    @override
+    def to_dict(self):
+        return {"type": "BINARY", "max-len": self.max_len}
+
+
 class Integer(Type):
     """Represents an integer type."""
 
