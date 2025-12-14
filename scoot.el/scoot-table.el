@@ -107,6 +107,11 @@
   "Face used for string values in result set cells."
   :group 'scoot)
 
+(defface scoot-cell-binary-face
+  '((t :inherit font-lock-comment-face))
+  "Face used to render binary labels in result set cells."
+  :group 'scoot)
+
 (defface scoot-cell-temporal-face
   '((t :inherit font-lock-constant-face))
   "Face used for temportal values (dates, datetime, timestamps, dateoffsets, etc)

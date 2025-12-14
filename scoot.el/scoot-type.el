@@ -37,6 +37,10 @@
         str-val
       (replace-regexp-in-string "[+-][0-1][0-9]:[0-6][0-9]" "" str-val))))
 
+(defun scoot--format-binary (&rest _)
+  "Format a binary value as a renderable string."
+  "<binary value>")
+
 (defvar scoot-formatter-string
   (list :align 'left
         :format-value #'scoot--value-to-string
@@ -92,6 +96,16 @@
         (lambda (value)
           (format "'%s'" value))))
 
+(defvar scoot-formatter-binary
+  (list :align 'right
+        :format-value #'scoot--format-binary
+        :output-cell
+        (lambda (_ formatted-value)
+          (insert (propertize formatted-value 'type 'scoot-cell-binary-face)))
+        :sql-literal
+        (lambda (_)
+          "<binary>")))
+
 (defvar scoot-formatter-null
   (list :align 'right
         :format-value (lambda (_) "NULL")
@@ -111,6 +125,7 @@
      ((equal "DECIMAL" column-type) scoot-formatter-number)
      ((equal "BOOLEAN" column-type) scoot-formatter-boolean)
      ((equal "TEMPORAL" column-type) scoot-formatter-temporal)
+     ((equal "BINARY" column-type) scoot-formatter-binary)
      (t scoot-formatter-raw-string))))
 
 (defun scoot--format-value (formatter value &optional metadata)
